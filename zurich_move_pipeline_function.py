@@ -6,6 +6,10 @@ from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve, accuracy
 from sklearn.model_selection import train_test_split
 from scipy.interpolate import interp1d
 from gm_function import *
+import seaborn as sns
+from sklearn.metrics import accuracy_score, precision_score, f1_score, jaccard_score, recall_score, confusion_matrix
+from sklearn.metrics import cohen_kappa_score
+from zurich_move_utilites import *
 
 
 def get_data(folder):
@@ -661,6 +665,30 @@ def save_resampled_masks_as_csv(GT_mask_LW_1Hz, GT_mask_RW_1Hz, folder):
         print(f"Failed to save CSV files.")
 
 
+def save_optimal_threshold(file_path, left_threshold, right_threshold):
+    # Create the file path
+    file_path = os.path.join(file_path, 'optimal_threshold.csv')
+
+    try:
+        # Open the file in write mode
+        with open(file_path, 'w', newline='') as csvfile:
+            # Create a CSV writer
+            csv_writer = csv.writer(csvfile)
+
+            # Write the header row with descriptions
+            csv_writer.writerow(['Side', 'Threshold'])
+
+            # Write the left threshold as a row
+            csv_writer.writerow(['Left', left_threshold])
+
+            # Write the right threshold as a row
+            csv_writer.writerow(['Right', right_threshold])
+
+        print(f"Thresholds saved successfully at: {file_path}")
+    except IOError as e:
+        print(f"An error occurred while saving the thresholds: {e}")
+
+
 def downsample_mask_interpolation(mask, original_fps, desired_fps):
     """
     Downsample a mask array from the original frames-per-second (fps) to the desired fps using interpolation.
@@ -686,20 +714,243 @@ def downsample_mask_interpolation(mask, original_fps, desired_fps):
     desired_timestamps = np.arange(0, original_timestamps[-1], desired_interval)
 
     # Create an interpolation function based on the original timestamps and mask values
-    mask_interpolation = interp1d(original_timestamps, mask.flatten())
+    mask_interpolation = interp1d(original_timestamps, mask.flatten(), kind='nearest', fill_value="extrapolate")
 
     # Use the interpolation function to obtain the downsampled mask values at desired timestamps
     downsampled_mask = mask_interpolation(desired_timestamps)
 
-    # Round the interpolated values to the nearest integer (-1, 0, or 1)
+    # Round the interpolated values to the nearest integer (0 or 1)
     downsampled_mask = np.around(downsampled_mask).astype(int)
 
     return downsampled_mask
 
 
-def save_optimal_threshold(file_path, left_threshold, right_threshold):
+def replace_wbm_with_nf(mask):
+    # Replace WBM mask by NF mask 
+    mask = np.where(mask == -1, 0, mask)    
+    return mask
+
+
+def plot_boxplot_ac(ac_functional, ac_nf, ac_wbm):
+    # Create a vertical box plot on the same figure with the 3 datasets represented as 3 box plots
+    # y-axis is activity count
+
+    # Set up the figure and axes
+    plt.figure(figsize=(10, 6))
+
+    # Combine the three datasets into a list to plot them on the same boxplot
+    data = [ac_functional, ac_nf, ac_wbm]
+
+    # Create three boxplots side by side using plt.boxplot()
+    sns.boxplot(data=data, palette='Set3', width=0.6)
+
+    # Set the x-axis labels
+    plt.xticks(ticks=[0, 1, 2], labels=['Functional', 'Non-Functional', 'WBM'])
+
+    # Set the y-axis label
+    plt.ylabel('Activity Count')
+
+    # Add a title
+    plt.title('Boxplot of Activity Count')
+
+    # Adjust the layout to avoid the x-axis labels being cut off
+    plt.tight_layout()
+
+    # Show the plot
+    plt.show()
+
+    
+def plot_ac_tendency(mask_array, AC_array):
+    AC_array = np.array(AC_array)
+    
+    # Create the three arrays of data using the mask
+    ac_functional = AC_array[mask_array == 1]
+    ac_nf = AC_array[mask_array == 0]
+    ac_wbm = AC_array[mask_array == -1]
+
+    # Call the function to plot the vertical box plot using the three arrays of data
+    plot_boxplot_ac(ac_functional, ac_nf, ac_wbm) 
+
+
+def compute_similarity_metric(ground_truth, gm_scores, metric):
+    if metric == 'accuracy':
+        return accuracy_score(ground_truth, gm_scores)
+    elif metric == 'precision':
+        return precision_score(ground_truth, gm_scores, zero_division=1.0) # Same as PPV
+    elif metric == 'f1':
+        return f1_score(ground_truth, gm_scores)
+    elif metric == 'jaccard':
+        return jaccard_score(ground_truth, gm_scores)
+    elif metric == 'sensitivity':
+        return recall_score(ground_truth, gm_scores)  # Same as recall
+    elif metric == 'specificity':
+        tn, fp, fn, tp = confusion_matrix(ground_truth, gm_scores).ravel()  # Same as TNR
+        return tn / (tn + fp)
+    elif metric == 'npv':
+        tn, fp, fn, tp = confusion_matrix(ground_truth, gm_scores).ravel()
+        return tn / (tn + fn)
+    elif metric == 'cohen-kappa':
+        return cohen_kappa_score(ground_truth, gm_scores)
+    else:
+        raise ValueError("Invalid similarity metric: " + metric)
+
+    
+def find_optimal_functional_space_gm(training_ground_truth, training_pitch, training_yaw, similarity_metrics):
+    # Using training data only 
+    functional_space_array = list(range(5, 91, 5))
+    print("Functional Spaces tested:", functional_space_array)
+    
+    optimal_functional_spaces = {}
+    optimal_functional_space_frequencies = {}
+    
+    for similarity_metric in similarity_metrics:
+        print("Metric tested:", similarity_metric)
+    
+        best_similarity_score = -1
+        optimal_functional_space = None
+    
+        for functional_space in functional_space_array:
+        
+            # Compute gm scores @ 2Hz using training pitch, yaw, and the given functional space
+            gm_scores = gm_algorithm(training_pitch, training_yaw, functional_space=functional_space)
+            
+            # Ensure the two arrays have the same size
+            gm_scores, training_ground_truth = remove_extra_elements(gm_scores, training_ground_truth)
+            
+            # Compute a similarity score between gm scores at this given functional space and the training ground truth dataset
+            similarity_score = compute_similarity_metric(training_ground_truth, gm_scores, similarity_metric)
+        
+            # Update the similarity score and the new 'best' functional space if needed
+            if similarity_score > best_similarity_score:
+                best_similarity_score = similarity_score
+                optimal_functional_space = functional_space
+    
+        # Store the optimal functional space and its corresponding similarity metric score
+        optimal_functional_spaces[similarity_metric] = (optimal_functional_space, best_similarity_score)
+        
+        # Count the frequency of each optimal functional space value
+        if optimal_functional_space in optimal_functional_space_frequencies:
+            optimal_functional_space_frequencies[optimal_functional_space] += 1
+        else:
+            optimal_functional_space_frequencies[optimal_functional_space] = 1
+    
+    # Find the most frequent optimal functional space value (in case of equality, take the bigger one)
+    most_frequent_optimal_space = max(optimal_functional_space_frequencies.keys())
+    
+    # Print the most frequent optimal functional space value
+    print("Most Frequent Optimal Functional Space:", most_frequent_optimal_space)
+    
+    # Return the dictionary containing the optimal functional spaces for each similarity metric
+    # and the most frequent optimal functional space value
+    return optimal_functional_spaces, most_frequent_optimal_space
+
+
+def visualize_metrics(metrics_dict):
+    metric_names = list(metrics_dict.keys())
+    values = [metric[1] * 100 for metric in metrics_dict.values()]
+    optimal_functional_values = [metric[0] for metric in metrics_dict.values()]
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    ax.bar(metric_names, values, color='skyblue')
+    ax.set_xlabel('Metric')
+    ax.set_ylabel('Value (%)')
+
+    ax.set_ylim(0, max(values) + 5)  # Set the y-axis limit to accommodate labels on top of bars
+
+    for i, v in enumerate(values):
+        ax.text(i, v + 0.5, f'{v:.2f}%', ha='center', color='black')
+
+    ax2 = ax.twinx()
+    ax2.plot(metric_names, optimal_functional_values, color='orange', marker='o')
+    ax2.set_ylabel('Functional Space Value')
+    ax2.set_ylim(min(optimal_functional_values) - 5, max(optimal_functional_values) + 5)
+
+    plt.title('Optimal Functional Value and Metric Values')
+    plt.show()
+
+    
+def test_optimal_functional_space_gm(optimal_functional_space, testing_ground_truth, testing_pitch, testing_yaw, sampling_freq, similarity_metrics):
+    # Using unseen testing data only
+    # Compute gm scores using the new optimal_functional_space
+    gm_scores = gm_algorithm(testing_pitch, testing_yaw, functional_space=optimal_functional_space)
+    
+    similarity_scores = {}
+    
+    # Loop for each metric
+    for similarity_metric in similarity_metrics:
+        # Use similarity metric to compare gm scores and testing_ground_truth dataset
+        similarity_score = compute_similarity_metric(testing_ground_truth, gm_scores, similarity_metric)
+        similarity_scores[similarity_metric] = similarity_score
+    
+    # Return the evaluation scores as a dictionary of similarity metrics
+    return similarity_scores
+
+
+def upsample_data(data, current_freq, desired_freq, threshold=0.5):
+    # Convert data to NumPy array if needed
+    data = np.array(data)
+
+    # Calculate the ratio between the current and desired frequencies
+    ratio = desired_freq / current_freq
+
+    # Create the time array for the upsampled data
+    upsampled_time = np.arange(0, len(data) - 1, 1 / ratio) / desired_freq
+
+    # Create the interpolation function using cubic spline
+    interpolation_func = interp1d(np.arange(len(data)) / current_freq, data.squeeze(), kind='cubic')
+
+    # Perform interpolation to upsample the data
+    upsampled_data = interpolation_func(upsampled_time)
+
+    # Apply a threshold to convert the upsampled data to binary (0 or 1)
+    upsampled_data = (upsampled_data > threshold).astype(int)
+
+    return upsampled_data
+
+
+def split_dataset_gm(pitch, yaw, ground_truth_25Hz, test_size=0.2, random_state=42):
+    
+    # Upsample ground_truth from 25Hz to match the 50Hz sampling freq of the angles 
+    ground_truth = upsample_data(ground_truth_25Hz, 25, 50)
+    
+    # Ensure dataset have the same length, otherwise trim the longer one
+    ground_truth, pitch = remove_extra_elements(ground_truth, pitch)
+    ground_truth, yaw = remove_extra_elements(ground_truth, yaw)
+    
+    # Split pitch angles (X1), yaw angles (X2), and ground truth (Y) between training and testing using 80/20 split
+    X1_train, X1_test, X2_train, X2_test, Y_train, Y_test = train_test_split(pitch, yaw, ground_truth, test_size=test_size, random_state=random_state)
+    
+    return Y_train, X1_train, X2_train, Y_test, X1_test, X2_test
+
+
+def plot_similarity_metrics(similarity_metrics):
+    # Convert values to percentage
+    similarity_metrics = {metric: value * 100 for metric, value in similarity_metrics.items()}
+    
+    # Create a larger figure
+    plt.figure(figsize=(10, 6))
+    
+    # Create bar plot
+    plt.bar(range(len(similarity_metrics)), list(similarity_metrics.values()), align='center')
+    
+    # Add value labels on top of each bar
+    for i, (metric, value) in enumerate(similarity_metrics.items()):
+        plt.text(i, value + 1, f'{value:.2f}%', ha='center')
+    
+    # Customize plot
+    plt.xticks(range(len(similarity_metrics)), list(similarity_metrics.keys()))
+    plt.ylim([0, 110])  # Extend the y-axis to have room for annotations
+    plt.ylabel('Percentage')
+    plt.title('Similarity Metrics')
+    
+    # Display plot
+    plt.show()
+
+
+def save_optimal_functional_spaces(file_path, left_optimal_space, right_optimal_space):
     # Create the file path
-    file_path = os.path.join(file_path, 'optimal_threshold.csv')
+    file_path = os.path.join(file_path, 'optimal_functional_spaces.csv')
 
     try:
         # Open the file in write mode
@@ -708,14 +959,14 @@ def save_optimal_threshold(file_path, left_threshold, right_threshold):
             csv_writer = csv.writer(csvfile)
 
             # Write the header row with descriptions
-            csv_writer.writerow(['Side', 'Threshold'])
+            csv_writer.writerow(['Side', 'Functional Space'])
 
-            # Write the left threshold as a row
-            csv_writer.writerow(['Left', left_threshold])
+            # Write the left optimal functional space as a row
+            csv_writer.writerow(['Left', left_optimal_space])
 
-            # Write the right threshold as a row
-            csv_writer.writerow(['Right', right_threshold])
+            # Write the right optimal functional space as a row
+            csv_writer.writerow(['Right', right_optimal_space])
 
-        print(f"Thresholds saved successfully at: {file_path}")
+        print(f"Optimal functional spaces saved successfully at: {file_path}")
     except IOError as e:
-        print(f"An error occurred while saving the thresholds: {e}")
+        print(f"An error occurred while saving the optimal functional spaces: {e}")

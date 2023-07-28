@@ -157,3 +157,17 @@ def combine_dicts_to_dataframe(*dicts):
     df = pd.DataFrame(data_list)
 
     return df
+
+
+def remove_extra_elements(array1, array2):
+    size1 = array1.shape[0]
+    size2 = array2.shape[0]
+
+    if size1 > size2:
+        trimmed_array1 = array1[:size2]
+        return trimmed_array1, array2
+    elif size2 > size1:
+        trimmed_array2 = array2[:size1]
+        return array1, trimmed_array2
+    else:
+        return array1, array2
