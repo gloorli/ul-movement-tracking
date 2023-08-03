@@ -19,6 +19,7 @@ from scipy.stats import circmean
 from scipy.interpolate import CubicSpline
 from math import nan
 import inspect
+from scipy.ndimage import zoom
 
 
 def get_statistics(data):
@@ -171,3 +172,98 @@ def remove_extra_elements(array1, array2):
         return array1, trimmed_array2
     else:
         return array1, array2
+
+
+def resample_mask(mask, original_frequency, desired_frequency):
+    if desired_frequency > original_frequency:
+        # Upsample the mask using nearest neighbor interpolation
+        zoom_factor = desired_frequency / original_frequency
+        resampled_mask = zoom(mask, zoom_factor, order=0)
+    else:
+        # Downsample the mask using scipy.signal.resample
+        num_data_points = int(len(mask) * desired_frequency / original_frequency)
+        resampled_mask = np.round(resample(mask, num_data_points)).astype(int)
+        
+    return resampled_mask
+
+
+def plot_resampled_arrays(original_mask, original_frequency, resampled_mask, desired_frequency):
+    time_original = np.arange(len(original_mask)) / original_frequency
+    time_resampled = np.arange(len(resampled_mask)) / desired_frequency
+
+    plt.figure(figsize=(10, 6))
+
+    plt.plot(time_original, original_mask, label=f'Original ({original_frequency}Hz)')
+    plt.plot(time_resampled, resampled_mask, label=f'Resampled ({desired_frequency}Hz)', linestyle='--')
+
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Mask Value (0 or 1)')
+    plt.title('Original and Resampled Mask')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
+def save_optimal_threshold(file_path, left_threshold, right_threshold, AC = True):
+    # Create the file path
+    if AC: 
+        file_path = os.path.join(file_path, 'optimal_threshold_AC.csv')
+    else: 
+        file_path = os.path.join(file_path, 'optimal_threshold_GM.csv')
+
+    try:
+        # Open the file in write mode
+        with open(file_path, 'w', newline='') as csvfile:
+            # Create a CSV writer
+            csv_writer = csv.writer(csvfile)
+
+            # Write the header row with descriptions
+            csv_writer.writerow(['Side', 'Threshold'])
+
+            # Write the left threshold as a row
+            csv_writer.writerow(['Left', left_threshold])
+
+            # Write the right threshold as a row
+            csv_writer.writerow(['Right', right_threshold])
+
+        print(f"Thresholds saved successfully at: {file_path}")
+    except IOError as e:
+        print(f"An error occurred while saving the thresholds: {e}")
+
+
+def save_metrics_dictionary_as_csv(metrics_dictionary, folder, AC=True):
+    """
+    Saves the metrics dictionary as a CSV file in the specified folder.
+
+    Args:
+        metrics_dictionary: Dictionary with metrics data.
+        folder: Folder path where the CSV file should be saved.
+    """
+    if AC:
+        filename = os.path.join(folder, 'evaluation_metrics_AC.csv')
+    else: 
+        filename = os.path.join(folder, 'evaluation_metrics_GM.csv')
+    
+    with open(filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        
+        # Write the data rows
+        for (vertical, horizontal), value in metrics_dictionary.items():
+            writer.writerow([vertical, horizontal, value])
+
+    print(f"The metrics dictionary has been saved as {filename}.")
+
+
+def read_csv_to_numpy(file_path1, file_path2):
+    try:
+        # Read CSV files into pandas DataFrames
+        df1 = pd.read_csv(file_path1)
+        df2 = pd.read_csv(file_path2)
+    except FileNotFoundError:
+        raise FileNotFoundError("One or both of the files does not exist.")
+
+    # Convert DataFrames to NumPy arrays and flatten them using ravel()
+    array1 = df1.to_numpy().ravel()
+    array2 = df2.to_numpy().ravel()
+
+    return array1, array2

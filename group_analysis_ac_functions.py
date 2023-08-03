@@ -36,64 +36,6 @@ def find_specific_csv_files(initial_path, csv_file_names):
     return csv_files_dict
 
 
-def plot_side_metrics(data_dict, metric_names):
-    for metric_name in metric_names:
-        lw_data_ot = []
-        lw_data_ct = []
-        rw_data_ot = []
-        rw_data_ct = []
-        bilateral_data_ot = []
-        bilateral_data_ct = []
-
-        for key, value in data_dict.items():
-            parts = key.split('_')
-            if len(parts) == 3 and parts[2] == metric_name:
-                if parts[0] == 'OT' and parts[1] == 'LW':
-                    lw_data_ot.extend(value)
-                elif parts[0] == 'CT' and parts[1] == 'LW':
-                    lw_data_ct.extend(value)
-                elif parts[0] == 'OT' and parts[1] == 'RW':
-                    rw_data_ot.extend(value)
-                elif parts[0] == 'CT' and parts[1] == 'RW':
-                    rw_data_ct.extend(value)
-                elif parts[0] == 'OT' and parts[1] == 'bilateral':
-                    bilateral_data_ot.extend(value)
-                elif parts[0] == 'CT' and parts[1] == 'bilateral':
-                    bilateral_data_ct.extend(value)
-
-        if not lw_data_ot or not lw_data_ct or not rw_data_ot or not rw_data_ct or not bilateral_data_ot or not bilateral_data_ct:
-            print(f"Data not found for the metric: {metric_name}")
-            continue
-        # Plotting
-        plot_data_side_by_side(lw_data_ct, lw_data_ot, rw_data_ct, rw_data_ot, bilateral_data_ct, bilateral_data_ot, metric_name)
-
-
-def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, data3_ot, metric_name):
-    sns.set_style("whitegrid")
-    plt.figure(figsize=(12, 6))
-
-    positions = [1, 2, 4, 5, 7, 8]
-    width = 0.2
-
-    # Plot 'LW' side
-    plt.boxplot([data1_ct, data1_ot], positions=positions[:2], labels=['LW CT', 'LW OT'], patch_artist=True, widths=width)
-    # Plot 'RW' side
-    plt.boxplot([data2_ct, data2_ot], positions=positions[2:4], labels=['RW CT', 'RW OT'], patch_artist=True, widths=width)
-    # Plot 'bilateral' side
-    plt.boxplot([data3_ct, data3_ot], positions=positions[4:], labels=['Bilateral CT', 'Bilateral OT'], patch_artist=True, widths=width)
-
-    plt.title(f'{metric_name} Comparison for LW, RW, and Bilateral (CT vs OT)')
-    plt.xlabel('Side')
-    plt.ylabel(metric_name)
-
-    colors = ['lightblue', 'lightgreen', 'lightblue', 'lightgreen', 'lightblue', 'lightgreen']
-    for patch, color in zip(plt.gca().patches, colors):
-        patch.set_facecolor(color)
-
-    plt.tight_layout()
-    plt.show()
-
-
 def plot_side_by_side_boxplots(optimal_threshold_LW, optimal_threshold_RW, threshold, plot_title):
     sns.set(style="whitegrid")
     plt.figure(figsize=(10, 6))
@@ -230,8 +172,114 @@ def get_group_data_from_csv(csv_files, mask=False):
     return group_data
 
 
+def plot_side_metrics(data_dict, metric_names):
+    for metric_name in metric_names:
+        lw_data_ot = []
+        lw_data_ct = []
+        rw_data_ot = []
+        rw_data_ct = []
+        bilateral_data_ot = []
+        bilateral_data_ct = []
+
+        for key, value in data_dict.items():
+            parts = key.split('_')
+            if len(parts) == 3 and parts[2] == metric_name:
+                if parts[0] == 'OT' and parts[1] == 'LW':
+                    lw_data_ot.extend(value)
+                elif parts[0] == 'CT' and parts[1] == 'LW':
+                    lw_data_ct.extend(value)
+                elif parts[0] == 'OT' and parts[1] == 'RW':
+                    rw_data_ot.extend(value)
+                elif parts[0] == 'CT' and parts[1] == 'RW':
+                    rw_data_ct.extend(value)
+                elif parts[0] == 'OT' and parts[1] == 'bilateral':
+                    bilateral_data_ot.extend(value)
+                elif parts[0] == 'CT' and parts[1] == 'bilateral':
+                    bilateral_data_ct.extend(value)
+
+        if not lw_data_ot or not lw_data_ct or not rw_data_ot or not rw_data_ct or not bilateral_data_ot or not bilateral_data_ct:
+            print(f"Data not found for the metric: {metric_name}")
+            continue
+        # Plotting
+        plot_data_side_by_side(lw_data_ct, lw_data_ot, rw_data_ct, rw_data_ot, bilateral_data_ct, bilateral_data_ot, metric_name)
 
 
+def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, data3_ot, metric_name):
+    sns.set_style("whitegrid")
+    plt.figure(figsize=(12, 6))
+
+    positions = [1, 2, 4, 5, 7, 8]
+    width = 0.2
+
+    # Plot 'LW' side
+    plt.boxplot([data1_ct, data1_ot], positions=positions[:2], labels=['LW CT', 'LW OT'], patch_artist=True, widths=width, whis=2)
+    # Plot 'RW' side
+    plt.boxplot([data2_ct, data2_ot], positions=positions[2:4], labels=['RW CT', 'RW OT'], patch_artist=True, widths=width, whis=2)
+    # Plot 'bilateral' side
+    plt.boxplot([data3_ct, data3_ot], positions=positions[4:], labels=['Bilateral CT', 'Bilateral OT'], patch_artist=True, widths=width, whis=2)
+
+    plt.title(f'Distribution of {metric_name} across individuals for LW, RW, and Bilateral UL usage (CT vs OT)')
+    plt.xlabel('Side')
+    plt.ylabel(metric_name)
+
+    colors = ['lightblue', 'lightgreen', 'lightblue', 'lightgreen', 'lightblue', 'lightgreen']
+    for patch, color in zip(plt.gca().patches, colors):
+        patch.set_facecolor(color)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_radar_chart(conventional_metrics, optimal_metrics, AC = True):
+    metric_names = list(conventional_metrics.keys())
+    num_metrics = len(metric_names)
+
+    angles = [n / float(num_metrics) * 2 * 3.1415 for n in range(num_metrics)]
+    angles += angles[:1]
+
+    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw=dict(polar=True))
+
+    # Extract the values from the metrics dictionaries
+    conventional_values = [conventional_metrics[metric_name] for metric_name in metric_names]
+    optimal_values = [optimal_metrics[metric_name] for metric_name in metric_names]
+
+    ax.set_theta_offset(3.1415 / 2)
+    ax.set_theta_direction(-1)
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(metric_names)
+
+    if AC: 
+        # Plot the conventional metrics in blue
+        conventional_values += conventional_values[:1]
+        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Threshold', color='blue')
+        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
+
+        # Plot the optimal metrics in green
+        optimal_values += optimal_values[:1]
+        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Threshold', color='green')
+        ax.fill(angles, optimal_values, alpha=0.50, color='green')
+
+        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal AC Thresholds')
+        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
+            
+        plt.tight_layout()
+        plt.show()
+    else: 
+         # Plot the conventional metrics in blue
+        conventional_values += conventional_values[:1]
+        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Functional Space', color='blue')
+        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
+
+        # Plot the optimal metrics in green
+        optimal_values += optimal_values[:1]
+        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Functional Space', color='green')
+        ax.fill(angles, optimal_values, alpha=0.50, color='green')
+
+        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal Functional Spaces')
+        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
+            
+        plt.tight_layout()
+        plt.show()
 
 
 

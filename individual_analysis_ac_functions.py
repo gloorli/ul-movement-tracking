@@ -9,7 +9,8 @@ from gm_function import *
 import seaborn as sns
 from sklearn.metrics import accuracy_score, precision_score, f1_score, jaccard_score, recall_score, confusion_matrix
 from sklearn.metrics import cohen_kappa_score
-from zurich_move_utilites import *
+from utilities import *
+from sklearn.model_selection import KFold
 
 
 def get_data(folder):
@@ -119,8 +120,6 @@ def calculate_tpr_fpr(ground_truth, activity_counts, thresholds):
         fpr.append(fp / (fp + tn))
     
     return np.array(fpr), np.array(tpr)
-
-
 
 
 def compute_bilateral_magnitude(activity_counts_sensor1, activity_counts_sensor2):
@@ -275,92 +274,6 @@ def get_mask_bilateral(GT_mask_LW, GT_mask_RW):
     return mask_bilateral
 
 
-def get_prediction(data, threshold):
-    """
-    Computes the prediction array of 0s and 1s based on a threshold.
-
-    Args:
-        data: Numpy array of values.
-        threshold: Threshold value for dichotomization.
-
-    Returns:
-        Numpy array of predictions (0s and 1s).
-    """
-    # Convert data to a numpy array
-    data = np.array(data)
-
-    # Compute the predictions based on the threshold
-    predictions = np.where(data < threshold, 0, 1)
-
-    return predictions
-
-
-def get_evaluation_metrics(ground_truth, predictions, title):
-    """
-    Plots the evaluation metrics for classification performance.
-
-    Args:
-        ground_truth: Numpy array of ground truth values (0s and 1s).
-        predictions: Numpy array of predicted values (0s and 1s).
-        title: Title for the plot (string).
-
-    Returns:
-        None (displays the plot).
-    """
-    # Calculate evaluation metrics
-    true_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 1))
-    false_negatives = np.sum(np.logical_and(predictions == 0, ground_truth == 1))
-
-    sensitivity = true_positives / (true_positives + false_negatives)
-    specificity = np.sum(np.logical_and(predictions == 0, ground_truth == 0)) / np.sum(ground_truth == 0)
-    accuracy = np.mean(predictions == ground_truth)
-
-    # Calculate PPV (Positive Predictive Value) with denominator check
-    positive_predictions = np.sum(predictions == 1)
-    ppv = true_positives / positive_predictions if positive_predictions != 0 else 0
-
-    # Calculate NPV (Negative Predictive Value) with denominator check
-    negative_predictions = np.sum(predictions == 0)
-    npv = np.sum(np.logical_and(predictions == 0, ground_truth == 0)) / negative_predictions if negative_predictions != 0 else 0
-
-    # Convert metrics to percentages
-    sensitivity *= 100
-    specificity *= 100
-    accuracy *= 100
-    ppv *= 100
-    npv *= 100
-
-    # Prepare the metric names and values
-    metric_names = ['Sensitivity', 'Specificity', 'Accuracy', 'PPV', 'NPV']
-    metric_values = [sensitivity, specificity, accuracy, ppv, npv]
-
-    # Plot the bar plot for each metric
-    plt.figure(figsize=(12, 6))
-    bars = plt.bar(metric_names, metric_values, width=0.5)
-
-    # Set the figure title and y-axis label
-    plt.title(title)
-    plt.ylabel('Percentage')
-
-    # Set the y-axis limit
-    plt.ylim([0, 110])
-
-    # Add the percentage values on top of each bar
-    for bar in bars:
-        height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width() / 2, height,
-                 f'{height:.2f}%', ha='center', va='bottom',
-                 fontsize=12, fontweight='bold')  # Adjust fontsize and fontweight as desired
-        
-    # Adjust the x-label font properties
-    plt.xticks(fontsize=12)  # Adjust fontsize and fontweight as desired
-
-    # Show the plot
-    plt.show()
-    
-    return {'Sensitivity': sensitivity, 'Specificity': specificity, 'Accuracy': accuracy, 'PPV': ppv, 'NPV': npv}
-
-
 def save_evaluation_metrics_to_csv(df, folder_name):
     """
     Saves a DataFrame to a CSV file in the specified folder location.
@@ -425,26 +338,6 @@ def save_AC_as_csv(count_brond_LW, count_brond_RW, folder):
         print(f"Failed to save CSV files.")
 
 
-def save_metrics_dictionary_as_csv(metrics_dictionary, folder):
-    """
-    Saves the metrics dictionary as a CSV file in the specified folder.
-
-    Args:
-        metrics_dictionary: Dictionary with metrics data.
-        folder: Folder path where the CSV file should be saved.
-    """
-    filename = os.path.join(folder, 'evaluation_metrics.csv')
-    
-    with open(filename, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        
-        # Write the data rows
-        for (vertical, horizontal), value in metrics_dictionary.items():
-            writer.writerow([vertical, horizontal, value])
-
-    print(f"The metrics dictionary has been saved as {filename}.")
-
-
 def get_prediction_bilateral(AC_LW, threshold_LW, AC_RW, threshold_RW):
     """
     Computes the bilateral prediction array based on the input arrays and thresholds.
@@ -490,118 +383,58 @@ def create_metrics_dictionary(metrics_LW_CT, metrics_RW_CT, metrics_bilateral_CT
         ('OT_LW', 'Accuracy'): metrics_LW_OT['Accuracy'],
         ('OT_LW', 'PPV'): metrics_LW_OT['PPV'],
         ('OT_LW', 'NPV'): metrics_LW_OT['NPV'],
+        ('OT_LW', 'F1 Score'): metrics_LW_OT['F1 Score'],
+        ('OT_LW', 'Youden Index'): metrics_LW_OT['Youden Index'],
+        ('OT_LW', 'False Positive Rate'): metrics_LW_OT['False Positive Rate'],
+        ('OT_LW', 'False Negative Rate'): metrics_LW_OT['False Negative Rate'],
         ('OT_RW', 'Sensitivity'): metrics_RW_OT['Sensitivity'],
         ('OT_RW', 'Specificity'): metrics_RW_OT['Specificity'],
         ('OT_RW', 'Accuracy'): metrics_RW_OT['Accuracy'],
         ('OT_RW', 'PPV'): metrics_RW_OT['PPV'],
         ('OT_RW', 'NPV'): metrics_RW_OT['NPV'],
+        ('OT_RW', 'F1 Score'): metrics_RW_OT['F1 Score'],
+        ('OT_RW', 'Youden Index'): metrics_RW_OT['Youden Index'],
+        ('OT_RW', 'False Positive Rate'): metrics_RW_OT['False Positive Rate'],
+        ('OT_RW', 'False Negative Rate'): metrics_RW_OT['False Negative Rate'],
         ('OT_bilateral', 'Sensitivity'): metrics_bilateral_OT['Sensitivity'],
         ('OT_bilateral', 'Specificity'): metrics_bilateral_OT['Specificity'],
         ('OT_bilateral', 'Accuracy'): metrics_bilateral_OT['Accuracy'],
         ('OT_bilateral', 'PPV'): metrics_bilateral_OT['PPV'],
         ('OT_bilateral', 'NPV'): metrics_bilateral_OT['NPV'],
+        ('OT_bilateral', 'F1 Score'): metrics_bilateral_OT['F1 Score'],
+        ('OT_bilateral', 'Youden Index'): metrics_bilateral_OT['Youden Index'],
+        ('OT_bilateral', 'False Positive Rate'): metrics_bilateral_OT['False Positive Rate'],
+        ('OT_bilateral', 'False Negative Rate'): metrics_bilateral_OT['False Negative Rate'],
         ('CT_LW', 'Sensitivity'): metrics_LW_CT['Sensitivity'],
         ('CT_LW', 'Specificity'): metrics_LW_CT['Specificity'],
         ('CT_LW', 'Accuracy'): metrics_LW_CT['Accuracy'],
         ('CT_LW', 'PPV'): metrics_LW_CT['PPV'],
         ('CT_LW', 'NPV'): metrics_LW_CT['NPV'],
+        ('CT_LW', 'F1 Score'): metrics_LW_CT['F1 Score'],
+        ('CT_LW', 'Youden Index'): metrics_LW_CT['Youden Index'],
+        ('CT_LW', 'False Positive Rate'): metrics_LW_CT['False Positive Rate'],
+        ('CT_LW', 'False Negative Rate'): metrics_LW_CT['False Negative Rate'],
         ('CT_RW', 'Sensitivity'): metrics_RW_CT['Sensitivity'],
         ('CT_RW', 'Specificity'): metrics_RW_CT['Specificity'],
         ('CT_RW', 'Accuracy'): metrics_RW_CT['Accuracy'],
         ('CT_RW', 'PPV'): metrics_RW_CT['PPV'],
         ('CT_RW', 'NPV'): metrics_RW_CT['NPV'],
+        ('CT_RW', 'F1 Score'): metrics_RW_CT['F1 Score'],
+        ('CT_RW', 'Youden Index'): metrics_RW_CT['Youden Index'],
+        ('CT_RW', 'False Positive Rate'): metrics_RW_CT['False Positive Rate'],
+        ('CT_RW', 'False Negative Rate'): metrics_RW_CT['False Negative Rate'],
         ('CT_bilateral', 'Sensitivity'): metrics_bilateral_CT['Sensitivity'],
         ('CT_bilateral', 'Specificity'): metrics_bilateral_CT['Specificity'],
         ('CT_bilateral', 'Accuracy'): metrics_bilateral_CT['Accuracy'],
         ('CT_bilateral', 'PPV'): metrics_bilateral_CT['PPV'],
-        ('CT_bilateral', 'NPV'): metrics_bilateral_CT['NPV']
+        ('CT_bilateral', 'NPV'): metrics_bilateral_CT['NPV'],
+        ('CT_bilateral', 'F1 Score'): metrics_bilateral_CT['F1 Score'],
+        ('CT_bilateral', 'Youden Index'): metrics_bilateral_CT['Youden Index'],
+        ('CT_bilateral', 'False Positive Rate'): metrics_bilateral_CT['False Positive Rate'],
+        ('CT_bilateral', 'False Negative Rate'): metrics_bilateral_CT['False Negative Rate'],
     }
 
     return data
-
-
-def split_dataset(X, y, test_size=0.2):
-    # Splitting into training and evaluation sets
-    X_train, X_eval, y_train, y_eval = train_test_split(X, y, test_size=0.2, random_state=42)
-    return X_train, X_eval, y_train, y_eval
-
-
-def find_optimal_threshold(ground_truth, activity_counts, conventional_threshold):
-    
-    # Convert to Numpy arrays
-    ground_truth = np.array(ground_truth)
-    activity_counts = np.array(activity_counts)
-    
-    # Define the thresholds you want to investigate
-    thresholds = np.linspace(0, np.max(activity_counts), num=100000)
-    print("Thresholds tested:", thresholds)
-
-    # Calculate false positive rate (FPR) and true positive rate (TPR) for different thresholds
-    fpr, tpr = calculate_tpr_fpr(ground_truth, activity_counts, thresholds)
-    
-    # Calculate the AUC (Area Under the ROC Curve)
-    auc = roc_auc_score(ground_truth, activity_counts)
-
-    # Calculate the Youden Index (Youden's J) for each threshold
-    youden_index = tpr - fpr
-
-    # Find the index of the threshold that maximizes the Youden Index
-    optimal_threshold_index = np.argmax(youden_index)
-
-    # Retrieve the optimal threshold
-    optimal_threshold = thresholds[optimal_threshold_index]
-
-    # Plot the ROC curve with the optimal threshold
-    plt.figure(figsize=(8, 6))
-    plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.2f})")
-    plt.plot([0, 1], [0, 1], 'k--')  # Plot the diagonal line representing random guessing
-    plt.scatter(fpr[optimal_threshold_index], tpr[optimal_threshold_index], color='red', label='Optimal Threshold')
-    plt.scatter(fpr[conventional_threshold], tpr[conventional_threshold], color='green', label='Conventional Threshold')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic')
-    plt.legend(loc='lower right')
-    plt.show()
-
-    # Print the optimal threshold, conventional threshold, and AUC
-    print(f"AUC: {auc:.2f}")
-    print(f"Optimal Threshold: {optimal_threshold:.2f}")
-    print(f"Conventional Threshold: {conventional_threshold:.2f}")
-
-    # Check if AUC is clinically useful
-    if auc >= 0.75:
-        print("AUC is clinically useful (≥0.75)")
-    else:
-        print("AUC is not clinically useful (<0.75)")
-
-    return optimal_threshold
-
-
-def upsample_data(data, current_freq, desired_freq, threshold=0.5):
-    # Convert data to NumPy array if needed
-    if not isinstance(data, np.ndarray):
-        data = np.array(data)
-        data = data.flatten() 
-    
-    # Calculate the ratio between the current and desired frequencies
-    ratio = desired_freq / current_freq
-
-    # Create the time array corresponding to the original data
-    original_time = np.arange(len(data)) / current_freq
-
-    # Create the time array for the upsampled data
-    upsampled_time = np.arange(0, len(data)-1, 1/ratio) / desired_freq
-
-    # Create the interpolation function using cubic spline
-    interpolation_func = interp1d(original_time, data, kind='cubic')
-
-    # Perform interpolation to upsample the data
-    upsampled_data = interpolation_func(upsampled_time)
-
-    # Apply a threshold to convert the upsampled data to binary (0 or 1)
-    upsampled_data = (upsampled_data > threshold).astype(int)
-
-    return upsampled_data
 
 
 def remove_wbm_data(mask_array, metric_array):
@@ -663,30 +496,6 @@ def save_resampled_masks_as_csv(GT_mask_LW_1Hz, GT_mask_RW_1Hz, folder):
         print(f"Right-hand mask CSV saved at: {rw_output_path}")
     else:
         print(f"Failed to save CSV files.")
-
-
-def save_optimal_threshold(file_path, left_threshold, right_threshold):
-    # Create the file path
-    file_path = os.path.join(file_path, 'optimal_threshold.csv')
-
-    try:
-        # Open the file in write mode
-        with open(file_path, 'w', newline='') as csvfile:
-            # Create a CSV writer
-            csv_writer = csv.writer(csvfile)
-
-            # Write the header row with descriptions
-            csv_writer.writerow(['Side', 'Threshold'])
-
-            # Write the left threshold as a row
-            csv_writer.writerow(['Left', left_threshold])
-
-            # Write the right threshold as a row
-            csv_writer.writerow(['Right', right_threshold])
-
-        print(f"Thresholds saved successfully at: {file_path}")
-    except IOError as e:
-        print(f"An error occurred while saving the thresholds: {e}")
 
 
 def downsample_mask_interpolation(mask, original_fps, desired_fps):
@@ -887,43 +696,6 @@ def test_optimal_functional_space_gm(optimal_functional_space, testing_ground_tr
     return similarity_scores
 
 
-def upsample_data(data, current_freq, desired_freq, threshold=0.5):
-    # Convert data to NumPy array if needed
-    data = np.array(data)
-
-    # Calculate the ratio between the current and desired frequencies
-    ratio = desired_freq / current_freq
-
-    # Create the time array for the upsampled data
-    upsampled_time = np.arange(0, len(data) - 1, 1 / ratio) / desired_freq
-
-    # Create the interpolation function using cubic spline
-    interpolation_func = interp1d(np.arange(len(data)) / current_freq, data.squeeze(), kind='cubic')
-
-    # Perform interpolation to upsample the data
-    upsampled_data = interpolation_func(upsampled_time)
-
-    # Apply a threshold to convert the upsampled data to binary (0 or 1)
-    upsampled_data = (upsampled_data > threshold).astype(int)
-
-    return upsampled_data
-
-
-def split_dataset_gm(pitch, yaw, ground_truth_25Hz, test_size=0.2, random_state=42):
-    
-    # Upsample ground_truth from 25Hz to match the 50Hz sampling freq of the angles 
-    ground_truth = upsample_data(ground_truth_25Hz, 25, 50)
-    
-    # Ensure dataset have the same length, otherwise trim the longer one
-    ground_truth, pitch = remove_extra_elements(ground_truth, pitch)
-    ground_truth, yaw = remove_extra_elements(ground_truth, yaw)
-    
-    # Split pitch angles (X1), yaw angles (X2), and ground truth (Y) between training and testing using 80/20 split
-    X1_train, X1_test, X2_train, X2_test, Y_train, Y_test = train_test_split(pitch, yaw, ground_truth, test_size=test_size, random_state=random_state)
-    
-    return Y_train, X1_train, X2_train, Y_test, X1_test, X2_test
-
-
 def plot_similarity_metrics(similarity_metrics):
     # Convert values to percentage
     similarity_metrics = {metric: value * 100 for metric, value in similarity_metrics.items()}
@@ -948,25 +720,282 @@ def plot_similarity_metrics(similarity_metrics):
     plt.show()
 
 
-def save_optimal_functional_spaces(file_path, left_optimal_space, right_optimal_space):
-    # Create the file path
-    file_path = os.path.join(file_path, 'optimal_functional_spaces.csv')
+def get_prediction(data, threshold):
+    """
+    Computes the prediction array of 0s and 1s based on a threshold.
 
-    try:
-        # Open the file in write mode
-        with open(file_path, 'w', newline='') as csvfile:
-            # Create a CSV writer
-            csv_writer = csv.writer(csvfile)
+    Args:
+        data: Numpy array of values.
+        threshold: Threshold value for dichotomization.
 
-            # Write the header row with descriptions
-            csv_writer.writerow(['Side', 'Functional Space'])
+    Returns:
+        Numpy array of predictions (0s and 1s).
+    """
+    # Convert data to a numpy array
+    data = np.array(data)
 
-            # Write the left optimal functional space as a row
-            csv_writer.writerow(['Left', left_optimal_space])
+    # Compute the predictions based on the threshold
+    predictions = np.where(data <= threshold, 0, 1)
 
-            # Write the right optimal functional space as a row
-            csv_writer.writerow(['Right', right_optimal_space])
+    return predictions
 
-        print(f"Optimal functional spaces saved successfully at: {file_path}")
-    except IOError as e:
-        print(f"An error occurred while saving the optimal functional spaces: {e}")
+
+def find_optimal_threshold(ground_truth, activity_counts):
+    # Bailey and Lang, 2013
+    conventional_threshold_unilateral = 2 
+    
+    # Convert to Numpy arrays
+    ground_truth = np.array(ground_truth)
+    activity_counts = np.array(activity_counts)
+    
+    # Define the thresholds you want to investigate
+    thresholds = np.linspace(0, np.max(activity_counts), num=100000)
+
+    # Calculate false positive rate (FPR) and true positive rate (TPR) for different thresholds
+    fpr, tpr = calculate_tpr_fpr(ground_truth, activity_counts, thresholds)
+    
+    # Calculate the AUC (Area Under the ROC Curve)
+    auc = roc_auc_score(ground_truth, activity_counts)
+
+    # Calculate the Youden Index (Youden's J) for each threshold
+    youden_index = tpr - fpr
+
+    # Find the index of the threshold that maximizes the Youden Index
+    optimal_threshold_index = np.argmax(youden_index)
+
+    # Retrieve the optimal threshold
+    optimal_threshold = thresholds[optimal_threshold_index]
+    
+    # Print the optimal threshold, conventional threshold, and AUC
+    print(f"AUC: {auc:.2f}")
+    print(f"Optimal Threshold: {optimal_threshold:.2f}")
+    print(f"Conventional Threshold: {conventional_threshold_unilateral:.2f}")
+
+    # Check if AUC is clinically useful
+    if auc >= 0.75:
+        print("AUC is clinically useful (≥0.75)")
+    else:
+        print("AUC is not clinically useful (<0.75)")
+
+    return optimal_threshold
+
+
+def get_evaluation_metrics(ground_truth, predictions):
+    """
+    Calculates evaluation metrics for classification performance.
+
+    Args:
+        ground_truth: Numpy array of ground truth values (0s and 1s).
+        predictions: Numpy array of predicted values (0s and 1s).
+
+    Returns:
+        A dictionary containing the evaluation metrics.
+    """
+    # Calculate evaluation metrics
+    true_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 1))
+    false_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 0))
+    false_negatives = np.sum(np.logical_and(predictions == 0, ground_truth == 1))
+    true_negatives = np.sum(np.logical_and(predictions == 0, ground_truth == 0))
+
+    sensitivity = true_positives / (true_positives + false_negatives)
+    specificity = true_negatives / (true_negatives + false_positives)
+    accuracy = (true_positives + true_negatives) / (true_positives + true_negatives + false_positives + false_negatives)
+
+    # Calculate PPV (Positive Predictive Value) with denominator check
+    positive_predictions = np.sum(predictions == 1)
+    ppv = true_positives / positive_predictions if positive_predictions != 0 else 0
+
+    # Calculate NPV (Negative Predictive Value) with denominator check
+    negative_predictions = np.sum(predictions == 0)
+    npv = true_negatives / negative_predictions if negative_predictions != 0 else 0
+
+    # Calculate F1 Score
+    f1_score = 2 * (ppv * sensitivity) / (ppv + sensitivity) if (ppv + sensitivity) != 0 else 0
+
+    # Calculate Youden Index
+    youden_index = sensitivity + specificity - 1
+
+    # Calculate False Positive Rate (FPR)
+    fpr = false_positives / (false_positives + true_negatives)
+
+    # Calculate False Negative Rate (FNR)
+    fnr = false_negatives / (false_negatives + true_positives)
+
+    # Convert metrics to percentages
+    sensitivity *= 100
+    specificity *= 100
+    accuracy *= 100
+    ppv *= 100
+    npv *= 100
+    f1_score *= 100
+    fpr *= 100
+    fnr *= 100
+    youden_index *= 100
+
+    return {
+        'Sensitivity': sensitivity,
+        'Specificity': specificity,
+        'Accuracy': accuracy,
+        'PPV': ppv,
+        'NPV': npv,
+        'F1 Score': f1_score,
+        'Youden Index': youden_index,
+        'False Positive Rate': fpr,
+        'False Negative Rate': fnr,
+    }
+
+
+def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
+    conventional_threshold_unilateral = 2
+    kf = KFold(n_splits=k, shuffle=True, random_state=random_state)
+    
+    sensitivity_scores = []
+    specificity_scores = []
+    accuracy_scores = []
+    ppv_scores = []
+    npv_scores = []
+    f1_scores = []
+    youden_index_scores = []
+    fpr_scores = []
+    fnr_scores = []
+    optimal_thresholds = []  
+
+    for idx, (train_index, test_index) in enumerate(kf.split(X), 1):
+        print(f"Iteration {idx}/{k}")
+        
+        X_train, X_eval = X[train_index], X[test_index]
+        y_train, y_eval = y[train_index], y[test_index]
+        
+        if optimal:
+            # Train your model and find the optimal threshold using X_train and y_train
+            optimal_threshold = find_optimal_threshold(y_train, X_train)
+        else: 
+            optimal_threshold = conventional_threshold_unilateral
+            print('Using conventional threshold')
+        # Use the optimal threshold to get predictions by dichotomizing X_eval 
+        pred_opt_threshold = get_prediction(X_eval, optimal_threshold)
+
+        # Compute evaluation metrics for this iteration comparing the predictions and the y_eval_LW  
+        eval_metrics = get_evaluation_metrics(y_eval, pred_opt_threshold)
+            
+        # Store the performance metrics for this iteration
+        sensitivity_scores.append(eval_metrics['Sensitivity'])
+        specificity_scores.append(eval_metrics['Specificity'])
+        accuracy_scores.append(eval_metrics['Accuracy'])
+        ppv_scores.append(eval_metrics['PPV'])
+        npv_scores.append(eval_metrics['NPV'])
+        f1_scores.append(eval_metrics['F1 Score'])
+        youden_index_scores.append(eval_metrics['Youden Index'])
+        fpr_scores.append(eval_metrics['False Positive Rate'])
+        fnr_scores.append(eval_metrics['False Negative Rate'])
+
+        # Store the optimal threshold for this iteration
+        optimal_thresholds.append(optimal_threshold)
+
+    # Compute the average evaluation metrics across the splits 
+    avg_sensitivity = np.mean(sensitivity_scores)
+    avg_specificity = np.mean(specificity_scores)
+    avg_accuracy = np.mean(accuracy_scores)
+    avg_ppv = np.mean(ppv_scores)
+    avg_npv = np.mean(npv_scores)
+    avg_f1_score = np.mean(f1_scores)
+    avg_youden_index = np.mean(youden_index_scores)
+    avg_fpr = np.mean(fpr_scores)
+    avg_fnr = np.mean(fnr_scores)
+    
+    avg_eval_metrics = {
+        'Sensitivity': avg_sensitivity,
+        'Specificity': avg_specificity,
+        'Accuracy': avg_accuracy,
+        'PPV': avg_ppv,
+        'NPV': avg_npv,
+        'F1 Score': avg_f1_score,
+        'Youden Index': avg_youden_index,
+        'False Positive Rate': avg_fpr,
+        'False Negative Rate': avg_fnr,
+    }
+
+    # Compute the average optimal threshold over all iterations
+    avg_optimal_threshold = np.mean(optimal_thresholds)
+    avg_optimal_threshold = round(avg_optimal_threshold, 2)
+    
+    return avg_eval_metrics, avg_optimal_threshold
+
+
+def k_fold_cross_validation_bilateral(X_LW, X_RW, y_LW, y_RW, opt_threshold_LW, opt_threshold_RW,
+                                      k=5, random_state=42, optimal=True):
+    
+    conventional_threshold_bilateral = 0
+    kf = KFold(n_splits=k, shuffle=True, random_state=random_state)
+    
+    sensitivity_scores = []
+    specificity_scores = []
+    accuracy_scores = []
+    ppv_scores = []
+    npv_scores = []
+    f1_scores = []
+    youden_index_scores = []
+    fpr_scores = []
+    fnr_scores = []
+    
+    # Split LW and RW datasets separately 
+    for idx, (train_index, test_index) in enumerate(kf.split(X_LW), 1):
+        print(f"Iteration {idx}/{k}")
+        
+        X_train_LW, X_eval_LW = X_LW[train_index], X_LW[test_index]
+        y_train_LW, y_eval_LW = y_LW[train_index], y_LW[test_index]
+        
+        X_train_RW, X_eval_RW = X_RW[train_index], X_RW[test_index]
+        y_train_RW, y_eval_RW = y_RW[train_index], y_RW[test_index]
+        
+        # Get the bilateral ground truth mask  
+        mask_bilateral_eval = get_mask_bilateral(y_eval_LW, y_eval_RW)
+            
+        if optimal:
+            # Compute predictions using optimal threshold for bilateral usage
+            pred_bilateral = get_prediction_bilateral(X_eval_LW, opt_threshold_LW,
+                                                      X_eval_RW, opt_threshold_RW)
+        else: 
+            # Compute predictions using conventional threshold for bilateral usage
+            pred_bilateral = get_prediction_bilateral(X_eval_LW, conventional_threshold_bilateral,
+                                                      X_eval_RW, conventional_threshold_bilateral)
+            
+        # Get the evaluation metrics
+        eval_metrics = get_evaluation_metrics(mask_bilateral_eval, pred_bilateral)
+            
+        # Store the performance metrics for this iteration
+        sensitivity_scores.append(eval_metrics['Sensitivity'])
+        specificity_scores.append(eval_metrics['Specificity'])
+        accuracy_scores.append(eval_metrics['Accuracy'])
+        ppv_scores.append(eval_metrics['PPV'])
+        npv_scores.append(eval_metrics['NPV'])
+        f1_scores.append(eval_metrics['F1 Score'])
+        youden_index_scores.append(eval_metrics['Youden Index'])
+        fpr_scores.append(eval_metrics['False Positive Rate'])
+        fnr_scores.append(eval_metrics['False Negative Rate'])
+
+    # Compute the average evaluation metrics across the splits 
+    avg_sensitivity = np.mean(sensitivity_scores)
+    avg_specificity = np.mean(specificity_scores)
+    avg_accuracy = np.mean(accuracy_scores)
+    avg_ppv = np.mean(ppv_scores)
+    avg_npv = np.mean(npv_scores)
+    avg_f1_score = np.mean(f1_scores)
+    avg_youden_index = np.mean(youden_index_scores)
+    avg_fpr = np.mean(fpr_scores)
+    avg_fnr = np.mean(fnr_scores)
+    
+    avg_eval_metrics = {
+        'Sensitivity': avg_sensitivity,
+        'Specificity': avg_specificity,
+        'Accuracy': avg_accuracy,
+        'PPV': avg_ppv,
+        'NPV': avg_npv,
+        'F1 Score': avg_f1_score,
+        'Youden Index': avg_youden_index,
+        'False Positive Rate': avg_fpr,
+        'False Negative Rate': avg_fnr,
+        'False Negative Rate': avg_fnr
+    }
+
+    return avg_eval_metrics

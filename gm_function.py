@@ -16,7 +16,7 @@ from scipy.spatial.transform import Rotation
 from scipy.stats import circmean
 from scipy.interpolate import CubicSpline
 import inspect
-from zurich_move_utilites import get_array_name
+from utilities import *
 from ahrs.filters import Mahony
 
 #Usefull constant
