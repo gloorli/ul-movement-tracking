@@ -13,7 +13,7 @@ from utilities import *
 from sklearn.model_selection import KFold
 
 
-def get_data(folder):
+def get_data(folder, dominant_hand = 'Right'):
     # Load IMU data
     LW_data_filename = 'trimmed_LW_data.csv'
     chest_data_filename = 'trimmed_chest_data.csv'
@@ -37,8 +37,19 @@ def get_data(folder):
     GT_mask_LW = pd.read_csv(GT_mask_LW_path)
     GT_mask_RW = pd.read_csv(GT_mask_RW_path)
 
+    if dominant_hand == 'Right': 
+        dh_data = RW_data
+        GT_mask_dh = np.array(GT_mask_RW)
+        ndh_data = LW_data
+        GT_mask_ndh = np.array(GT_mask_LW)
+    else: 
+        dh_data = LW_data
+        GT_mask_dh = np.array(GT_mask_LW)
+        ndh_data = RW_data
+        GT_mask_ndh = np.array(GT_mask_RW)
+
     # Return the loaded dataframes
-    return LW_data, chest_data, RW_data, GT_mask_LW, GT_mask_RW
+    return ndh_data, chest_data, dh_data, GT_mask_ndh, GT_mask_dh
 
 
 def get_sampling_frequency(df):
@@ -102,26 +113,6 @@ def plot_superposition(array1, array2):
     plt.show()
 
 
-def calculate_tpr_fpr(ground_truth, activity_counts, thresholds):
-    tpr = []
-    fpr = []
-    
-    for threshold in thresholds:
-        # Apply the threshold to the activity counts
-        predictions = activity_counts >= threshold
-        
-        # Calculate True Positive Rate (TPR) and False Positive Rate (FPR)
-        tp = np.sum((ground_truth == 1) & (predictions == 1))
-        fn = np.sum((ground_truth == 1) & (predictions == 0))
-        tn = np.sum((ground_truth == 0) & (predictions == 0))
-        fp = np.sum((ground_truth == 0) & (predictions == 1))
-        
-        tpr.append(tp / (tp + fn))
-        fpr.append(fp / (fp + tn))
-    
-    return np.array(fpr), np.array(tpr)
-
-
 def compute_bilateral_magnitude(activity_counts_sensor1, activity_counts_sensor2):
     # Check if the activity counts arrays have the same length
     if len(activity_counts_sensor1) != len(activity_counts_sensor2):
@@ -135,20 +126,20 @@ def compute_bilateral_magnitude(activity_counts_sensor1, activity_counts_sensor2
     return np.array(bilateral_magnitude)
 
 
-def get_magnitude_ratio(activity_counts_sensor_lw, activity_counts_sensor_rw):
+def get_magnitude_ratio(activity_counts_sensor_ndh, activity_counts_sensor_dh):
     
-    activity_counts_sensor_lw = np.array(activity_counts_sensor_lw)
-    activity_counts_sensor_rw = np.array(activity_counts_sensor_rw)
+    activity_counts_sensor_ndh = np.array(activity_counts_sensor_ndh)
+    activity_counts_sensor_dh = np.array(activity_counts_sensor_dh)
     
-    bilateral_magnitude = compute_bilateral_magnitude(activity_counts_sensor_lw, activity_counts_sensor_rw)
+    bilateral_magnitude = compute_bilateral_magnitude(activity_counts_sensor_ndh, activity_counts_sensor_dh)
     
     # Create masks
     bm_zero_mask = (bilateral_magnitude == 0.0)
-    lw_zero_mask = (activity_counts_sensor_lw == 0.0)
-    rw_zero_mask = (activity_counts_sensor_rw == 0.0)
+    ndh_zero_mask = (activity_counts_sensor_ndh == 0.0)
+    dh_zero_mask = (activity_counts_sensor_dh == 0.0)
     
     # Compute the vector magnitude ratio for each second for valid division values
-    mag_ratio = np.divide(activity_counts_sensor_lw, activity_counts_sensor_rw, out=np.ones_like(activity_counts_sensor_lw), where=(activity_counts_sensor_rw != 0) & (activity_counts_sensor_lw != 0))
+    mag_ratio = np.divide(activity_counts_sensor_ndh, activity_counts_sensor_dh, out=np.ones_like(activity_counts_sensor_ndh), where=(activity_counts_sensor_dh != 0) & (activity_counts_sensor_ndh != 0))
     
     # Transform the ratio values using a natural logarithm only for the valid candidates
     mag_ratio_log = np.log(mag_ratio)
@@ -156,12 +147,12 @@ def get_magnitude_ratio(activity_counts_sensor_lw, activity_counts_sensor_rw):
     # Handle cases with bilateral_magnitude = 0 
     mag_ratio_log[bm_zero_mask] = np.nan
     
-    # Handle case with both lw_zero_mask AND rw_zero_mask active
-    mag_ratio_log[np.logical_and(lw_zero_mask, rw_zero_mask)] = np.nan
+    # Handle case with both ndh_zero_mask AND dh_zero_mask active
+    mag_ratio_log[np.logical_and(ndh_zero_mask, dh_zero_mask)] = np.nan
     
-    # Handle cases with lw_zero_mask OR rw_zero_mask active but not BOTH at the same time
-    mag_ratio_log[np.logical_and(lw_zero_mask, ~rw_zero_mask)] = -7  # Left is at 0, indicating full use of the dominant (left) side 
-    mag_ratio_log[np.logical_and(~lw_zero_mask, rw_zero_mask)] = 7   # Right is at 0, indicating full use of the non-dominant (right) side
+    # Handle cases with ndh_zero_mask OR dh_zero_mask active but not BOTH at the same time
+    mag_ratio_log[np.logical_and(ndh_zero_mask, ~dh_zero_mask)] = -7  # Left is at 0, indicating full use of the dominant (left) side 
+    mag_ratio_log[np.logical_and(~ndh_zero_mask, dh_zero_mask)] = 7   # Right is at 0, indicating full use of the non-dominant (right) side
     
     return mag_ratio_log
 
@@ -254,22 +245,22 @@ def plot_density(BM, ratio):
     plt.show()
 
 
-def get_mask_bilateral(GT_mask_LW, GT_mask_RW):
+def get_mask_bilateral(GT_mask_ndh, GT_mask_dh):
     """
-    Creates a bilateral mask by performing element-wise logical AND operation on the given left and right masks.
+    Creates a bilateral mask by performing element-wise logical AND operation on the given left and dh masks.
     
     Args:
-        GT_mask_LW (ndarray): Array representing the ground truth left mask.
-        GT_mask_RW (ndarray): Array representing the ground truth right mask.
+        GT_mask_ndh (ndarray): Array representing the ground truth ndh mask.
+        GT_mask_dh (ndarray): Array representing the ground truth dh mask.
         
     Returns:
-        ndarray: Bilateral mask where the value is 1 if and only if GT_mask_LW AND GT_mask_RW row is 1; otherwise, it's 0.
+        ndarray: Bilateral mask where the value is 1 if and only if GT_mask_ndh AND GT_mask_dh row is 1; othedhise, it's 0.
     """
     # Check if the input arrays have the same shape
-    assert GT_mask_LW.shape == GT_mask_RW.shape, "The input arrays must have the same shape."
+    assert GT_mask_ndh.shape == GT_mask_dh.shape, "The input arrays must have the same shape."
     
     # Perform element-wise logical AND operation on the masks
-    mask_bilateral = np.logical_and(GT_mask_LW, GT_mask_RW).astype(int)
+    mask_bilateral = np.logical_and(GT_mask_ndh, GT_mask_dh).astype(int)
     
     return mask_bilateral
 
@@ -285,7 +276,7 @@ def save_evaluation_metrics_to_csv(df, folder_name):
     Returns:
         None
     """
-    # Ensure the folder exists, otherwise raise an error
+    # Ensure the folder exists, othedhise raise an error
     if not os.path.exists(folder_name):
         raise ValueError(f"The folder '{folder_name}' does not exist.")
 
@@ -301,101 +292,101 @@ def save_evaluation_metrics_to_csv(df, folder_name):
     print(f"DataFrame saved to: {file_path}")
 
 
-def save_AC_as_csv(count_brond_LW, count_brond_RW, folder):
+def save_AC_as_csv(count_brond_ndh, count_brond_dh, folder):
     """
     Save AC values as CSV files.
 
     Args:
-        count_brond_LW (DataFrame): DataFrame containing AC values for the left bronchus.
-        count_brond_RW (DataFrame): DataFrame containing AC values for the right bronchus.
+        count_brond_ndh (DataFrame): DataFrame containing AC values for the left bronchus.
+        count_brond_dh (DataFrame): DataFrame containing AC values for the right bronchus.
         folder (str): Folder path to save the CSV files.
 
     Returns:
         None.
     """
     # Specify the output CSV file names
-    lw_output_filename = 'count_brond_LW.csv'
-    rw_output_filename = 'count_brond_RW.csv'
+    ndh_output_filename = 'count_brond_ndh.csv'
+    dh_output_filename = 'count_brond_dh.csv'
 
     # Construct the full file paths for the output CSV files
-    lw_output_path = os.path.join(folder, lw_output_filename)
-    rw_output_path = os.path.join(folder, rw_output_filename)
+    ndh_output_path = os.path.join(folder, ndh_output_filename)
+    dh_output_path = os.path.join(folder, dh_output_filename)
 
-    # Ensure the folder exists, otherwise raise an error
+    # Ensure the folder exists, othedhise raise an error
     if not os.path.exists(folder):
         raise ValueError(f"The folder '{folder}' does not exist.")
 
     # Save the AC values as CSV files
-    count_brond_LW['AC Brond'].to_csv(lw_output_path, index=False)
-    count_brond_RW['AC Brond'].to_csv(rw_output_path, index=False)
+    count_brond_ndh['AC Brond'].to_csv(ndh_output_path, index=False)
+    count_brond_dh['AC Brond'].to_csv(dh_output_path, index=False)
 
     # Print the path where the CSV files were saved
-    if os.path.exists(lw_output_path) and os.path.exists(rw_output_path):
+    if os.path.exists(ndh_output_path) and os.path.exists(dh_output_path):
         print(f"CSV files saved successfully.")
-        print(f"Left-hand AC CSV saved at: {lw_output_path}")
-        print(f"Right-hand AC CSV saved at: {rw_output_path}")
+        print(f"ND-hand AC CSV saved at: {ndh_output_path}")
+        print(f"D-hand AC CSV saved at: {dh_output_path}")
     else:
         print(f"Failed to save CSV files.")
 
 
-def get_prediction_bilateral(AC_LW, threshold_LW, AC_RW, threshold_RW):
+def get_prediction_bilateral(AC_ndh, threshold_ndh, AC_dh, threshold_dh):
     """
     Computes the bilateral prediction array based on the input arrays and thresholds.
 
     Args:
-        AC_LW: Numpy array of values for left side.
-        threshold_LW: Threshold value for dichotomization of left side.
-        AC_RW: Numpy array of values for right side.
-        threshold_RW: Threshold value for dichotomization of right side.
+        AC_ndh: Numpy array of values for left side.
+        threshold_ndh: Threshold value for dichotomization of left side.
+        AC_dh: Numpy array of values for right side.
+        threshold_dh: Threshold value for dichotomization of right side.
 
     Returns:
         Numpy array of bilateral predictions (0s and 1s).
     """
     # Generate predictions for left and right sides
-    LW_pred = get_prediction(AC_LW, threshold_LW)
-    RW_pred = get_prediction(AC_RW, threshold_RW)
+    ndh_pred = get_prediction(AC_ndh, threshold_ndh)
+    dh_pred = get_prediction(AC_dh, threshold_dh)
 
-    # Apply AND logic between the two arrays LW_pred and RW_pred
-    pred_bilateral = np.logical_and(LW_pred, RW_pred)
+    # Apply AND logic between the two arrays ndh_pred and dh_pred
+    pred_bilateral = np.logical_and(ndh_pred, dh_pred)
 
     return pred_bilateral
 
 
-def create_metrics_dictionary(metrics_LW_CT, metrics_RW_CT, metrics_bilateral_CT,
-                             metrics_LW_OT, metrics_RW_OT, metrics_bilateral_OT):
+def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_CT,
+                             metrics_ndh_OT, metrics_dh_OT, metrics_bilateral_OT):
     """
     Creates a dictionary with metrics data organized by the combination of vertical and horizontal axes.
 
     Args:
-        metrics_LW_CT: Metrics data for LW and CT.
-        metrics_RW_CT: Metrics data for RW and CT.
+        metrics_ndh_CT: Metrics data for ndh and CT.
+        metrics_dh_CT: Metrics data for dh and CT.
         metrics_bilateral_CT: Metrics data for bilateral and CT.
-        metrics_LW_OT: Metrics data for LW and OT.
-        metrics_RW_OT: Metrics data for RW and OT.
+        metrics_ndh_OT: Metrics data for ndh and OT.
+        metrics_dh_OT: Metrics data for dh and OT.
         metrics_bilateral_OT: Metrics data for bilateral and OT.
 
     Returns:
         Dictionary with metrics data organized by the combination of vertical and horizontal axes.
     """
     data = {
-        ('OT_LW', 'Sensitivity'): metrics_LW_OT['Sensitivity'],
-        ('OT_LW', 'Specificity'): metrics_LW_OT['Specificity'],
-        ('OT_LW', 'Accuracy'): metrics_LW_OT['Accuracy'],
-        ('OT_LW', 'PPV'): metrics_LW_OT['PPV'],
-        ('OT_LW', 'NPV'): metrics_LW_OT['NPV'],
-        ('OT_LW', 'F1 Score'): metrics_LW_OT['F1 Score'],
-        ('OT_LW', 'Youden Index'): metrics_LW_OT['Youden Index'],
-        ('OT_LW', 'False Positive Rate'): metrics_LW_OT['False Positive Rate'],
-        ('OT_LW', 'False Negative Rate'): metrics_LW_OT['False Negative Rate'],
-        ('OT_RW', 'Sensitivity'): metrics_RW_OT['Sensitivity'],
-        ('OT_RW', 'Specificity'): metrics_RW_OT['Specificity'],
-        ('OT_RW', 'Accuracy'): metrics_RW_OT['Accuracy'],
-        ('OT_RW', 'PPV'): metrics_RW_OT['PPV'],
-        ('OT_RW', 'NPV'): metrics_RW_OT['NPV'],
-        ('OT_RW', 'F1 Score'): metrics_RW_OT['F1 Score'],
-        ('OT_RW', 'Youden Index'): metrics_RW_OT['Youden Index'],
-        ('OT_RW', 'False Positive Rate'): metrics_RW_OT['False Positive Rate'],
-        ('OT_RW', 'False Negative Rate'): metrics_RW_OT['False Negative Rate'],
+        ('OT_ndh', 'Sensitivity'): metrics_ndh_OT['Sensitivity'],
+        ('OT_ndh', 'Specificity'): metrics_ndh_OT['Specificity'],
+        ('OT_ndh', 'Accuracy'): metrics_ndh_OT['Accuracy'],
+        ('OT_ndh', 'PPV'): metrics_ndh_OT['PPV'],
+        ('OT_ndh', 'NPV'): metrics_ndh_OT['NPV'],
+        ('OT_ndh', 'F1 Score'): metrics_ndh_OT['F1 Score'],
+        ('OT_ndh', 'Youden Index'): metrics_ndh_OT['Youden Index'],
+        ('OT_ndh', 'False Positive Rate'): metrics_ndh_OT['False Positive Rate'],
+        ('OT_ndh', 'False Negative Rate'): metrics_ndh_OT['False Negative Rate'],
+        ('OT_dh', 'Sensitivity'): metrics_dh_OT['Sensitivity'],
+        ('OT_dh', 'Specificity'): metrics_dh_OT['Specificity'],
+        ('OT_dh', 'Accuracy'): metrics_dh_OT['Accuracy'],
+        ('OT_dh', 'PPV'): metrics_dh_OT['PPV'],
+        ('OT_dh', 'NPV'): metrics_dh_OT['NPV'],
+        ('OT_dh', 'F1 Score'): metrics_dh_OT['F1 Score'],
+        ('OT_dh', 'Youden Index'): metrics_dh_OT['Youden Index'],
+        ('OT_dh', 'False Positive Rate'): metrics_dh_OT['False Positive Rate'],
+        ('OT_dh', 'False Negative Rate'): metrics_dh_OT['False Negative Rate'],
         ('OT_bilateral', 'Sensitivity'): metrics_bilateral_OT['Sensitivity'],
         ('OT_bilateral', 'Specificity'): metrics_bilateral_OT['Specificity'],
         ('OT_bilateral', 'Accuracy'): metrics_bilateral_OT['Accuracy'],
@@ -405,24 +396,24 @@ def create_metrics_dictionary(metrics_LW_CT, metrics_RW_CT, metrics_bilateral_CT
         ('OT_bilateral', 'Youden Index'): metrics_bilateral_OT['Youden Index'],
         ('OT_bilateral', 'False Positive Rate'): metrics_bilateral_OT['False Positive Rate'],
         ('OT_bilateral', 'False Negative Rate'): metrics_bilateral_OT['False Negative Rate'],
-        ('CT_LW', 'Sensitivity'): metrics_LW_CT['Sensitivity'],
-        ('CT_LW', 'Specificity'): metrics_LW_CT['Specificity'],
-        ('CT_LW', 'Accuracy'): metrics_LW_CT['Accuracy'],
-        ('CT_LW', 'PPV'): metrics_LW_CT['PPV'],
-        ('CT_LW', 'NPV'): metrics_LW_CT['NPV'],
-        ('CT_LW', 'F1 Score'): metrics_LW_CT['F1 Score'],
-        ('CT_LW', 'Youden Index'): metrics_LW_CT['Youden Index'],
-        ('CT_LW', 'False Positive Rate'): metrics_LW_CT['False Positive Rate'],
-        ('CT_LW', 'False Negative Rate'): metrics_LW_CT['False Negative Rate'],
-        ('CT_RW', 'Sensitivity'): metrics_RW_CT['Sensitivity'],
-        ('CT_RW', 'Specificity'): metrics_RW_CT['Specificity'],
-        ('CT_RW', 'Accuracy'): metrics_RW_CT['Accuracy'],
-        ('CT_RW', 'PPV'): metrics_RW_CT['PPV'],
-        ('CT_RW', 'NPV'): metrics_RW_CT['NPV'],
-        ('CT_RW', 'F1 Score'): metrics_RW_CT['F1 Score'],
-        ('CT_RW', 'Youden Index'): metrics_RW_CT['Youden Index'],
-        ('CT_RW', 'False Positive Rate'): metrics_RW_CT['False Positive Rate'],
-        ('CT_RW', 'False Negative Rate'): metrics_RW_CT['False Negative Rate'],
+        ('CT_ndh', 'Sensitivity'): metrics_ndh_CT['Sensitivity'],
+        ('CT_ndh', 'Specificity'): metrics_ndh_CT['Specificity'],
+        ('CT_ndh', 'Accuracy'): metrics_ndh_CT['Accuracy'],
+        ('CT_ndh', 'PPV'): metrics_ndh_CT['PPV'],
+        ('CT_ndh', 'NPV'): metrics_ndh_CT['NPV'],
+        ('CT_ndh', 'F1 Score'): metrics_ndh_CT['F1 Score'],
+        ('CT_ndh', 'Youden Index'): metrics_ndh_CT['Youden Index'],
+        ('CT_ndh', 'False Positive Rate'): metrics_ndh_CT['False Positive Rate'],
+        ('CT_ndh', 'False Negative Rate'): metrics_ndh_CT['False Negative Rate'],
+        ('CT_dh', 'Sensitivity'): metrics_dh_CT['Sensitivity'],
+        ('CT_dh', 'Specificity'): metrics_dh_CT['Specificity'],
+        ('CT_dh', 'Accuracy'): metrics_dh_CT['Accuracy'],
+        ('CT_dh', 'PPV'): metrics_dh_CT['PPV'],
+        ('CT_dh', 'NPV'): metrics_dh_CT['NPV'],
+        ('CT_dh', 'F1 Score'): metrics_dh_CT['F1 Score'],
+        ('CT_dh', 'Youden Index'): metrics_dh_CT['Youden Index'],
+        ('CT_dh', 'False Positive Rate'): metrics_dh_CT['False Positive Rate'],
+        ('CT_dh', 'False Negative Rate'): metrics_dh_CT['False Negative Rate'],
         ('CT_bilateral', 'Sensitivity'): metrics_bilateral_CT['Sensitivity'],
         ('CT_bilateral', 'Specificity'): metrics_bilateral_CT['Specificity'],
         ('CT_bilateral', 'Accuracy'): metrics_bilateral_CT['Accuracy'],
@@ -456,13 +447,13 @@ def remove_wbm_data(mask_array, metric_array):
     return filtered_mask, filtered_metric
 
 
-def save_resampled_masks_as_csv(GT_mask_LW_1Hz, GT_mask_RW_1Hz, folder):
+def save_resampled_masks_as_csv(GT_mask_ndh_1Hz, GT_mask_dh_1Hz, folder):
     """
     Save masks as CSV files.
 
     Args:
-        GT_mask_LW_1Hz (DataFrame): DataFrame containing the left-hand masks.
-        GT_mask_RW_1Hz (DataFrame): DataFrame containing the right-hand masks.
+        GT_mask_ndh_1Hz (DataFrame): DataFrame containing the left-hand masks.
+        GT_mask_dh_1Hz (DataFrame): DataFrame containing the right-hand masks.
         folder (str): Folder path to save the CSV files.
 
     Returns:
@@ -470,68 +461,32 @@ def save_resampled_masks_as_csv(GT_mask_LW_1Hz, GT_mask_RW_1Hz, folder):
     """
     
     # Convert to DataFrame
-    df_LW = pd.DataFrame(GT_mask_LW_1Hz, columns=['mask'])
-    df_RW = pd.DataFrame(GT_mask_RW_1Hz, columns=['mask'])
+    df_ndh = pd.DataFrame(GT_mask_ndh_1Hz, columns=['mask'])
+    df_dh = pd.DataFrame(GT_mask_dh_1Hz, columns=['mask'])
     
     # Specify the output CSV file names
-    lw_output_filename = 'GT_mask_LW_1Hz.csv'
-    rw_output_filename = 'GT_mask_RW_1Hz.csv'
+    ndh_output_filename = 'GT_mask_ndh_1Hz.csv'
+    dh_output_filename = 'GT_mask_dh_1Hz.csv'
 
     # Construct the full file paths for the output CSV files
-    lw_output_path = os.path.join(folder, lw_output_filename)
-    rw_output_path = os.path.join(folder, rw_output_filename)
+    ndh_output_path = os.path.join(folder, ndh_output_filename)
+    dh_output_path = os.path.join(folder, dh_output_filename)
 
-    # Ensure the folder exists, otherwise raise an error
+    # Ensure the folder exists, othedhise raise an error
     if not os.path.exists(folder):
         raise ValueError(f"The folder '{folder}' does not exist.")
 
     # Save the trimmed data
-    df_LW.to_csv(lw_output_path, index=False)
-    df_RW.to_csv(rw_output_path, index=False)
+    df_ndh.to_csv(ndh_output_path, index=False)
+    df_dh.to_csv(dh_output_path, index=False)
 
     # Print the path where the CSV files were saved
-    if os.path.exists(lw_output_path) and os.path.exists(rw_output_path):
+    if os.path.exists(ndh_output_path) and os.path.exists(dh_output_path):
         print(f"CSV files saved successfully.")
-        print(f"Left-hand mask CSV saved at: {lw_output_path}")
-        print(f"Right-hand mask CSV saved at: {rw_output_path}")
+        print(f"ND-hand mask CSV saved at: {ndh_output_path}")
+        print(f"D-hand mask CSV saved at: {dh_output_path}")
     else:
         print(f"Failed to save CSV files.")
-
-
-def downsample_mask_interpolation(mask, original_fps, desired_fps):
-    """
-    Downsample a mask array from the original frames-per-second (fps) to the desired fps using interpolation.
-
-    Parameters:
-    mask (ndarray): The original mask array.
-    original_fps (float): The original frames-per-second of the mask array.
-    desired_fps (float): The desired frames-per-second for downsampling.
-
-    Returns:
-    ndarray: The downsampled mask array.
-    """
-    mask = np.array(mask)
-
-    # Calculate the original and desired frame intervals
-    original_interval = 1 / original_fps
-    desired_interval = 1 / desired_fps
-
-    # Create an array of original timestamps
-    original_timestamps = np.arange(0, len(mask)) * original_interval
-
-    # Create an array of desired timestamps
-    desired_timestamps = np.arange(0, original_timestamps[-1], desired_interval)
-
-    # Create an interpolation function based on the original timestamps and mask values
-    mask_interpolation = interp1d(original_timestamps, mask.flatten(), kind='nearest', fill_value="extrapolate")
-
-    # Use the interpolation function to obtain the downsampled mask values at desired timestamps
-    downsampled_mask = mask_interpolation(desired_timestamps)
-
-    # Round the interpolated values to the nearest integer (0 or 1)
-    downsampled_mask = np.around(downsampled_mask).astype(int)
-
-    return downsampled_mask
 
 
 def replace_wbm_with_nf(mask):
@@ -602,56 +557,6 @@ def compute_similarity_metric(ground_truth, gm_scores, metric):
         return cohen_kappa_score(ground_truth, gm_scores)
     else:
         raise ValueError("Invalid similarity metric: " + metric)
-
-    
-def find_optimal_functional_space_gm(training_ground_truth, training_pitch, training_yaw, similarity_metrics):
-    # Using training data only 
-    functional_space_array = list(range(5, 91, 5))
-    print("Functional Spaces tested:", functional_space_array)
-    
-    optimal_functional_spaces = {}
-    optimal_functional_space_frequencies = {}
-    
-    for similarity_metric in similarity_metrics:
-        print("Metric tested:", similarity_metric)
-    
-        best_similarity_score = -1
-        optimal_functional_space = None
-    
-        for functional_space in functional_space_array:
-        
-            # Compute gm scores @ 2Hz using training pitch, yaw, and the given functional space
-            gm_scores = gm_algorithm(training_pitch, training_yaw, functional_space=functional_space)
-            
-            # Ensure the two arrays have the same size
-            gm_scores, training_ground_truth = remove_extra_elements(gm_scores, training_ground_truth)
-            
-            # Compute a similarity score between gm scores at this given functional space and the training ground truth dataset
-            similarity_score = compute_similarity_metric(training_ground_truth, gm_scores, similarity_metric)
-        
-            # Update the similarity score and the new 'best' functional space if needed
-            if similarity_score > best_similarity_score:
-                best_similarity_score = similarity_score
-                optimal_functional_space = functional_space
-    
-        # Store the optimal functional space and its corresponding similarity metric score
-        optimal_functional_spaces[similarity_metric] = (optimal_functional_space, best_similarity_score)
-        
-        # Count the frequency of each optimal functional space value
-        if optimal_functional_space in optimal_functional_space_frequencies:
-            optimal_functional_space_frequencies[optimal_functional_space] += 1
-        else:
-            optimal_functional_space_frequencies[optimal_functional_space] = 1
-    
-    # Find the most frequent optimal functional space value (in case of equality, take the bigger one)
-    most_frequent_optimal_space = max(optimal_functional_space_frequencies.keys())
-    
-    # Print the most frequent optimal functional space value
-    print("Most Frequent Optimal Functional Space:", most_frequent_optimal_space)
-    
-    # Return the dictionary containing the optimal functional spaces for each similarity metric
-    # and the most frequent optimal functional space value
-    return optimal_functional_spaces, most_frequent_optimal_space
 
 
 def visualize_metrics(metrics_dict):
@@ -738,46 +643,6 @@ def get_prediction(data, threshold):
     predictions = np.where(data <= threshold, 0, 1)
 
     return predictions
-
-
-def find_optimal_threshold(ground_truth, activity_counts):
-    # Bailey and Lang, 2013
-    conventional_threshold_unilateral = 2 
-    
-    # Convert to Numpy arrays
-    ground_truth = np.array(ground_truth)
-    activity_counts = np.array(activity_counts)
-    
-    # Define the thresholds you want to investigate
-    thresholds = np.linspace(0, np.max(activity_counts), num=100000)
-
-    # Calculate false positive rate (FPR) and true positive rate (TPR) for different thresholds
-    fpr, tpr = calculate_tpr_fpr(ground_truth, activity_counts, thresholds)
-    
-    # Calculate the AUC (Area Under the ROC Curve)
-    auc = roc_auc_score(ground_truth, activity_counts)
-
-    # Calculate the Youden Index (Youden's J) for each threshold
-    youden_index = tpr - fpr
-
-    # Find the index of the threshold that maximizes the Youden Index
-    optimal_threshold_index = np.argmax(youden_index)
-
-    # Retrieve the optimal threshold
-    optimal_threshold = thresholds[optimal_threshold_index]
-    
-    # Print the optimal threshold, conventional threshold, and AUC
-    print(f"AUC: {auc:.2f}")
-    print(f"Optimal Threshold: {optimal_threshold:.2f}")
-    print(f"Conventional Threshold: {conventional_threshold_unilateral:.2f}")
-
-    # Check if AUC is clinically useful
-    if auc >= 0.75:
-        print("AUC is clinically useful (≥0.75)")
-    else:
-        print("AUC is not clinically useful (<0.75)")
-
-    return optimal_threshold
 
 
 def get_evaluation_metrics(ground_truth, predictions):
@@ -875,7 +740,7 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
         # Use the optimal threshold to get predictions by dichotomizing X_eval 
         pred_opt_threshold = get_prediction(X_eval, optimal_threshold)
 
-        # Compute evaluation metrics for this iteration comparing the predictions and the y_eval_LW  
+        # Compute evaluation metrics for this iteration comparing the predictions and the y_eval_ndh  
         eval_metrics = get_evaluation_metrics(y_eval, pred_opt_threshold)
             
         # Store the performance metrics for this iteration
@@ -918,11 +783,11 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
     # Compute the average optimal threshold over all iterations
     avg_optimal_threshold = np.mean(optimal_thresholds)
     avg_optimal_threshold = round(avg_optimal_threshold, 2)
-    
+
     return avg_eval_metrics, avg_optimal_threshold
 
 
-def k_fold_cross_validation_bilateral(X_LW, X_RW, y_LW, y_RW, opt_threshold_LW, opt_threshold_RW,
+def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_ndh, opt_threshold_dh,
                                       k=5, random_state=42, optimal=True):
     
     conventional_threshold_bilateral = 0
@@ -938,27 +803,27 @@ def k_fold_cross_validation_bilateral(X_LW, X_RW, y_LW, y_RW, opt_threshold_LW, 
     fpr_scores = []
     fnr_scores = []
     
-    # Split LW and RW datasets separately 
-    for idx, (train_index, test_index) in enumerate(kf.split(X_LW), 1):
+    # Split ndh and dh datasets separately 
+    for idx, (train_index, test_index) in enumerate(kf.split(X_ndh), 1):
         print(f"Iteration {idx}/{k}")
         
-        X_train_LW, X_eval_LW = X_LW[train_index], X_LW[test_index]
-        y_train_LW, y_eval_LW = y_LW[train_index], y_LW[test_index]
+        X_train_ndh, X_eval_ndh = X_ndh[train_index], X_ndh[test_index]
+        y_train_ndh, y_eval_ndh = y_ndh[train_index], y_ndh[test_index]
         
-        X_train_RW, X_eval_RW = X_RW[train_index], X_RW[test_index]
-        y_train_RW, y_eval_RW = y_RW[train_index], y_RW[test_index]
+        X_train_dh, X_eval_dh = X_dh[train_index], X_dh[test_index]
+        y_train_dh, y_eval_dh = y_dh[train_index], y_dh[test_index]
         
         # Get the bilateral ground truth mask  
-        mask_bilateral_eval = get_mask_bilateral(y_eval_LW, y_eval_RW)
+        mask_bilateral_eval = get_mask_bilateral(y_eval_ndh, y_eval_dh)
             
         if optimal:
             # Compute predictions using optimal threshold for bilateral usage
-            pred_bilateral = get_prediction_bilateral(X_eval_LW, opt_threshold_LW,
-                                                      X_eval_RW, opt_threshold_RW)
+            pred_bilateral = get_prediction_bilateral(X_eval_ndh, opt_threshold_ndh,
+                                                      X_eval_dh, opt_threshold_dh)
         else: 
             # Compute predictions using conventional threshold for bilateral usage
-            pred_bilateral = get_prediction_bilateral(X_eval_LW, conventional_threshold_bilateral,
-                                                      X_eval_RW, conventional_threshold_bilateral)
+            pred_bilateral = get_prediction_bilateral(X_eval_ndh, conventional_threshold_bilateral,
+                                                      X_eval_dh, conventional_threshold_bilateral)
             
         # Get the evaluation metrics
         eval_metrics = get_evaluation_metrics(mask_bilateral_eval, pred_bilateral)
@@ -999,3 +864,63 @@ def k_fold_cross_validation_bilateral(X_LW, X_RW, y_LW, y_RW, opt_threshold_LW, 
     }
 
     return avg_eval_metrics
+
+
+def calculate_tpr_fpr(ground_truth, activity_counts, thresholds):
+    tpr = []
+    fpr = []
+    
+    for threshold in thresholds:
+        # Apply the threshold to the activity counts
+        # ie convert the AC into binary predictions 
+        predictions = activity_counts > threshold
+        # Calculate True Positive Rate (TPR) and False Positive Rate (FPR)
+        tp = np.sum((ground_truth == 1) & (predictions == 1))
+        fn = np.sum((ground_truth == 1) & (predictions == 0))
+        tn = np.sum((ground_truth == 0) & (predictions == 0))
+        fp = np.sum((ground_truth == 0) & (predictions == 1))
+        
+        tpr.append(tp / (tp + fn))
+        fpr.append(fp / (fp + tn))
+    
+    return np.array(fpr), np.array(tpr)
+
+
+def find_optimal_threshold(ground_truth, activity_counts):
+    # Bailey and Lang, 2013
+    conventional_threshold_unilateral = 2 
+    
+    # Convert to Numpy arrays
+    ground_truth = np.array(ground_truth)
+    activity_counts = np.array(activity_counts)
+    
+    # Define the thresholds you want to investigate
+    thresholds = np.linspace(0, np.max(activity_counts), num=100000)
+
+    # Calculate false positive rate (FPR) and true positive rate (TPR) for different thresholds
+    fpr, tpr = calculate_tpr_fpr(ground_truth, activity_counts, thresholds)
+    
+    # Calculate the AUC (Area Under the ROC Curve)
+    auc = roc_auc_score(ground_truth, activity_counts)
+
+    # Calculate the Youden Index (Youden's J) for each threshold
+    youden_index = tpr - fpr
+
+    # Find the index of the threshold that maximizes the Youden Index
+    optimal_threshold_index = np.argmax(youden_index)
+
+    # Retrieve the optimal threshold
+    optimal_threshold = thresholds[optimal_threshold_index]
+    
+    # Print the optimal threshold, conventional threshold, and AUC
+    print(f"AUC: {auc:.2f}")
+    print(f"Optimal Threshold: {optimal_threshold:.2f}")
+    print(f"Conventional Threshold: {conventional_threshold_unilateral:.2f}")
+
+    # Check if AUC is clinically useful
+    if auc >= 0.75:
+        print("AUC is clinically useful (≥0.75)")
+    else:
+        print("AUC is not clinically useful (<0.75)")
+
+    return optimal_threshold

@@ -36,18 +36,18 @@ def find_specific_csv_files(initial_path, csv_file_names):
     return csv_files_dict
 
 
-def plot_side_by_side_boxplots(optimal_threshold_LW, optimal_threshold_RW, threshold, plot_title):
+def plot_side_by_side_boxplots(optimal_threshold_ndh, optimal_threshold_dh, threshold, plot_title):
     sns.set(style="whitegrid")
     plt.figure(figsize=(10, 6))
 
-    # Colors for 'LW' and 'RW' sides
-    lw_color = 'skyblue'
-    rw_color = 'lightgreen'
+    # Colors for 'ndh' and 'dh' sides
+    ndh_color = 'skyblue'
+    dh_color = 'lightgreen'
 
-    # Box plot for LW side
-    plt.boxplot(optimal_threshold_LW, positions=[1], labels=['LW'], patch_artist=True, boxprops=dict(facecolor=lw_color))
-    # Box plot for RW side
-    plt.boxplot(optimal_threshold_RW, positions=[2], labels=['RW'], patch_artist=True, boxprops=dict(facecolor=rw_color))
+    # Box plot for ndh side
+    plt.boxplot(optimal_threshold_ndh, positions=[1], labels=['ndh'], patch_artist=True, boxprops=dict(facecolor=ndh_color))
+    # Box plot for dh side
+    plt.boxplot(optimal_threshold_dh, positions=[2], labels=['dh'], patch_artist=True, boxprops=dict(facecolor=dh_color))
 
     # Add the threshold line
     plt.axhline(y=threshold, color='red', linestyle='--', label=f'Conventional threshold = {threshold}')
@@ -89,8 +89,8 @@ def regroup_field_data_metrics(csv_files):
 
 
 def extract_data_from_csv(paths):
-    left_values = []
-    right_values = []
+    ndh_values = []
+    dh_values = []
 
     for path in paths:
         with open(path, 'r') as csvfile:
@@ -111,97 +111,44 @@ def extract_data_from_csv(paths):
 
             for row in reader:
                 side = row[side_column].strip().lower()
-                if side == 'left':
-                    left_values.append(float(row[threshold_column]))
-                elif side == 'right':
-                    right_values.append(float(row[threshold_column]))
+                if side == 'ndh':
+                    ndh_values.append(float(row[threshold_column]))
+                elif side == 'dh':
+                    dh_values.append(float(row[threshold_column]))
 
-    return left_values, right_values
-
-
-def get_group_data_from_csv(csv_files, mask=False):
-    """
-    Resamples data from CSV files to match the smallest length among the arrays.
-
-    Args:
-        csv_files (list): List of CSV file paths.
-        mask (bool): Boolean flag indicating whether the data is a mask.
-
-    Returns:
-        np.ndarray: NumPy array of resampled data arrays.
-    """
-    all_data = []
-    min_length = float('inf')
-    elements_removed = []  # List to store the number of elements removed for each array
-
-    for csv_file in csv_files:
-        # Read the CSV file and extract the data
-        df = pd.read_csv(csv_file)
-        data = df.iloc[:, 0].values
-        # Update the minimum length
-        min_length = min(min_length, len(data))
-        all_data.append(data)
-
-    # Cubic spline interpolation to match the smaller array size
-    resampled_data = []
-    
-    for data in all_data:
-        # Perform cubic spline interpolation
-        x = np.arange(len(data))
-        cs = CubicSpline(x, data, extrapolate=False)  # Set extrapolate to False
-        resampled_values = cs(np.linspace(0, len(data) - 1, min_length))
-
-        # Apply constraint to prevent negative values
-        resampled_values = np.maximum(resampled_values, 0)  # Set negative values to zero
-
-        # Calculate the number of elements removed
-        num_removed = len(data) - len(resampled_values)
-        elements_removed.append(num_removed)
-
-        # Round the interpolated values to the nearest integer if it is a mask
-        if mask:
-            resampled_values = np.round(resampled_values).astype(int)
-        resampled_data.append(resampled_values)
-        
-    group_data = np.concatenate(resampled_data, axis=0)
-
-    # Print the number of elements removed for each array
-    for idx, num_removed in enumerate(elements_removed, start=1):
-        print(f"Elements removed in array {idx}: {num_removed}")
-
-    return group_data
+    return ndh_values, dh_values
 
 
 def plot_side_metrics(data_dict, metric_names):
     for metric_name in metric_names:
-        lw_data_ot = []
-        lw_data_ct = []
-        rw_data_ot = []
-        rw_data_ct = []
+        ndh_data_ot = []
+        ndh_data_ct = []
+        dh_data_ot = []
+        dh_data_ct = []
         bilateral_data_ot = []
         bilateral_data_ct = []
 
         for key, value in data_dict.items():
             parts = key.split('_')
             if len(parts) == 3 and parts[2] == metric_name:
-                if parts[0] == 'OT' and parts[1] == 'LW':
-                    lw_data_ot.extend(value)
-                elif parts[0] == 'CT' and parts[1] == 'LW':
-                    lw_data_ct.extend(value)
-                elif parts[0] == 'OT' and parts[1] == 'RW':
-                    rw_data_ot.extend(value)
-                elif parts[0] == 'CT' and parts[1] == 'RW':
-                    rw_data_ct.extend(value)
+                if parts[0] == 'OT' and parts[1] == 'ndh':
+                    ndh_data_ot.extend(value)
+                elif parts[0] == 'CT' and parts[1] == 'ndh':
+                    ndh_data_ct.extend(value)
+                elif parts[0] == 'OT' and parts[1] == 'dh':
+                    dh_data_ot.extend(value)
+                elif parts[0] == 'CT' and parts[1] == 'dh':
+                    dh_data_ct.extend(value)
                 elif parts[0] == 'OT' and parts[1] == 'bilateral':
                     bilateral_data_ot.extend(value)
                 elif parts[0] == 'CT' and parts[1] == 'bilateral':
                     bilateral_data_ct.extend(value)
 
-        if not lw_data_ot or not lw_data_ct or not rw_data_ot or not rw_data_ct or not bilateral_data_ot or not bilateral_data_ct:
+        if not ndh_data_ot or not ndh_data_ct or not dh_data_ot or not dh_data_ct or not bilateral_data_ot or not bilateral_data_ct:
             print(f"Data not found for the metric: {metric_name}")
             continue
         # Plotting
-        plot_data_side_by_side(lw_data_ct, lw_data_ot, rw_data_ct, rw_data_ot, bilateral_data_ct, bilateral_data_ot, metric_name)
+        plot_data_side_by_side(ndh_data_ct, ndh_data_ot, dh_data_ct, dh_data_ot, bilateral_data_ct, bilateral_data_ot, metric_name)
 
 
 def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, data3_ot, metric_name):
@@ -211,14 +158,14 @@ def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, dat
     positions = [1, 2, 4, 5, 7, 8]
     width = 0.2
 
-    # Plot 'LW' side
-    plt.boxplot([data1_ct, data1_ot], positions=positions[:2], labels=['LW CT', 'LW OT'], patch_artist=True, widths=width, whis=2)
-    # Plot 'RW' side
-    plt.boxplot([data2_ct, data2_ot], positions=positions[2:4], labels=['RW CT', 'RW OT'], patch_artist=True, widths=width, whis=2)
+    # Plot 'ndh' side
+    plt.boxplot([data1_ct, data1_ot], positions=positions[:2], labels=['NDH CT', 'NDH OT'], patch_artist=True, widths=width, whis=2)
+    # Plot 'dh' side
+    plt.boxplot([data2_ct, data2_ot], positions=positions[2:4], labels=['DH CT', 'DH OT'], patch_artist=True, widths=width, whis=2)
     # Plot 'bilateral' side
     plt.boxplot([data3_ct, data3_ot], positions=positions[4:], labels=['Bilateral CT', 'Bilateral OT'], patch_artist=True, widths=width, whis=2)
 
-    plt.title(f'Distribution of {metric_name} across individuals for LW, RW, and Bilateral UL usage (CT vs OT)')
+    plt.title(f'Distribution of {metric_name} across individuals for ndh, dh, and Bilateral UL usage (CT vs OT)')
     plt.xlabel('Side')
     plt.ylabel(metric_name)
 
@@ -226,60 +173,16 @@ def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, dat
     for patch, color in zip(plt.gca().patches, colors):
         patch.set_facecolor(color)
 
+    # Create the legend
+    legend_elements = [plt.Rectangle((0, 0), 1, 1, color='lightblue', label='NDH'),
+                       plt.Rectangle((0, 0), 1, 1, color='lightgreen', label='DH')]
+    plt.legend(handles=legend_elements, loc='upper left')
+
     plt.tight_layout()
     plt.show()
 
 
-def plot_radar_chart(conventional_metrics, optimal_metrics, AC = True):
-    metric_names = list(conventional_metrics.keys())
-    num_metrics = len(metric_names)
 
-    angles = [n / float(num_metrics) * 2 * 3.1415 for n in range(num_metrics)]
-    angles += angles[:1]
-
-    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw=dict(polar=True))
-
-    # Extract the values from the metrics dictionaries
-    conventional_values = [conventional_metrics[metric_name] for metric_name in metric_names]
-    optimal_values = [optimal_metrics[metric_name] for metric_name in metric_names]
-
-    ax.set_theta_offset(3.1415 / 2)
-    ax.set_theta_direction(-1)
-    ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(metric_names)
-
-    if AC: 
-        # Plot the conventional metrics in blue
-        conventional_values += conventional_values[:1]
-        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Threshold', color='blue')
-        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
-
-        # Plot the optimal metrics in green
-        optimal_values += optimal_values[:1]
-        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Threshold', color='green')
-        ax.fill(angles, optimal_values, alpha=0.50, color='green')
-
-        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal AC Thresholds')
-        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
-            
-        plt.tight_layout()
-        plt.show()
-    else: 
-         # Plot the conventional metrics in blue
-        conventional_values += conventional_values[:1]
-        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Functional Space', color='blue')
-        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
-
-        # Plot the optimal metrics in green
-        optimal_values += optimal_values[:1]
-        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Functional Space', color='green')
-        ax.fill(angles, optimal_values, alpha=0.50, color='green')
-
-        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal Functional Spaces')
-        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
-            
-        plt.tight_layout()
-        plt.show()
 
 
 

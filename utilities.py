@@ -20,6 +20,7 @@ from scipy.interpolate import CubicSpline
 from math import nan
 import inspect
 from scipy.ndimage import zoom
+from scipy.interpolate import interp1d
 
 
 def get_statistics(data):
@@ -174,6 +175,42 @@ def remove_extra_elements(array1, array2):
         return array1, array2
 
 
+def downsample_mask_interpolation(mask, original_fps, desired_fps):
+    """
+    Downsample a mask array from the original frames-per-second (fps) to the desired fps using interpolation.
+
+    Parameters:
+    mask (ndarray): The original mask array.
+    original_fps (float): The original frames-per-second of the mask array.
+    desired_fps (float): The desired frames-per-second for downsampling.
+
+    Returns:
+    ndarray: The downsampled mask array.
+    """
+    mask = np.array(mask)
+
+    # Calculate the original and desired frame intervals
+    original_interval = 1 / original_fps
+    desired_interval = 1 / desired_fps
+
+    # Create an array of original timestamps
+    original_timestamps = np.arange(0, len(mask)) * original_interval
+
+    # Create an array of desired timestamps
+    desired_timestamps = np.arange(0, original_timestamps[-1], desired_interval)
+
+    # Create an interpolation function based on the original timestamps and mask values
+    mask_interpolation = interp1d(original_timestamps, mask.flatten(), kind='nearest', fill_value="extrapolate")
+
+    # Use the interpolation function to obtain the downsampled mask values at desired timestamps
+    downsampled_mask = mask_interpolation(desired_timestamps)
+
+    # Round the interpolated values to the nearest integer (0 or 1)
+    downsampled_mask = np.around(downsampled_mask).astype(int)
+
+    return downsampled_mask
+
+
 def resample_mask(mask, original_frequency, desired_frequency):
     if desired_frequency > original_frequency:
         # Upsample the mask using nearest neighbor interpolation
@@ -184,7 +221,8 @@ def resample_mask(mask, original_frequency, desired_frequency):
         num_data_points = int(len(mask) * desired_frequency / original_frequency)
         resampled_mask = np.round(resample(mask, num_data_points)).astype(int)
         
-    return resampled_mask
+    # Ravel the resampled_mask before returning
+    return np.ravel(resampled_mask)
 
 
 def plot_resampled_arrays(original_mask, original_frequency, resampled_mask, desired_frequency):
@@ -204,7 +242,7 @@ def plot_resampled_arrays(original_mask, original_frequency, resampled_mask, des
     plt.show()
 
 
-def save_optimal_threshold(file_path, left_threshold, right_threshold, AC = True):
+def save_optimal_threshold(file_path, ndh_threshold, dh_threshold, AC = True):
     # Create the file path
     if AC: 
         file_path = os.path.join(file_path, 'optimal_threshold_AC.csv')
@@ -220,11 +258,11 @@ def save_optimal_threshold(file_path, left_threshold, right_threshold, AC = True
             # Write the header row with descriptions
             csv_writer.writerow(['Side', 'Threshold'])
 
-            # Write the left threshold as a row
-            csv_writer.writerow(['Left', left_threshold])
+            # Write the ndh threshold as a row
+            csv_writer.writerow(['ndh', ndh_threshold])
 
-            # Write the right threshold as a row
-            csv_writer.writerow(['Right', right_threshold])
+            # Write the dh threshold as a row
+            csv_writer.writerow(['dh', dh_threshold])
 
         print(f"Thresholds saved successfully at: {file_path}")
     except IOError as e:
@@ -267,3 +305,72 @@ def read_csv_to_numpy(file_path1, file_path2):
     array2 = df2.to_numpy().ravel()
 
     return array1, array2
+
+
+def plot_radar_chart(conventional_metrics, optimal_metrics, AC=True):
+    metric_names = list(conventional_metrics.keys())
+    num_metrics = len(metric_names)
+
+    angles = [n / float(num_metrics) * 2 * np.pi for n in range(num_metrics)]
+    angles += angles[:1]
+
+    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw=dict(polar=True))
+
+    # Extract the values from the metrics dictionaries
+    conventional_values = [conventional_metrics[metric_name] for metric_name in metric_names]
+    optimal_values = [optimal_metrics[metric_name] for metric_name in metric_names]
+
+    ax.set_theta_offset(np.pi / 2)
+    ax.set_theta_direction(-1)
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(metric_names)
+
+    if AC:
+        # Plot the conventional metrics in blue
+        conventional_values += conventional_values[:1]
+        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Threshold', color='blue')
+        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
+
+        # Plot the optimal metrics in green
+        optimal_values += optimal_values[:1]
+        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Threshold', color='green')
+        ax.fill(angles, optimal_values, alpha=0.50, color='green')
+
+        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal AC Thresholds')
+        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
+
+        # Annotate data points with percentage values for conventional metrics
+        for angle, value, metric_name in zip(angles, conventional_values, metric_names):
+            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
+                        horizontalalignment='center', verticalalignment='center')
+
+        # Annotate data points with percentage values for optimal metrics
+        for angle, value, metric_name in zip(angles, optimal_values, metric_names):
+            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
+                        horizontalalignment='center', verticalalignment='center')
+    else:
+        # Plot the conventional metrics in blue
+        conventional_values += conventional_values[:1]
+        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Functional Space', color='blue')
+        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
+
+        # Plot the optimal metrics in green
+        optimal_values += optimal_values[:1]
+        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Functional Space', color='green')
+        ax.fill(angles, optimal_values, alpha=0.50, color='green')
+
+        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal Functional Spaces')
+        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
+
+        # Annotate data points with percentage values for conventional metrics
+        for angle, value, metric_name in zip(angles, conventional_values, metric_names):
+            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
+                        horizontalalignment='center', verticalalignment='center')
+
+        # Annotate data points with percentage values for optimal metrics
+        for angle, value, metric_name in zip(angles, optimal_values, metric_names):
+            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
+                        horizontalalignment='center', verticalalignment='center')
+
+    plt.tight_layout()
+    plt.show()

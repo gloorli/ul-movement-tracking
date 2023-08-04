@@ -149,9 +149,9 @@ def optimal_fs_computation(pitch_mad_50Hz, yaw_mad_50Hz, GT_mask_50Hz, k=5, rand
     return avg_eval_metrics, avg_optimal_fs
 
 
-def optimal_fs_computation_bilateral(pitch_mad_LW, yaw_mad_LW, GT_mask_50Hz_LW,
-                                     pitch_mad_RW, yaw_mad_RW, GT_mask_50Hz_RW,
-                                     optimal_fs_LW, optimal_fs_RW, k=5, random_state=42, optimal=True): 
+def optimal_fs_computation_bilateral(pitch_mad_ndh, yaw_mad_ndh, GT_mask_50Hz_ndh,
+                                     pitch_mad_dh, yaw_mad_dh, GT_mask_50Hz_dh,
+                                     optimal_fs_ndh, optimal_fs_dh, k=5, random_state=42, optimal=True): 
     
     conventional_fs = 30  # degrees
     sensitivity_scores = []
@@ -167,64 +167,64 @@ def optimal_fs_computation_bilateral(pitch_mad_LW, yaw_mad_LW, GT_mask_50Hz_LW,
     # Set of angles to test 
     functional_space_array = list(range(5, 91, 2))
     
-    # For LW
-    pitch_mad_LW, GT_mask_50Hz_LW = remove_extra_elements(pitch_mad_LW, GT_mask_50Hz_LW)
-    yaw_mad_LW, GT_mask_50Hz_LW = remove_extra_elements(yaw_mad_LW, GT_mask_50Hz_LW)
+    # For ndh
+    pitch_mad_ndh, GT_mask_50Hz_ndh = remove_extra_elements(pitch_mad_ndh, GT_mask_50Hz_ndh)
+    yaw_mad_ndh, GT_mask_50Hz_ndh = remove_extra_elements(yaw_mad_ndh, GT_mask_50Hz_ndh)
     
-    # For RW
-    pitch_mad_RW, GT_mask_50Hz_RW = remove_extra_elements(pitch_mad_RW, GT_mask_50Hz_RW)
-    yaw_mad_RW, GT_mask_50Hz_RW = remove_extra_elements(yaw_mad_RW, GT_mask_50Hz_RW)
+    # For dh
+    pitch_mad_dh, GT_mask_50Hz_dh = remove_extra_elements(pitch_mad_dh, GT_mask_50Hz_dh)
+    yaw_mad_dh, GT_mask_50Hz_dh = remove_extra_elements(yaw_mad_dh, GT_mask_50Hz_dh)
 
     # Define the X and y values that need a split 
-    # For LW
-    X1_LW = pitch_mad_LW
-    X2_LW = yaw_mad_LW 
-    y_LW = GT_mask_50Hz_LW
-    # For RW
-    X1_RW = pitch_mad_RW
-    X2_RW = yaw_mad_RW 
-    y_RW = GT_mask_50Hz_RW
+    # For ndh
+    X1_ndh = pitch_mad_ndh
+    X2_ndh = yaw_mad_ndh 
+    y_ndh = GT_mask_50Hz_ndh
+    # For dh
+    X1_dh = pitch_mad_dh
+    X2_dh = yaw_mad_dh 
+    y_dh = GT_mask_50Hz_dh
     
-    # Split datasets into training and testing using k-fold for LW
-    kf_LW = KFold(n_splits=k, random_state=random_state, shuffle=True)
-    # Split datasets into training and testing using k-fold for RW
-    kf_RW = KFold(n_splits=k, random_state=random_state, shuffle=True)
+    # Split datasets into training and testing using k-fold for ndh
+    kf_ndh = KFold(n_splits=k, random_state=random_state, shuffle=True)
+    # Split datasets into training and testing using k-fold for dh
+    kf_dh = KFold(n_splits=k, random_state=random_state, shuffle=True)
 
     optimal_thresholds = []
     eval_metrics = []
     
-    for (train_index_LW, test_index_LW), (train_index_RW, test_index_RW) in zip(kf_LW.split(X1_LW), kf_RW.split(X1_RW)):
-        # Split the datasets for LW
-        X_train1_LW, X_test1_LW = X1_LW[train_index_LW], X1_LW[test_index_LW]
-        X_train2_LW, X_test2_LW = X2_LW[train_index_LW], X2_LW[test_index_LW]
-        y_train_LW, y_test_LW = y_LW[train_index_LW], y_LW[test_index_LW]
+    for (train_index_ndh, test_index_ndh), (train_index_dh, test_index_dh) in zip(kf_ndh.split(X1_ndh), kf_dh.split(X1_dh)):
+        # Split the datasets for ndh
+        X_train1_ndh, X_test1_ndh = X1_ndh[train_index_ndh], X1_ndh[test_index_ndh]
+        X_train2_ndh, X_test2_ndh = X2_ndh[train_index_ndh], X2_ndh[test_index_ndh]
+        y_train_ndh, y_test_ndh = y_ndh[train_index_ndh], y_ndh[test_index_ndh]
         
-        # Split the datasets for RW
-        X_train1_RW, X_test1_RW = X1_RW[train_index_RW], X1_RW[test_index_RW]
-        X_train2_RW, X_test2_RW = X2_RW[train_index_RW], X2_RW[test_index_RW]
-        y_train_RW, y_test_RW = y_RW[train_index_RW], y_RW[test_index_RW]
+        # Split the datasets for dh
+        X_train1_dh, X_test1_dh = X1_dh[train_index_dh], X1_dh[test_index_dh]
+        X_train2_dh, X_test2_dh = X2_dh[train_index_dh], X2_dh[test_index_dh]
+        y_train_dh, y_test_dh = y_dh[train_index_dh], y_dh[test_index_dh]
         
-        # Downsample GT mask from 50 Hz to 2 Hz for LW and for RW
-        y_test_2Hz_LW = resample_mask(y_test_LW, 50.0, 2.0)
-        y_test_2Hz_RW = resample_mask(y_test_RW, 50.0, 2.0)
+        # Downsample GT mask from 50 Hz to 2 Hz for ndh and for dh
+        y_test_2Hz_ndh = resample_mask(y_test_ndh, 50.0, 2.0)
+        y_test_2Hz_dh = resample_mask(y_test_dh, 50.0, 2.0)
         
         # Get the bilateral ground truth mask used for evaluation
-        mask_bilateral_eval = get_mask_bilateral(y_test_2Hz_LW, y_test_2Hz_RW)
+        mask_bilateral_eval = get_mask_bilateral(y_test_2Hz_ndh, y_test_2Hz_dh)
         
         # Select the fs we want to evaluate
         if optimal:
-            fs_LW = optimal_fs_LW
-            fs_RW = optimal_fs_RW
+            fs_ndh = optimal_fs_ndh
+            fs_dh = optimal_fs_dh
         else:
-            fs_LW = conventional_fs
-            fs_RW = conventional_fs
+            fs_ndh = conventional_fs
+            fs_dh = conventional_fs
         
-        # Compute gm scores eval using both LW and RW 
-        gm_eval_LW = gm_algorithm(X_test1_LW, X_test2_LW, functional_space=fs_LW)
-        gm_eval_RW = gm_algorithm(X_test1_RW, X_test2_RW, functional_space=fs_RW)
+        # Compute gm scores eval using both ndh and dh 
+        gm_eval_ndh = gm_algorithm(X_test1_ndh, X_test2_ndh, functional_space=fs_ndh)
+        gm_eval_dh = gm_algorithm(X_test1_dh, X_test2_dh, functional_space=fs_dh)
         
-        # Compute the bilateral GM scores using AND logic between LW and RW gm predictions
-        gm_eval_bilateral = get_mask_bilateral(gm_eval_LW, gm_eval_RW)
+        # Compute the bilateral GM scores using AND logic between ndh and dh gm predictions
+        gm_eval_bilateral = get_mask_bilateral(gm_eval_ndh, gm_eval_dh)
         
         # Ensure datasets have the same size 
         gm_eval_bilateral, mask_bilateral_eval = remove_extra_elements(gm_eval_bilateral, mask_bilateral_eval)
