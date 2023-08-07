@@ -297,13 +297,17 @@ def save_AC_as_csv(count_brond_ndh, count_brond_dh, folder):
     Save AC values as CSV files.
 
     Args:
-        count_brond_ndh (DataFrame): DataFrame containing AC values for the left bronchus.
-        count_brond_dh (DataFrame): DataFrame containing AC values for the right bronchus.
+        count_brond_ndh (numpy.ndarray): NumPy array containing AC values for the left bronchus.
+        count_brond_dh (numpy.ndarray): NumPy array containing AC values for the right bronchus.
         folder (str): Folder path to save the CSV files.
 
     Returns:
         None.
     """
+    # Convert the NumPy arrays to DataFrames
+    ndh_df = pd.DataFrame({'AC Brond': count_brond_ndh})
+    dh_df = pd.DataFrame({'AC Brond': count_brond_dh})
+
     # Specify the output CSV file names
     ndh_output_filename = 'count_brond_ndh.csv'
     dh_output_filename = 'count_brond_dh.csv'
@@ -312,13 +316,13 @@ def save_AC_as_csv(count_brond_ndh, count_brond_dh, folder):
     ndh_output_path = os.path.join(folder, ndh_output_filename)
     dh_output_path = os.path.join(folder, dh_output_filename)
 
-    # Ensure the folder exists, othedhise raise an error
+    # Ensure the folder exists, otherwise raise an error
     if not os.path.exists(folder):
         raise ValueError(f"The folder '{folder}' does not exist.")
 
     # Save the AC values as CSV files
-    count_brond_ndh['AC Brond'].to_csv(ndh_output_path, index=False)
-    count_brond_dh['AC Brond'].to_csv(dh_output_path, index=False)
+    ndh_df.to_csv(ndh_output_path, index=False)
+    dh_df.to_csv(dh_output_path, index=False)
 
     # Print the path where the CSV files were saved
     if os.path.exists(ndh_output_path) and os.path.exists(dh_output_path):
@@ -643,71 +647,6 @@ def get_prediction(data, threshold):
     predictions = np.where(data <= threshold, 0, 1)
 
     return predictions
-
-
-def get_evaluation_metrics(ground_truth, predictions):
-    """
-    Calculates evaluation metrics for classification performance.
-
-    Args:
-        ground_truth: Numpy array of ground truth values (0s and 1s).
-        predictions: Numpy array of predicted values (0s and 1s).
-
-    Returns:
-        A dictionary containing the evaluation metrics.
-    """
-    # Calculate evaluation metrics
-    true_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 1))
-    false_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 0))
-    false_negatives = np.sum(np.logical_and(predictions == 0, ground_truth == 1))
-    true_negatives = np.sum(np.logical_and(predictions == 0, ground_truth == 0))
-
-    sensitivity = true_positives / (true_positives + false_negatives)
-    specificity = true_negatives / (true_negatives + false_positives)
-    accuracy = (true_positives + true_negatives) / (true_positives + true_negatives + false_positives + false_negatives)
-
-    # Calculate PPV (Positive Predictive Value) with denominator check
-    positive_predictions = np.sum(predictions == 1)
-    ppv = true_positives / positive_predictions if positive_predictions != 0 else 0
-
-    # Calculate NPV (Negative Predictive Value) with denominator check
-    negative_predictions = np.sum(predictions == 0)
-    npv = true_negatives / negative_predictions if negative_predictions != 0 else 0
-
-    # Calculate F1 Score
-    f1_score = 2 * (ppv * sensitivity) / (ppv + sensitivity) if (ppv + sensitivity) != 0 else 0
-
-    # Calculate Youden Index
-    youden_index = sensitivity + specificity - 1
-
-    # Calculate False Positive Rate (FPR)
-    fpr = false_positives / (false_positives + true_negatives)
-
-    # Calculate False Negative Rate (FNR)
-    fnr = false_negatives / (false_negatives + true_positives)
-
-    # Convert metrics to percentages
-    sensitivity *= 100
-    specificity *= 100
-    accuracy *= 100
-    ppv *= 100
-    npv *= 100
-    f1_score *= 100
-    fpr *= 100
-    fnr *= 100
-    youden_index *= 100
-
-    return {
-        'Sensitivity': sensitivity,
-        'Specificity': specificity,
-        'Accuracy': accuracy,
-        'PPV': ppv,
-        'NPV': npv,
-        'F1 Score': f1_score,
-        'Youden Index': youden_index,
-        'False Positive Rate': fpr,
-        'False Negative Rate': fnr,
-    }
 
 
 def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):

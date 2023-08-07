@@ -307,7 +307,7 @@ def read_csv_to_numpy(file_path1, file_path2):
     return array1, array2
 
 
-def plot_radar_chart(conventional_metrics, optimal_metrics, AC=True):
+def plot_radar_chart(conventional_metrics, optimal_metrics, metric, save_filename=None):
     metric_names = list(conventional_metrics.keys())
     num_metrics = len(metric_names)
 
@@ -325,7 +325,7 @@ def plot_radar_chart(conventional_metrics, optimal_metrics, AC=True):
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(metric_names)
 
-    if AC:
+    if metric == 'AC':
         # Plot the conventional metrics in blue
         conventional_values += conventional_values[:1]
         ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Threshold', color='blue')
@@ -348,7 +348,7 @@ def plot_radar_chart(conventional_metrics, optimal_metrics, AC=True):
         for angle, value, metric_name in zip(angles, optimal_values, metric_names):
             ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
                         horizontalalignment='center', verticalalignment='center')
-    else:
+    if metric == 'GM':
         # Plot the conventional metrics in blue
         conventional_values += conventional_values[:1]
         ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Functional Space', color='blue')
@@ -359,7 +359,7 @@ def plot_radar_chart(conventional_metrics, optimal_metrics, AC=True):
         ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Functional Space', color='green')
         ax.fill(angles, optimal_values, alpha=0.50, color='green')
 
-        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal Functional Spaces')
+        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal Functional Spaces for GM scores')
         ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
 
         # Annotate data points with percentage values for conventional metrics
@@ -371,6 +371,119 @@ def plot_radar_chart(conventional_metrics, optimal_metrics, AC=True):
         for angle, value, metric_name in zip(angles, optimal_values, metric_names):
             ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
                         horizontalalignment='center', verticalalignment='center')
+    if metric == 'GMAC':
+        # Plot the conventional metrics in blue
+        conventional_values += conventional_values[:1]
+        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Functional Space', color='blue')
+        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
 
+        # Plot the optimal metrics in green
+        optimal_values += optimal_values[:1]
+        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Functional Space', color='green')
+        ax.fill(angles, optimal_values, alpha=0.50, color='green')
+
+        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal AC Threshold and FS for GMAC scores')
+        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
+
+        # Annotate data points with percentage values for conventional metrics
+        for angle, value, metric_name in zip(angles, conventional_values, metric_names):
+            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
+                        horizontalalignment='center', verticalalignment='center')
+
+        # Annotate data points with percentage values for optimal metrics
+        for angle, value, metric_name in zip(angles, optimal_values, metric_names):
+            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
+                        horizontalalignment='center', verticalalignment='center')
     plt.tight_layout()
-    plt.show()
+    if save_filename:
+        plt.savefig(save_filename)  # Save the plot to the specified file
+    else:
+        plt.show()  # Show the plot if save_filename is not provided
+
+
+def resample_binary_mask(mask, original_frequency, desired_frequency):
+    # Calculate the time steps of the original and desired frequencies
+    original_time_step = 1 / original_frequency
+    desired_time_step = 1 / desired_frequency
+
+    # Calculate the time array for the original mask
+    original_time_array = np.arange(0, len(mask)) * original_time_step
+
+    # Calculate the time array for the resampled mask
+    resampled_time_array = np.arange(0, len(mask) - 1, original_frequency / desired_frequency) * original_time_step
+
+    # Create a CubicSpline object to perform interpolation
+    cs = CubicSpline(original_time_array, mask)
+
+    # Perform cubic spline interpolation on the resampled time array
+    resampled_mask = cs(resampled_time_array)
+
+    # Apply thresholding to make values binary (0 or 1)
+    resampled_mask = np.where(resampled_mask >= 0.5, 1, 0)
+
+    return np.array(resampled_mask, dtype=int)
+
+
+def get_evaluation_metrics(ground_truth, predictions):
+    """
+    Calculates evaluation metrics for classification performance.
+
+    Args:
+        ground_truth: Numpy array of ground truth values (0s and 1s).
+        predictions: Numpy array of predicted values (0s and 1s).
+
+    Returns:
+        A dictionary containing the evaluation metrics.
+    """
+    # Calculate evaluation metrics
+    true_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 1))
+    false_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 0))
+    false_negatives = np.sum(np.logical_and(predictions == 0, ground_truth == 1))
+    true_negatives = np.sum(np.logical_and(predictions == 0, ground_truth == 0))
+
+    sensitivity = true_positives / (true_positives + false_negatives)
+    specificity = true_negatives / (true_negatives + false_positives)
+    accuracy = (true_positives + true_negatives) / (true_positives + true_negatives + false_positives + false_negatives)
+
+    # Calculate PPV (Positive Predictive Value) with denominator check
+    positive_predictions = np.sum(predictions == 1)
+    ppv = true_positives / positive_predictions if positive_predictions != 0 else 0
+
+    # Calculate NPV (Negative Predictive Value) with denominator check
+    negative_predictions = np.sum(predictions == 0)
+    npv = true_negatives / negative_predictions if negative_predictions != 0 else 0
+
+    # Calculate F1 Score
+    f1_score = 2 * (ppv * sensitivity) / (ppv + sensitivity) if (ppv + sensitivity) != 0 else 0
+
+    # Calculate Youden Index
+    youden_index = sensitivity + specificity - 1
+
+    # Calculate False Positive Rate (FPR)
+    fpr = false_positives / (false_positives + true_negatives)
+
+    # Calculate False Negative Rate (FNR)
+    fnr = false_negatives / (false_negatives + true_positives)
+
+    # Convert metrics to percentages
+    sensitivity *= 100
+    specificity *= 100
+    accuracy *= 100
+    ppv *= 100
+    npv *= 100
+    f1_score *= 100
+    fpr *= 100
+    fnr *= 100
+    youden_index *= 100
+
+    return {
+        'Sensitivity': sensitivity,
+        'Specificity': specificity,
+        'Accuracy': accuracy,
+        'PPV': ppv,
+        'NPV': npv,
+        'F1 Score': f1_score,
+        'Youden Index': youden_index,
+        'False Positive Rate': fpr,
+        'False Negative Rate': fnr,
+    }

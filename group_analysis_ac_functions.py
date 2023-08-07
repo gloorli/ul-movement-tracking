@@ -6,6 +6,8 @@ from activity_count_function import *
 import csv
 import matplotlib.pyplot as plt
 import seaborn as sns
+from utilities import plot_resampled_arrays
+from utilities  import *
 
 
 def find_specific_csv_files(initial_path, csv_file_names):
@@ -174,12 +176,113 @@ def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, dat
         patch.set_facecolor(color)
 
     # Create the legend
-    legend_elements = [plt.Rectangle((0, 0), 1, 1, color='lightblue', label='NDH'),
-                       plt.Rectangle((0, 0), 1, 1, color='lightgreen', label='DH')]
+    legend_elements = [plt.Rectangle((0, 0), 1, 1, color='lightblue', label='Conventional Threshold'),
+                       plt.Rectangle((0, 0), 1, 1, color='lightgreen', label='Optimal Threshold')]
     plt.legend(handles=legend_elements, loc='upper left')
 
     plt.tight_layout()
     plt.show()
+
+
+def resample_AC(AC, original_frequency, desired_frequency):
+    # Calculate the time steps of the original and desired frequencies
+    original_time_step = 1 / original_frequency
+    desired_time_step = 1 / desired_frequency
+
+    # Calculate the time array for the original AC
+    original_time_array = np.arange(0, len(AC)) * original_time_step
+
+    # Calculate the time array for the resampled AC
+    resampled_time_array = np.arange(0, len(AC) - 1, original_frequency / desired_frequency) * original_time_step
+
+    # Create a CubicSpline object to perform interpolation
+    cs = CubicSpline(original_time_array, AC)
+
+    # Perform cubic spline interpolation on the resampled time array
+    resampled_AC = cs(resampled_time_array)
+
+    # Set negative values to zero since AC are positive only 
+    resampled_AC[resampled_AC < 0] = 0
+
+    return np.array(resampled_AC)
+
+
+def get_group_dataset_from_csv(csv_files, mask=True):
+    """
+    Resamples data from CSV files to match the smallest length among the arrays.
+
+    Args:
+        csv_files (list): List of CSV file paths.
+        mask (bool): Boolean flag indicating whether the data is a mask.
+
+    Returns:
+        np.ndarray: NumPy array of resampled data arrays.
+    """
+    all_data = []
+    min_length = float('inf')
+    elements_removed = []  # List to store the number of elements removed for each array
+    resampled_data = []
+
+    for csv_file in csv_files:
+        # Read the CSV file and extract the data
+        df = pd.read_csv(csv_file)
+        data = df.iloc[:, 0].values
+        # Update the minimum length
+        min_length = min(min_length, len(data))
+        all_data.append(data)
+        print(data.shape)
+
+    for data in all_data:
+        
+        # First get the original_frequency and desired_frequency given by the minimum array size to achieve
+        original_frequency = len(data)
+        desired_frequency = min_length
+        
+        if mask: 
+            # Downsample the binary mask 
+            # Then downsample the mask 
+            if desired_frequency != original_frequency:
+                resampled_values = resample_binary_mask(data, original_frequency, desired_frequency)
+            else: 
+                resampled_values = data
+            
+            # Plot the data before and after resampling 
+            plot_resampled_arrays(data, original_frequency, resampled_values, desired_frequency)
+
+            # Save the new resampled values inside the resampled_data array 
+            resampled_data.append(resampled_values)
+
+            # Print the number of elements removed by this resampling operation 
+            num_removed = len(data) - len(resampled_values)
+            elements_removed.append(num_removed)
+
+        else: 
+            
+            # Case of AC resampling
+            if desired_frequency != original_frequency:
+                resampled_values = resample_AC(data, original_frequency, desired_frequency)
+            else: 
+                resampled_values = data
+                
+            # Plot the data before and after resampling 
+            plot_resampled_arrays(data, original_frequency, resampled_values, desired_frequency)
+            
+            # Save the new resampled values inside the resampled_data array 
+            resampled_data.append(resampled_values)
+            
+            # Print the number of elements removed by this resampling operation 
+            num_removed = len(data) - len(resampled_values)
+            elements_removed.append(num_removed)
+
+    group_data = np.concatenate(resampled_data, axis=0)
+    
+    # Print the number of elements removed for each array
+    for idx, num_removed in enumerate(elements_removed, start=1):
+        print(f"Elements removed in array {idx}: {num_removed}")
+
+    return group_data
+
+
 
 
 
