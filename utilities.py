@@ -269,19 +269,26 @@ def save_optimal_threshold(file_path, ndh_threshold, dh_threshold, AC = True):
         print(f"An error occurred while saving the thresholds: {e}")
 
 
-def save_metrics_dictionary_as_csv(metrics_dictionary, folder, AC=True):
+def save_metrics_dictionary_as_csv(metrics_dictionary, folder, metric):
     """
     Saves the metrics dictionary as a CSV file in the specified folder.
 
     Args:
         metrics_dictionary: Dictionary with metrics data.
         folder: Folder path where the CSV file should be saved.
+        metric: The type of metric ('AC', 'GM', 'GMAC').
+    Raises:
+        ValueError: If the metric provided is not one of 'AC', 'GM', or 'GMAC'.
     """
-    if AC:
+    if metric == 'AC':
         filename = os.path.join(folder, 'evaluation_metrics_AC.csv')
-    else: 
+    elif metric == 'GM': 
         filename = os.path.join(folder, 'evaluation_metrics_GM.csv')
-    
+    elif metric == 'GMAC': 
+        filename = os.path.join(folder, 'evaluation_metrics_GMAC.csv')
+    else:
+        raise ValueError("Invalid metric. Metric should be one of 'AC', 'GM', or 'GMAC'.")
+
     with open(filename, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         
@@ -435,6 +442,10 @@ def get_evaluation_metrics(ground_truth, predictions):
     Returns:
         A dictionary containing the evaluation metrics.
     """
+
+    # Ensure arrays have same sizes 
+    ground_truth, predictions = remove_extra_elements(ground_truth, predictions)
+
     # Calculate evaluation metrics
     true_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 1))
     false_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 0))
@@ -459,12 +470,6 @@ def get_evaluation_metrics(ground_truth, predictions):
     # Calculate Youden Index
     youden_index = sensitivity + specificity - 1
 
-    # Calculate False Positive Rate (FPR)
-    fpr = false_positives / (false_positives + true_negatives)
-
-    # Calculate False Negative Rate (FNR)
-    fnr = false_negatives / (false_negatives + true_positives)
-
     # Convert metrics to percentages
     sensitivity *= 100
     specificity *= 100
@@ -472,8 +477,6 @@ def get_evaluation_metrics(ground_truth, predictions):
     ppv *= 100
     npv *= 100
     f1_score *= 100
-    fpr *= 100
-    fnr *= 100
     youden_index *= 100
 
     return {
@@ -483,7 +486,100 @@ def get_evaluation_metrics(ground_truth, predictions):
         'PPV': ppv,
         'NPV': npv,
         'F1 Score': f1_score,
-        'Youden Index': youden_index,
-        'False Positive Rate': fpr,
-        'False Negative Rate': fnr,
+        'Youden Index': youden_index
     }
+
+
+def window_data(data, original_sampling_frequency, window_length_seconds):
+    """
+    Window the data into subarrays of the desired epoch length.
+
+    Args:
+        data (numpy.ndarray): 1D numpy array of data.
+        original_sampling_frequency (int): Original sampling frequency of the data.
+        window_length_seconds (float): Desired epoch length in seconds.
+
+    Returns:
+        List of numpy.ndarray: List of subarrays containing data per window.
+    """
+    # Calculate the number of data points per window
+    window_length = int(window_length_seconds * original_sampling_frequency)
+
+    # Calculate the number of windows that can be created
+    num_windows = len(data) // window_length
+
+    # Initialize the list to store the windowed data
+    windowed_data = []
+
+    # Extract data per window and store it in the windowed_data list
+    for i in range(num_windows):
+        start_idx = i * window_length
+        end_idx = start_idx + window_length
+        window_data = data[start_idx:end_idx]
+        windowed_data.append(window_data)
+
+    return windowed_data
+
+
+def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_CT,
+                             metrics_ndh_OT, metrics_dh_OT, metrics_bilateral_OT):
+    """
+    Creates a dictionary with metrics data organized by the combination of vertical and horizontal axes.
+
+    Args:
+        metrics_ndh_CT: Metrics data for ndh and CT.
+        metrics_dh_CT: Metrics data for dh and CT.
+        metrics_bilateral_CT: Metrics data for bilateral and CT.
+        metrics_ndh_OT: Metrics data for ndh and OT.
+        metrics_dh_OT: Metrics data for dh and OT.
+        metrics_bilateral_OT: Metrics data for bilateral and OT.
+
+    Returns:
+        Dictionary with metrics data organized by the combination of vertical and horizontal axes.
+    """
+    data = {
+        ('OT_ndh', 'Sensitivity'): metrics_ndh_OT['Sensitivity'],
+        ('OT_ndh', 'Specificity'): metrics_ndh_OT['Specificity'],
+        ('OT_ndh', 'Accuracy'): metrics_ndh_OT['Accuracy'],
+        ('OT_ndh', 'PPV'): metrics_ndh_OT['PPV'],
+        ('OT_ndh', 'NPV'): metrics_ndh_OT['NPV'],
+        ('OT_ndh', 'F1 Score'): metrics_ndh_OT['F1 Score'],
+        ('OT_ndh', 'Youden Index'): metrics_ndh_OT['Youden Index'],
+        ('OT_dh', 'Sensitivity'): metrics_dh_OT['Sensitivity'],
+        ('OT_dh', 'Specificity'): metrics_dh_OT['Specificity'],
+        ('OT_dh', 'Accuracy'): metrics_dh_OT['Accuracy'],
+        ('OT_dh', 'PPV'): metrics_dh_OT['PPV'],
+        ('OT_dh', 'NPV'): metrics_dh_OT['NPV'],
+        ('OT_dh', 'F1 Score'): metrics_dh_OT['F1 Score'],
+        ('OT_dh', 'Youden Index'): metrics_dh_OT['Youden Index'],
+        ('OT_bilateral', 'Sensitivity'): metrics_bilateral_OT['Sensitivity'],
+        ('OT_bilateral', 'Specificity'): metrics_bilateral_OT['Specificity'],
+        ('OT_bilateral', 'Accuracy'): metrics_bilateral_OT['Accuracy'],
+        ('OT_bilateral', 'PPV'): metrics_bilateral_OT['PPV'],
+        ('OT_bilateral', 'NPV'): metrics_bilateral_OT['NPV'],
+        ('OT_bilateral', 'F1 Score'): metrics_bilateral_OT['F1 Score'],
+        ('OT_bilateral', 'Youden Index'): metrics_bilateral_OT['Youden Index'],
+        ('CT_ndh', 'Sensitivity'): metrics_ndh_CT['Sensitivity'],
+        ('CT_ndh', 'Specificity'): metrics_ndh_CT['Specificity'],
+        ('CT_ndh', 'Accuracy'): metrics_ndh_CT['Accuracy'],
+        ('CT_ndh', 'PPV'): metrics_ndh_CT['PPV'],
+        ('CT_ndh', 'NPV'): metrics_ndh_CT['NPV'],
+        ('CT_ndh', 'F1 Score'): metrics_ndh_CT['F1 Score'],
+        ('CT_ndh', 'Youden Index'): metrics_ndh_CT['Youden Index'],
+        ('CT_dh', 'Sensitivity'): metrics_dh_CT['Sensitivity'],
+        ('CT_dh', 'Specificity'): metrics_dh_CT['Specificity'],
+        ('CT_dh', 'Accuracy'): metrics_dh_CT['Accuracy'],
+        ('CT_dh', 'PPV'): metrics_dh_CT['PPV'],
+        ('CT_dh', 'NPV'): metrics_dh_CT['NPV'],
+        ('CT_dh', 'F1 Score'): metrics_dh_CT['F1 Score'],
+        ('CT_dh', 'Youden Index'): metrics_dh_CT['Youden Index'],
+        ('CT_bilateral', 'Sensitivity'): metrics_bilateral_CT['Sensitivity'],
+        ('CT_bilateral', 'Specificity'): metrics_bilateral_CT['Specificity'],
+        ('CT_bilateral', 'Accuracy'): metrics_bilateral_CT['Accuracy'],
+        ('CT_bilateral', 'PPV'): metrics_bilateral_CT['PPV'],
+        ('CT_bilateral', 'NPV'): metrics_bilateral_CT['NPV'],
+        ('CT_bilateral', 'F1 Score'): metrics_bilateral_CT['F1 Score'],
+        ('CT_bilateral', 'Youden Index'): metrics_bilateral_CT['Youden Index']
+    }
+
+    return data

@@ -10,33 +10,6 @@ from utilities import plot_resampled_arrays
 from utilities  import *
 
 
-def find_specific_csv_files(initial_path, csv_file_names):
-    """
-    Searches for specific CSV files inside folders starting with 'H' within the 'CreateStudy' directory and its subdirectories.
-
-    Args:
-        initial_path (str): The path to the 'CreateStudy' directory.
-        csv_file_names (list): A list of CSV file names to search for.
-
-    Returns:
-        A dictionary containing lists of paths to CSV files for each requested file name.
-    """
-    csv_files_dict = {csv_name: [] for csv_name in csv_file_names}
-
-    # Walk through the directory tree starting from initial_path
-    for root, dirs, files in os.walk(initial_path):
-        for dir_name in dirs:
-            # Check if the folder starts with 'H'
-            if dir_name.startswith('H'):
-                folder_path = os.path.join(root, dir_name)
-                # Find the specific CSV files inside each folder
-                for csv_name in csv_file_names:
-                    csv_file_path = os.path.join(folder_path, csv_name)
-                    if os.path.isfile(csv_file_path):
-                        csv_files_dict[csv_name].append(csv_file_path)
-
-    return csv_files_dict
-
 
 def plot_side_by_side_boxplots(optimal_threshold_ndh, optimal_threshold_dh, threshold, plot_title):
     sns.set(style="whitegrid")

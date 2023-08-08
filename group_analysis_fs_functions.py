@@ -181,61 +181,6 @@ def merge_group_data_gm(data_list, mask=True):
     return group_data
 
 
-def window_data(data, original_sampling_frequency, window_length_seconds):
-    """
-    Window the data into subarrays of the desired epoch length.
-
-    Args:
-        data (numpy.ndarray): 1D numpy array of data.
-        original_sampling_frequency (int): Original sampling frequency of the data.
-        window_length_seconds (float): Desired epoch length in seconds.
-
-    Returns:
-        List of numpy.ndarray: List of subarrays containing data per window.
-    """
-    # Calculate the number of data points per window
-    window_length = int(window_length_seconds * original_sampling_frequency)
-
-    # Calculate the number of windows that can be created
-    num_windows = len(data) // window_length
-
-    # Initialize the list to store the windowed data
-    windowed_data = []
-
-    # Extract data per window and store it in the windowed_data list
-    for i in range(num_windows):
-        start_idx = i * window_length
-        end_idx = start_idx + window_length
-        window_data = data[start_idx:end_idx]
-        windowed_data.append(window_data)
-
-    return windowed_data
 
 
-def compute_GMAC(pitch_mad_50Hz, AC_1Hz, ac_threshold = 0, functional_space = 30):
 
-    # Compute windows of 1 seconds of data for the pitch angles
-    theta_per_epoch = window_data(pitch_mad_50Hz, original_sampling_frequency = 50, window_length_seconds = 1)
-    
-    num_epoch_pitch = len(theta_per_epoch)
-    
-    # Initialize an array to store the mean pitch per epoch
-    theta_mean_per_epoch = np.zeros(num_epoch_pitch)
-    
-    # Iterate over each epoch and compute the mean pitch angle
-    for i in range(num_epoch_pitch):
-        theta_mean_per_epoch[i] = np.mean(theta_per_epoch[i])
-    
-    # Ensure AC and mean pitch per epoch have same size 
-    theta_mean_per_epoch, AC_1Hz = remove_extra_elements(theta_mean_per_epoch, AC_1Hz)
-    
-    # Number of epochs GMAC 
-    num_epoch_gmac = len(theta_mean_per_epoch)
-    
-    # Initialize an array to store GMAC score @ 1Hz
-    GMAC = np.zeros(num_epoch_gmac)
-    
-    for i in range(num_epoch_gmac):
-        if ((np.abs(theta_mean_per_epoch[i]) < functional_space) and (AC_1Hz[i] > ac_threshold)):
-            GMAC[i] = 1
-    return GMAC 

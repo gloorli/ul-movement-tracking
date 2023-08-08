@@ -360,3 +360,32 @@ def plot_gm_scores(gm_scores, frequency=2):
     plt.yticks([0, 1])
     plt.ylim([-0.1, 1.1])
     plt.show()
+
+
+def compute_GMAC(pitch_mad_50Hz, AC_1Hz, ac_threshold = 0, functional_space = 30):
+
+    # Compute windows of 1 seconds of data for the pitch angles
+    theta_per_epoch = window_data(pitch_mad_50Hz, original_sampling_frequency = 50, window_length_seconds = 1)
+    
+    num_epoch_pitch = len(theta_per_epoch)
+    
+    # Initialize an array to store the mean pitch per epoch
+    theta_mean_per_epoch = np.zeros(num_epoch_pitch)
+    
+    # Iterate over each epoch and compute the mean pitch angle
+    for i in range(num_epoch_pitch):
+        theta_mean_per_epoch[i] = np.mean(theta_per_epoch[i])
+    
+    # Ensure AC and mean pitch per epoch have same size 
+    theta_mean_per_epoch, AC_1Hz = remove_extra_elements(theta_mean_per_epoch, AC_1Hz)
+    
+    # Number of epochs GMAC 
+    num_epoch_gmac = len(theta_mean_per_epoch)
+    
+    # Initialize an array to store GMAC score @ 1Hz
+    GMAC = np.zeros(num_epoch_gmac)
+    
+    for i in range(num_epoch_gmac):
+        if ((np.abs(theta_mean_per_epoch[i]) < functional_space) and (AC_1Hz[i] > ac_threshold)):
+            GMAC[i] = 1
+    return GMAC 

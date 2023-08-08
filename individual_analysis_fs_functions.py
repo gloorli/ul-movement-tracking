@@ -60,8 +60,6 @@ def optimal_fs_computation(pitch_mad_50Hz, yaw_mad_50Hz, GT_mask_50Hz, k=5, rand
     npv_scores = []
     f1_scores = []
     youden_index_scores = []
-    fpr_scores = []
-    fnr_scores = []
     
     # Set of angles to test 
     functional_space_array = list(range(5, 91, 2))
@@ -117,8 +115,6 @@ def optimal_fs_computation(pitch_mad_50Hz, yaw_mad_50Hz, GT_mask_50Hz, k=5, rand
         npv_scores.append(eval_metrics['NPV'])
         f1_scores.append(eval_metrics['F1 Score'])
         youden_index_scores.append(eval_metrics['Youden Index'])
-        fpr_scores.append(eval_metrics['False Positive Rate'])
-        fnr_scores.append(eval_metrics['False Negative Rate'])
         
     # Compute the average evaluation metrics across the splits 
     avg_sensitivity = np.mean(sensitivity_scores)
@@ -128,8 +124,6 @@ def optimal_fs_computation(pitch_mad_50Hz, yaw_mad_50Hz, GT_mask_50Hz, k=5, rand
     avg_npv = np.mean(npv_scores)
     avg_f1_score = np.mean(f1_scores)
     avg_youden_index = np.mean(youden_index_scores)
-    avg_fpr = np.mean(fpr_scores)
-    avg_fnr = np.mean(fnr_scores)
 
     # Compute the average optimal fs found across the splits 
     avg_optimal_fs = np.mean(optimal_fs)
@@ -141,9 +135,7 @@ def optimal_fs_computation(pitch_mad_50Hz, yaw_mad_50Hz, GT_mask_50Hz, k=5, rand
         'PPV': avg_ppv,
         'NPV': avg_npv,
         'F1 Score': avg_f1_score,
-        'Youden Index': avg_youden_index,
-        'False Positive Rate': avg_fpr,
-        'False Negative Rate': avg_fnr,
+        'Youden Index': avg_youden_index
     }
 
     return avg_eval_metrics, avg_optimal_fs
@@ -161,8 +153,6 @@ def optimal_fs_computation_bilateral(pitch_mad_ndh, yaw_mad_ndh, GT_mask_50Hz_nd
     npv_scores = []
     f1_scores = []
     youden_index_scores = []
-    fpr_scores = []
-    fnr_scores = []
     
     # Set of angles to test 
     functional_space_array = list(range(5, 91, 2))
@@ -240,8 +230,6 @@ def optimal_fs_computation_bilateral(pitch_mad_ndh, yaw_mad_ndh, GT_mask_50Hz_nd
         npv_scores.append(eval_metrics['NPV'])
         f1_scores.append(eval_metrics['F1 Score'])
         youden_index_scores.append(eval_metrics['Youden Index'])
-        fpr_scores.append(eval_metrics['False Positive Rate'])
-        fnr_scores.append(eval_metrics['False Negative Rate'])
         
     # Compute the average evaluation metrics across the splits 
     avg_sensitivity = np.mean(sensitivity_scores)
@@ -251,8 +239,6 @@ def optimal_fs_computation_bilateral(pitch_mad_ndh, yaw_mad_ndh, GT_mask_50Hz_nd
     avg_npv = np.mean(npv_scores)
     avg_f1_score = np.mean(f1_scores)
     avg_youden_index = np.mean(youden_index_scores)
-    avg_fpr = np.mean(fpr_scores)
-    avg_fnr = np.mean(fnr_scores)
     
     avg_eval_metrics = {
         'Sensitivity': avg_sensitivity,
@@ -261,9 +247,49 @@ def optimal_fs_computation_bilateral(pitch_mad_ndh, yaw_mad_ndh, GT_mask_50Hz_nd
         'PPV': avg_ppv,
         'NPV': avg_npv,
         'F1 Score': avg_f1_score,
-        'Youden Index': avg_youden_index,
-        'False Positive Rate': avg_fpr,
-        'False Negative Rate': avg_fnr,
+        'Youden Index': avg_youden_index
     }
 
     return avg_eval_metrics
+
+
+def save_gm_arrays_as_csv(pitch_mad_ndh, yaw_mad_ndh, pitch_mad_dh, yaw_mad_dh, GT_mask_50Hz_ndh, GT_mask_50Hz_dh, folder):
+    """
+    Save six arrays as CSV file with headers.
+
+    Args:
+        pitch_mad_ndh (numpy.ndarray): NumPy array containing pitch_mad values for the left bronchus.
+        yaw_mad_ndh (numpy.ndarray): NumPy array containing yaw_mad values for the left bronchus.
+        pitch_mad_dh (numpy.ndarray): NumPy array containing pitch_mad values for the right bronchus.
+        yaw_mad_dh (numpy.ndarray): NumPy array containing yaw_mad values for the right bronchus.
+        GT_mask_50Hz_ndh (numpy.ndarray): NumPy array containing GT_mask_50Hz values for the left bronchus.
+        GT_mask_50Hz_dh (numpy.ndarray): NumPy array containing GT_mask_50Hz values for the right bronchus.
+        folder (str): Folder path to save the CSV file.
+
+    Returns:
+        None.
+    """
+    # Convert the arrays to DataFrames with appropriate headers
+    ndh_df = pd.DataFrame({'Pitch MAD NDH': pitch_mad_ndh, 'Yaw MAD NDH': yaw_mad_ndh, 'GT Mask 50Hz NDH': GT_mask_50Hz_ndh})
+    dh_df = pd.DataFrame({'Pitch MAD DH': pitch_mad_dh, 'Yaw MAD DH': yaw_mad_dh, 'GT Mask 50Hz DH': GT_mask_50Hz_dh})
+
+    # Specify the output CSV file name
+    output_filename = 'gm_datasets.csv'
+
+    # Construct the full file path for the output CSV file
+    output_path = os.path.join(folder, output_filename)
+
+    # Ensure the folder exists, otherwise raise an error
+    if not os.path.exists(folder):
+        raise ValueError(f"The folder '{folder}' does not exist.")
+
+    # Save the arrays as a single CSV file
+    combined_df = pd.concat([ndh_df, dh_df], axis=1)
+    combined_df.to_csv(output_path, index=False)
+
+    # Print the path where the CSV file was saved
+    if os.path.exists(output_path):
+        print(f"CSV file saved successfully.")
+        print(f"CSV saved at: {output_path}")
+    else:
+        print(f"Failed to save CSV file.")

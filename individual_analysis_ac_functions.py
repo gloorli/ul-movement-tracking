@@ -347,89 +347,13 @@ def get_prediction_bilateral(AC_ndh, threshold_ndh, AC_dh, threshold_dh):
         Numpy array of bilateral predictions (0s and 1s).
     """
     # Generate predictions for left and right sides
-    ndh_pred = get_prediction(AC_ndh, threshold_ndh)
-    dh_pred = get_prediction(AC_dh, threshold_dh)
+    ndh_pred = get_prediction_ac(AC_ndh, threshold_ndh)
+    dh_pred = get_prediction_ac(AC_dh, threshold_dh)
 
     # Apply AND logic between the two arrays ndh_pred and dh_pred
     pred_bilateral = np.logical_and(ndh_pred, dh_pred)
 
     return pred_bilateral
-
-
-def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_CT,
-                             metrics_ndh_OT, metrics_dh_OT, metrics_bilateral_OT):
-    """
-    Creates a dictionary with metrics data organized by the combination of vertical and horizontal axes.
-
-    Args:
-        metrics_ndh_CT: Metrics data for ndh and CT.
-        metrics_dh_CT: Metrics data for dh and CT.
-        metrics_bilateral_CT: Metrics data for bilateral and CT.
-        metrics_ndh_OT: Metrics data for ndh and OT.
-        metrics_dh_OT: Metrics data for dh and OT.
-        metrics_bilateral_OT: Metrics data for bilateral and OT.
-
-    Returns:
-        Dictionary with metrics data organized by the combination of vertical and horizontal axes.
-    """
-    data = {
-        ('OT_ndh', 'Sensitivity'): metrics_ndh_OT['Sensitivity'],
-        ('OT_ndh', 'Specificity'): metrics_ndh_OT['Specificity'],
-        ('OT_ndh', 'Accuracy'): metrics_ndh_OT['Accuracy'],
-        ('OT_ndh', 'PPV'): metrics_ndh_OT['PPV'],
-        ('OT_ndh', 'NPV'): metrics_ndh_OT['NPV'],
-        ('OT_ndh', 'F1 Score'): metrics_ndh_OT['F1 Score'],
-        ('OT_ndh', 'Youden Index'): metrics_ndh_OT['Youden Index'],
-        ('OT_ndh', 'False Positive Rate'): metrics_ndh_OT['False Positive Rate'],
-        ('OT_ndh', 'False Negative Rate'): metrics_ndh_OT['False Negative Rate'],
-        ('OT_dh', 'Sensitivity'): metrics_dh_OT['Sensitivity'],
-        ('OT_dh', 'Specificity'): metrics_dh_OT['Specificity'],
-        ('OT_dh', 'Accuracy'): metrics_dh_OT['Accuracy'],
-        ('OT_dh', 'PPV'): metrics_dh_OT['PPV'],
-        ('OT_dh', 'NPV'): metrics_dh_OT['NPV'],
-        ('OT_dh', 'F1 Score'): metrics_dh_OT['F1 Score'],
-        ('OT_dh', 'Youden Index'): metrics_dh_OT['Youden Index'],
-        ('OT_dh', 'False Positive Rate'): metrics_dh_OT['False Positive Rate'],
-        ('OT_dh', 'False Negative Rate'): metrics_dh_OT['False Negative Rate'],
-        ('OT_bilateral', 'Sensitivity'): metrics_bilateral_OT['Sensitivity'],
-        ('OT_bilateral', 'Specificity'): metrics_bilateral_OT['Specificity'],
-        ('OT_bilateral', 'Accuracy'): metrics_bilateral_OT['Accuracy'],
-        ('OT_bilateral', 'PPV'): metrics_bilateral_OT['PPV'],
-        ('OT_bilateral', 'NPV'): metrics_bilateral_OT['NPV'],
-        ('OT_bilateral', 'F1 Score'): metrics_bilateral_OT['F1 Score'],
-        ('OT_bilateral', 'Youden Index'): metrics_bilateral_OT['Youden Index'],
-        ('OT_bilateral', 'False Positive Rate'): metrics_bilateral_OT['False Positive Rate'],
-        ('OT_bilateral', 'False Negative Rate'): metrics_bilateral_OT['False Negative Rate'],
-        ('CT_ndh', 'Sensitivity'): metrics_ndh_CT['Sensitivity'],
-        ('CT_ndh', 'Specificity'): metrics_ndh_CT['Specificity'],
-        ('CT_ndh', 'Accuracy'): metrics_ndh_CT['Accuracy'],
-        ('CT_ndh', 'PPV'): metrics_ndh_CT['PPV'],
-        ('CT_ndh', 'NPV'): metrics_ndh_CT['NPV'],
-        ('CT_ndh', 'F1 Score'): metrics_ndh_CT['F1 Score'],
-        ('CT_ndh', 'Youden Index'): metrics_ndh_CT['Youden Index'],
-        ('CT_ndh', 'False Positive Rate'): metrics_ndh_CT['False Positive Rate'],
-        ('CT_ndh', 'False Negative Rate'): metrics_ndh_CT['False Negative Rate'],
-        ('CT_dh', 'Sensitivity'): metrics_dh_CT['Sensitivity'],
-        ('CT_dh', 'Specificity'): metrics_dh_CT['Specificity'],
-        ('CT_dh', 'Accuracy'): metrics_dh_CT['Accuracy'],
-        ('CT_dh', 'PPV'): metrics_dh_CT['PPV'],
-        ('CT_dh', 'NPV'): metrics_dh_CT['NPV'],
-        ('CT_dh', 'F1 Score'): metrics_dh_CT['F1 Score'],
-        ('CT_dh', 'Youden Index'): metrics_dh_CT['Youden Index'],
-        ('CT_dh', 'False Positive Rate'): metrics_dh_CT['False Positive Rate'],
-        ('CT_dh', 'False Negative Rate'): metrics_dh_CT['False Negative Rate'],
-        ('CT_bilateral', 'Sensitivity'): metrics_bilateral_CT['Sensitivity'],
-        ('CT_bilateral', 'Specificity'): metrics_bilateral_CT['Specificity'],
-        ('CT_bilateral', 'Accuracy'): metrics_bilateral_CT['Accuracy'],
-        ('CT_bilateral', 'PPV'): metrics_bilateral_CT['PPV'],
-        ('CT_bilateral', 'NPV'): metrics_bilateral_CT['NPV'],
-        ('CT_bilateral', 'F1 Score'): metrics_bilateral_CT['F1 Score'],
-        ('CT_bilateral', 'Youden Index'): metrics_bilateral_CT['Youden Index'],
-        ('CT_bilateral', 'False Positive Rate'): metrics_bilateral_CT['False Positive Rate'],
-        ('CT_bilateral', 'False Negative Rate'): metrics_bilateral_CT['False Negative Rate'],
-    }
-
-    return data
 
 
 def remove_wbm_data(mask_array, metric_array):
@@ -629,7 +553,7 @@ def plot_similarity_metrics(similarity_metrics):
     plt.show()
 
 
-def get_prediction(data, threshold):
+def get_prediction_ac(data, threshold):
     """
     Computes the prediction array of 0s and 1s based on a threshold.
 
@@ -648,7 +572,6 @@ def get_prediction(data, threshold):
 
     return predictions
 
-
 def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
     conventional_threshold_unilateral = 2
     kf = KFold(n_splits=k, shuffle=True, random_state=random_state)
@@ -660,9 +583,10 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
     npv_scores = []
     f1_scores = []
     youden_index_scores = []
-    fpr_scores = []
-    fnr_scores = []
     optimal_thresholds = []  
+
+    # Ensure datasets have the same size 
+    X, y = remove_extra_elements(X, y)
 
     for idx, (train_index, test_index) in enumerate(kf.split(X), 1):
         print(f"Iteration {idx}/{k}")
@@ -677,7 +601,7 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
             optimal_threshold = conventional_threshold_unilateral
             print('Using conventional threshold')
         # Use the optimal threshold to get predictions by dichotomizing X_eval 
-        pred_opt_threshold = get_prediction(X_eval, optimal_threshold)
+        pred_opt_threshold = get_prediction_ac(X_eval, optimal_threshold)
 
         # Compute evaluation metrics for this iteration comparing the predictions and the y_eval_ndh  
         eval_metrics = get_evaluation_metrics(y_eval, pred_opt_threshold)
@@ -690,8 +614,6 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
         npv_scores.append(eval_metrics['NPV'])
         f1_scores.append(eval_metrics['F1 Score'])
         youden_index_scores.append(eval_metrics['Youden Index'])
-        fpr_scores.append(eval_metrics['False Positive Rate'])
-        fnr_scores.append(eval_metrics['False Negative Rate'])
 
         # Store the optimal threshold for this iteration
         optimal_thresholds.append(optimal_threshold)
@@ -704,8 +626,6 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
     avg_npv = np.mean(npv_scores)
     avg_f1_score = np.mean(f1_scores)
     avg_youden_index = np.mean(youden_index_scores)
-    avg_fpr = np.mean(fpr_scores)
-    avg_fnr = np.mean(fnr_scores)
     
     avg_eval_metrics = {
         'Sensitivity': avg_sensitivity,
@@ -714,9 +634,7 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
         'PPV': avg_ppv,
         'NPV': avg_npv,
         'F1 Score': avg_f1_score,
-        'Youden Index': avg_youden_index,
-        'False Positive Rate': avg_fpr,
-        'False Negative Rate': avg_fnr,
+        'Youden Index': avg_youden_index
     }
 
     # Compute the average optimal threshold over all iterations
@@ -739,9 +657,11 @@ def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_nd
     npv_scores = []
     f1_scores = []
     youden_index_scores = []
-    fpr_scores = []
-    fnr_scores = []
-    
+
+    # Ensure datasets have the same size 
+    X_ndh, y_ndh = remove_extra_elements(X_ndh, y_ndh)
+    X_dh, y_dh = remove_extra_elements(X_dh, y_dh)
+
     # Split ndh and dh datasets separately 
     for idx, (train_index, test_index) in enumerate(kf.split(X_ndh), 1):
         print(f"Iteration {idx}/{k}")
@@ -775,8 +695,6 @@ def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_nd
         npv_scores.append(eval_metrics['NPV'])
         f1_scores.append(eval_metrics['F1 Score'])
         youden_index_scores.append(eval_metrics['Youden Index'])
-        fpr_scores.append(eval_metrics['False Positive Rate'])
-        fnr_scores.append(eval_metrics['False Negative Rate'])
 
     # Compute the average evaluation metrics across the splits 
     avg_sensitivity = np.mean(sensitivity_scores)
@@ -786,8 +704,6 @@ def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_nd
     avg_npv = np.mean(npv_scores)
     avg_f1_score = np.mean(f1_scores)
     avg_youden_index = np.mean(youden_index_scores)
-    avg_fpr = np.mean(fpr_scores)
-    avg_fnr = np.mean(fnr_scores)
     
     avg_eval_metrics = {
         'Sensitivity': avg_sensitivity,
@@ -796,10 +712,7 @@ def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_nd
         'PPV': avg_ppv,
         'NPV': avg_npv,
         'F1 Score': avg_f1_score,
-        'Youden Index': avg_youden_index,
-        'False Positive Rate': avg_fpr,
-        'False Negative Rate': avg_fnr,
-        'False Negative Rate': avg_fnr
+        'Youden Index': avg_youden_index
     }
 
     return avg_eval_metrics
