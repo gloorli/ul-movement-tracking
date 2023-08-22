@@ -583,3 +583,188 @@ def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_C
     }
 
     return data
+
+
+def extract_age(csv_file_path):
+    """
+    Extracts and returns the ages of participants from a CSV file, categorized by 'H' and 'S'.
+
+    Args:
+        csv_file_path (str): Path to the CSV file containing participant IDs and ages.
+
+    Returns:
+        A dictionary with 'H' and 'S' as keys, and corresponding NumPy arrays of ages as values.
+    """
+    age_data = {'H': [], 'S': []}
+
+    # Load CSV file into a DataFrame
+    df = pd.read_csv(csv_file_path)
+
+    for index, row in df.iterrows():
+        participant_id = row['participant_id']
+        age = row['age']
+
+        if participant_id.startswith('H'):
+            age_data['H'].append(age)
+        elif participant_id.startswith('S'):
+            age_data['S'].append(age)
+
+    # Convert lists to NumPy arrays
+    age_data['H'] = np.array(age_data['H'])
+    age_data['S'] = np.array(age_data['S'])
+
+    return age_data
+
+
+def side_by_side_box_plot(data1, data2, labels=None, x_axis_labels=None):
+    """
+    Plots two arrays as side-by-side vertical box plots on the same plot.
+
+    Args:
+        data1 (numpy.ndarray): First array of data.
+        data2 (numpy.ndarray): Second array of data.
+        labels (list, optional): Labels for the two box plots.
+        x_axis_labels (list, optional): Labels for the x-axis.
+
+    Returns:
+        None
+    """
+    plt.figure(figsize=(10, 6))  # Adjust the figure size as needed
+
+    box_plot_data = [data1, data2]
+    box_plot = plt.boxplot(box_plot_data, vert=True, patch_artist=True, labels=labels)
+
+    if x_axis_labels:
+        plt.xticks(range(1, len(x_axis_labels) + 1), x_axis_labels)
+
+    plt.ylabel("Age")
+    plt.title("Age Distribution Comparison between Healthy and Stroke groups")
+    plt.grid(True)
+    plt.show()
+
+
+def load_data_from_csv(folder, data_type):
+    """
+    Load AC values, mask values, or GM arrays from CSV files.
+
+    Args:
+        folder (str): Folder path containing the CSV files.
+        data_type (str): Flag to indicate whether to load 'AC', 'mask', or 'GM' data.
+
+    Returns:
+        Data loaded from CSV files.
+    """
+    if data_type == 'AC':
+        ndh_output_filename = 'count_brond_ndh.csv'
+        dh_output_filename = 'count_brond_dh.csv'
+        column_name = 'AC Brond'
+    elif data_type == 'mask':
+        ndh_output_filename = 'GT_mask_ndh_1Hz.csv'
+        dh_output_filename = 'GT_mask_dh_1Hz.csv'
+        column_name = 'mask'
+    elif data_type == 'GM':
+        gm_output_filename = 'gm_datasets.csv'
+        gm_output_path = os.path.join(folder, gm_output_filename)
+        if not os.path.exists(gm_output_path):
+            raise ValueError("GM CSV file not found in the specified folder.")
+        gm_df = pd.read_csv(gm_output_path)
+        pitch_mad_ndh = gm_df['Pitch MAD NDH'].to_numpy()
+        yaw_mad_ndh = gm_df['Yaw MAD NDH'].to_numpy()
+        pitch_mad_dh = gm_df['Pitch MAD DH'].to_numpy()
+        yaw_mad_dh = gm_df['Yaw MAD DH'].to_numpy()
+        GT_mask_50Hz_ndh = gm_df['GT Mask 50Hz NDH'].to_numpy()
+        GT_mask_50Hz_dh = gm_df['GT Mask 50Hz DH'].to_numpy()
+        return pitch_mad_ndh, yaw_mad_ndh, pitch_mad_dh, yaw_mad_dh, GT_mask_50Hz_ndh, GT_mask_50Hz_dh
+    else:
+        raise ValueError("Invalid data_type. Should be one of 'AC', 'mask', or 'GM'.")
+
+    ndh_output_path = os.path.join(folder, ndh_output_filename)
+    dh_output_path = os.path.join(folder, dh_output_filename)
+
+    if not os.path.exists(ndh_output_path) or not os.path.exists(dh_output_path):
+        raise ValueError(f"{data_type} CSV files not found in the specified folder.")
+
+    if data_type == 'AC':
+        count_brond_ndh = pd.read_csv(ndh_output_path)[column_name].to_numpy()
+        count_brond_dh = pd.read_csv(dh_output_path)[column_name].to_numpy()
+        return count_brond_ndh, count_brond_dh
+    elif data_type == 'mask':
+        GT_mask_ndh_1Hz = pd.read_csv(ndh_output_path)[column_name]
+        GT_mask_dh_1Hz = pd.read_csv(dh_output_path)[column_name]
+        return np.array(GT_mask_ndh_1Hz), np.array(GT_mask_dh_1Hz)
+
+    
+def load_testing_data(testing_participant_path):
+    """
+    Load various data arrays for testing.
+
+    Args:
+        testing_participant_path (str): Path to the participant's data folder.
+
+    Returns:
+        Tuple of NumPy arrays containing testing data.
+    """
+    # Load AC and GT @ 1 Hz
+    testing_count_brond_ndh, testing_count_brond_dh = load_data_from_csv(testing_participant_path, data_type='AC')
+    testing_GT_mask_ndh_1Hz, testing_GT_mask_dh_1Hz = load_data_from_csv(testing_participant_path, data_type='mask')
+    testing_GT_mask_bil_1Hz = get_mask_bilateral(testing_GT_mask_ndh_1Hz, testing_GT_mask_dh_1Hz)
+
+    # Load angles and GT @ 50 Hz
+    testing_pitch_mad_ndh, testing_yaw_mad_ndh, testing_pitch_mad_dh, testing_yaw_mad_dh, testing_GT_mask_50Hz_ndh, testing_GT_mask_50Hz_dh = load_data_from_csv(testing_participant_path, data_type='GM')
+    testing_GT_mask_bil_50Hz = get_mask_bilateral(testing_GT_mask_50Hz_ndh, testing_GT_mask_50Hz_dh)
+
+    return (testing_count_brond_ndh, testing_count_brond_dh,
+            testing_GT_mask_ndh_1Hz, testing_GT_mask_dh_1Hz, testing_GT_mask_bil_1Hz,
+            testing_pitch_mad_ndh, testing_yaw_mad_ndh, testing_pitch_mad_dh, testing_yaw_mad_dh,
+            testing_GT_mask_50Hz_ndh, testing_GT_mask_50Hz_dh, testing_GT_mask_bil_50Hz)
+
+
+def find_specific_csv_files(initial_path, csv_file_names, participant_group, testing_participant=None):
+    """
+    Searches for specific CSV files inside folders starting with 'H' or 'S' within the 'CreateStudy' directory and its subdirectories.
+
+    Args:
+        initial_path (str): The path to the 'CreateStudy' directory.
+        csv_file_names (list): A list of CSV file names to search for.
+        participant_group (str): The participant group to search for ('H' for healthy, 'S' for stroke).
+        testing_participant (str, optional): The participant ID to exclude from the analysis.
+
+    Returns:
+        A dictionary containing lists of paths to CSV files for each requested file name.
+    """
+    csv_files_dict = {csv_name: [] for csv_name in csv_file_names}
+
+    # Walk through the directory tree starting from initial_path
+    for root, dirs, files in os.walk(initial_path):
+        for dir_name in dirs:
+            # Check if the folder starts with participant_group
+            if dir_name.startswith(participant_group):
+                if testing_participant is None or dir_name != testing_participant:  # Exclude the testing participant if provided
+                    folder_path = os.path.join(root, dir_name)
+                    # Find the specific CSV files inside each folder
+                    for csv_name in csv_file_names:
+                        csv_file_path = os.path.join(folder_path, csv_name)
+                        if os.path.isfile(csv_file_path):
+                            csv_files_dict[csv_name].append(csv_file_path)
+
+    return csv_files_dict
+
+
+def get_mask_bilateral(GT_mask_ndh, GT_mask_dh):
+    """
+    Creates a bilateral mask by performing element-wise logical AND operation on the given left and dh masks.
+    
+    Args:
+        GT_mask_ndh (ndarray): Array representing the ground truth ndh mask.
+        GT_mask_dh (ndarray): Array representing the ground truth dh mask.
+        
+    Returns:
+        ndarray: Bilateral mask where the value is 1 if and only if GT_mask_ndh AND GT_mask_dh row is 1; othedhise, it's 0.
+    """
+    # Check if the input arrays have the same shape
+    assert GT_mask_ndh.shape == GT_mask_dh.shape, "The input arrays must have the same shape."
+    
+    # Perform element-wise logical AND operation on the masks
+    mask_bilateral = np.logical_and(GT_mask_ndh, GT_mask_dh).astype(int)
+    
+    return mask_bilateral

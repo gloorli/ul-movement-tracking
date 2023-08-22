@@ -13,7 +13,7 @@ from utilities import *
 from sklearn.model_selection import KFold
 
 
-def get_data(folder, dominant_hand = 'Right'):
+def get_data(folder, dominant_hand):
     # Load IMU data
     LW_data_filename = 'trimmed_LW_data.csv'
     chest_data_filename = 'trimmed_chest_data.csv'
@@ -243,26 +243,6 @@ def plot_density(BM, ratio):
     cbar.set_ticks(np.linspace(0, max_duration, 5, dtype=int))
     
     plt.show()
-
-
-def get_mask_bilateral(GT_mask_ndh, GT_mask_dh):
-    """
-    Creates a bilateral mask by performing element-wise logical AND operation on the given left and dh masks.
-    
-    Args:
-        GT_mask_ndh (ndarray): Array representing the ground truth ndh mask.
-        GT_mask_dh (ndarray): Array representing the ground truth dh mask.
-        
-    Returns:
-        ndarray: Bilateral mask where the value is 1 if and only if GT_mask_ndh AND GT_mask_dh row is 1; othedhise, it's 0.
-    """
-    # Check if the input arrays have the same shape
-    assert GT_mask_ndh.shape == GT_mask_dh.shape, "The input arrays must have the same shape."
-    
-    # Perform element-wise logical AND operation on the masks
-    mask_bilateral = np.logical_and(GT_mask_ndh, GT_mask_dh).astype(int)
-    
-    return mask_bilateral
 
 
 def save_evaluation_metrics_to_csv(df, folder_name):
@@ -776,3 +756,44 @@ def find_optimal_threshold(ground_truth, activity_counts):
         print("AUC is not clinically useful (<0.75)")
 
     return optimal_threshold
+
+
+def load_optimal_threshold(file_path, AC=True):
+    # Create the file path based on the AC flag
+    if AC: 
+        file_path = os.path.join(file_path, 'optimal_threshold_AC.csv')
+    else: 
+        file_path = os.path.join(file_path, 'optimal_threshold_GM.csv')
+
+    try:
+        # Initialize variables to store the thresholds
+        ndh_threshold = None
+        dh_threshold = None
+
+        # Open the file in read mode
+        with open(file_path, 'r', newline='') as csvfile:
+            # Create a CSV reader
+            csv_reader = csv.reader(csvfile)
+
+            # Skip the header row
+            next(csv_reader)
+
+            # Read the rows and extract the thresholds
+            for row in csv_reader:
+                side, threshold = row
+                if side == 'ndh':
+                    ndh_threshold = float(threshold)
+                elif side == 'dh':
+                    dh_threshold = float(threshold)
+
+        print(f"Thresholds loaded successfully from: {file_path}")
+        return ndh_threshold, dh_threshold
+
+    except IOError as e:
+        print(f"An error occurred while loading the thresholds: {e}")
+        return None, None
+
+
+
+
+

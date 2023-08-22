@@ -10,31 +10,6 @@ from utilities import plot_resampled_arrays
 from utilities  import *
 
 
-
-def plot_side_by_side_boxplots(optimal_threshold_ndh, optimal_threshold_dh, threshold, plot_title):
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(10, 6))
-
-    # Colors for 'ndh' and 'dh' sides
-    ndh_color = 'skyblue'
-    dh_color = 'lightgreen'
-
-    # Box plot for ndh side
-    plt.boxplot(optimal_threshold_ndh, positions=[1], labels=['ndh'], patch_artist=True, boxprops=dict(facecolor=ndh_color))
-    # Box plot for dh side
-    plt.boxplot(optimal_threshold_dh, positions=[2], labels=['dh'], patch_artist=True, boxprops=dict(facecolor=dh_color))
-
-    # Add the threshold line
-    plt.axhline(y=threshold, color='red', linestyle='--', label=f'Conventional threshold = {threshold}')
-
-    plt.title(plot_title)
-    plt.xlabel('Side')
-    plt.ylabel('Optimal Threshold')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-
 def regroup_field_data_metrics(csv_files):
     """
     Regroups the data from multiple participants into arrays per field cross participants.

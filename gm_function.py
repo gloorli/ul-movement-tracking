@@ -165,10 +165,15 @@ def compute_euler_angles(acc, gyro, fs, quat=None, mag=None, mahony=False):
     if imu_madgwick or sensor:
         yaw = detrend_angle(yaw)
     
-    # Inverse sign 
+     # Inverse sign 
     roll = -1 * roll
     pitch = -1 * pitch
-    yaw = -1 * yaw
+    
+    # Ensure yaw is within -180 to +180 degrees
+    yaw = (yaw + 180) % 360 - 180
+    
+    # Ensure pitch is within -90 to +90 degrees
+    pitch = (pitch + 90) % 180 - 90
 
     return roll, pitch, yaw
 
