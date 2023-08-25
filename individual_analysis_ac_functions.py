@@ -743,9 +743,9 @@ def find_optimal_threshold(ground_truth, activity_counts):
 
     # Retrieve the optimal threshold
     optimal_threshold = thresholds[optimal_threshold_index]
-    
+   
     # Print the optimal threshold, conventional threshold, and AUC
-    print(f"AUC: {auc:.2f}")
+    print(f"AUC: {auc}")
     print(f"Optimal Threshold: {optimal_threshold:.2f}")
     print(f"Conventional Threshold: {conventional_threshold_unilateral:.2f}")
 
@@ -755,6 +755,7 @@ def find_optimal_threshold(ground_truth, activity_counts):
     else:
         print("AUC is not clinically useful (<0.75)")
 
+    optimal_threshold = round(optimal_threshold, 2)
     return optimal_threshold
 
 

@@ -93,13 +93,18 @@ def get_all_video_path_participant(folder, side, number_videos):
     return [video_paths_LW, video_paths_RW]
 
 
-def get_all_video_path_participant_labelbox(participant_path, side, number_videos):
-    video_paths_participant = get_all_video_path_participant(participant_path, side, number_videos)
-    video_paths_labelbox = []
-    for video_paths in video_paths_participant:
-        video_paths_labelbox.append([os.path.basename(video_path) for video_path in video_paths])
-
-    return video_paths_labelbox
+def get_all_video_path_participant_labelbox(participant_id, number_videos): 
+    videos_paths_LW = []
+    videos_paths_RW = []
+    
+    for i in range(1, number_videos + 1): 
+        video_path_LW = participant_id + '_LW_' + str(i) + '.mp4'
+        video_path_RW = participant_id + '_RW_' + str(i) + '.mp4'
+        
+        videos_paths_LW.append(video_path_LW)
+        videos_paths_RW.append(video_path_RW)
+    
+    return videos_paths_LW, videos_paths_RW
 
 
 def save_masks_as_csv(GT_mask_LW, GT_mask_RW, folder):
