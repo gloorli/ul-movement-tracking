@@ -1,26 +1,22 @@
-import pandas as pd
-import csv
 import numpy as np
-from datetime import datetime
-from matplotlib.colors import ListedColormap
+import matplotlib.pyplot as plt
+from scipy.stats import spearmanr
+from scipy.signal import butter, filtfilt, find_peaks, resample, savgol_filter, freqz, lfilter
+from mpl_toolkits.mplot3d import Axes3D
+from scipy.spatial.transform import Rotation
+from scipy.interpolate import CubicSpline, interp1d
+from scipy.stats import circmean
+from scipy.ndimage import zoom
 from ahrs.filters import Mahony, Madgwick
 from ahrs.common import orientation
+import pandas as pd
+import csv
+from datetime import datetime
+from matplotlib.colors import ListedColormap
 import os
-from scipy import signal
-from scipy.signal import butter, filtfilt, find_peaks
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from scipy.signal import resample
+import signal
 import math
-from scipy.signal import savgol_filter, freqz, lfilter
-from scipy import interpolate
-from scipy.spatial.transform import Rotation
-from scipy.stats import circmean
-from scipy.interpolate import CubicSpline
-from math import nan
 import inspect
-from scipy.ndimage import zoom
-from scipy.interpolate import interp1d
 
 
 def get_statistics(data):
@@ -464,20 +460,12 @@ def get_evaluation_metrics(ground_truth, predictions):
     negative_predictions = np.sum(predictions == 0)
     npv = true_negatives / negative_predictions if negative_predictions != 0 else 0
 
-    # Calculate F1 Score
-    f1_score = 2 * (ppv * sensitivity) / (ppv + sensitivity) if (ppv + sensitivity) != 0 else 0
-
-    # Calculate Youden Index
-    youden_index = sensitivity + specificity - 1
-
     # Convert metrics to percentages
     sensitivity *= 100
     specificity *= 100
     accuracy *= 100
     ppv *= 100
     npv *= 100
-    f1_score *= 100
-    youden_index *= 100
 
     return {
         'Sensitivity': sensitivity,
@@ -485,8 +473,6 @@ def get_evaluation_metrics(ground_truth, predictions):
         'Accuracy': accuracy,
         'PPV': ppv,
         'NPV': npv,
-        'F1 Score': f1_score,
-        'Youden Index': youden_index
     }
 
 
@@ -543,43 +529,31 @@ def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_C
         ('OT_ndh', 'Accuracy'): metrics_ndh_OT['Accuracy'],
         ('OT_ndh', 'PPV'): metrics_ndh_OT['PPV'],
         ('OT_ndh', 'NPV'): metrics_ndh_OT['NPV'],
-        ('OT_ndh', 'F1 Score'): metrics_ndh_OT['F1 Score'],
-        ('OT_ndh', 'Youden Index'): metrics_ndh_OT['Youden Index'],
         ('OT_dh', 'Sensitivity'): metrics_dh_OT['Sensitivity'],
         ('OT_dh', 'Specificity'): metrics_dh_OT['Specificity'],
         ('OT_dh', 'Accuracy'): metrics_dh_OT['Accuracy'],
         ('OT_dh', 'PPV'): metrics_dh_OT['PPV'],
         ('OT_dh', 'NPV'): metrics_dh_OT['NPV'],
-        ('OT_dh', 'F1 Score'): metrics_dh_OT['F1 Score'],
-        ('OT_dh', 'Youden Index'): metrics_dh_OT['Youden Index'],
         ('OT_bilateral', 'Sensitivity'): metrics_bilateral_OT['Sensitivity'],
         ('OT_bilateral', 'Specificity'): metrics_bilateral_OT['Specificity'],
         ('OT_bilateral', 'Accuracy'): metrics_bilateral_OT['Accuracy'],
         ('OT_bilateral', 'PPV'): metrics_bilateral_OT['PPV'],
         ('OT_bilateral', 'NPV'): metrics_bilateral_OT['NPV'],
-        ('OT_bilateral', 'F1 Score'): metrics_bilateral_OT['F1 Score'],
-        ('OT_bilateral', 'Youden Index'): metrics_bilateral_OT['Youden Index'],
         ('CT_ndh', 'Sensitivity'): metrics_ndh_CT['Sensitivity'],
         ('CT_ndh', 'Specificity'): metrics_ndh_CT['Specificity'],
         ('CT_ndh', 'Accuracy'): metrics_ndh_CT['Accuracy'],
         ('CT_ndh', 'PPV'): metrics_ndh_CT['PPV'],
         ('CT_ndh', 'NPV'): metrics_ndh_CT['NPV'],
-        ('CT_ndh', 'F1 Score'): metrics_ndh_CT['F1 Score'],
-        ('CT_ndh', 'Youden Index'): metrics_ndh_CT['Youden Index'],
         ('CT_dh', 'Sensitivity'): metrics_dh_CT['Sensitivity'],
         ('CT_dh', 'Specificity'): metrics_dh_CT['Specificity'],
         ('CT_dh', 'Accuracy'): metrics_dh_CT['Accuracy'],
         ('CT_dh', 'PPV'): metrics_dh_CT['PPV'],
         ('CT_dh', 'NPV'): metrics_dh_CT['NPV'],
-        ('CT_dh', 'F1 Score'): metrics_dh_CT['F1 Score'],
-        ('CT_dh', 'Youden Index'): metrics_dh_CT['Youden Index'],
         ('CT_bilateral', 'Sensitivity'): metrics_bilateral_CT['Sensitivity'],
         ('CT_bilateral', 'Specificity'): metrics_bilateral_CT['Specificity'],
         ('CT_bilateral', 'Accuracy'): metrics_bilateral_CT['Accuracy'],
         ('CT_bilateral', 'PPV'): metrics_bilateral_CT['PPV'],
-        ('CT_bilateral', 'NPV'): metrics_bilateral_CT['NPV'],
-        ('CT_bilateral', 'F1 Score'): metrics_bilateral_CT['F1 Score'],
-        ('CT_bilateral', 'Youden Index'): metrics_bilateral_CT['Youden Index']
+        ('CT_bilateral', 'NPV'): metrics_bilateral_CT['NPV']
     }
 
     return data
@@ -768,3 +742,71 @@ def get_mask_bilateral(GT_mask_ndh, GT_mask_dh):
     mask_bilateral = np.logical_and(GT_mask_ndh, GT_mask_dh).astype(int)
     
     return mask_bilateral
+
+
+def extract_data_screening_participant(csv_file_path):
+    """
+    Extracts and returns participant data from a CSV file, categorized by 'H' (healthy) and 'S' (stroke).
+
+    Args:
+        csv_file_path (str): Path to the CSV file containing participant data.
+
+    Returns:
+        A dictionary with 'H' and 'S' as keys, each containing nested dictionaries with field names as keys
+        and corresponding NumPy arrays of data as values.
+    """
+    fields = ['participant_id', 'age', 'dominant_hand', 'affected_hand', 'ARAT_score']
+    data = {'H': {field: [] for field in fields}, 'S': {field: [] for field in fields}}
+
+    # Load CSV file into a DataFrame
+    df = pd.read_csv(csv_file_path)
+
+    for index, row in df.iterrows():
+        participant_id = row['participant_id']
+        category = participant_id[0]
+        
+        for field in fields:
+            data[category][field].append(row[field])
+
+    # Convert lists to NumPy arrays
+    for category in ['H', 'S']:
+        for field in fields:
+            data[category][field] = np.array(data[category][field])
+
+    return data
+
+
+def plot_correlation(x_array, threshold_values, x_value='X'):
+    # Calculate Spearman correlation coefficient and p-value
+    correlation_coef, p_value = spearmanr(x_array, threshold_values)
+
+    # Create scatter plot
+    plt.figure(figsize=(10, 6))
+    plt.scatter(x_array, threshold_values, color='blue', label='Data Points')
+    
+    # Fit a linear regression line
+    fit = np.polyfit(x_array, threshold_values, deg=1)
+    plt.plot(x_array, np.polyval(fit, x_array), color='red', label='Linear Fit')
+    
+    plt.title('Correlation Plot')
+    plt.xlabel(x_value)
+    plt.ylabel('Threshold Values')
+    plt.legend()
+    plt.grid(True)
+    
+    # Display correlation coefficient and significance level
+    plt.text(0.05, 0.9, f'Spearman Correlation Coefficient: {correlation_coef:.2f}\nSignificance Level (p-value): {p_value:.3f}', transform=plt.gca().transAxes, fontsize=12, verticalalignment='top')
+    
+    # Determine and print correlation strength
+    if p_value < 0.05:
+        if correlation_coef > 0.7 or correlation_coef < -0.7:
+            correlation_strength = "Strong"
+        elif abs(correlation_coef) > 0.3:
+            correlation_strength = "Moderate"
+        else:
+            correlation_strength = "Weak"
+        print(f"Correlation Strength: {correlation_strength}")
+    else:
+        print("Correlation is not statistically significant (p >= 0.05)")
+    
+    plt.show()

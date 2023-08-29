@@ -330,8 +330,8 @@ def get_prediction_bilateral(AC_ndh, threshold_ndh, AC_dh, threshold_dh):
     ndh_pred = get_prediction_ac(AC_ndh, threshold_ndh)
     dh_pred = get_prediction_ac(AC_dh, threshold_dh)
 
-    # Apply AND logic between the two arrays ndh_pred and dh_pred
-    pred_bilateral = np.logical_and(ndh_pred, dh_pred)
+    # Apply AND logic between the two arrays ndh_pred and dh_pred and convert to integers
+    pred_bilateral = (ndh_pred & dh_pred).astype(int)
 
     return pred_bilateral
 
@@ -561,8 +561,6 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
     accuracy_scores = []
     ppv_scores = []
     npv_scores = []
-    f1_scores = []
-    youden_index_scores = []
     optimal_thresholds = []  
 
     # Ensure datasets have the same size 
@@ -592,8 +590,6 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
         accuracy_scores.append(eval_metrics['Accuracy'])
         ppv_scores.append(eval_metrics['PPV'])
         npv_scores.append(eval_metrics['NPV'])
-        f1_scores.append(eval_metrics['F1 Score'])
-        youden_index_scores.append(eval_metrics['Youden Index'])
 
         # Store the optimal threshold for this iteration
         optimal_thresholds.append(optimal_threshold)
@@ -604,8 +600,6 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
     avg_accuracy = np.mean(accuracy_scores)
     avg_ppv = np.mean(ppv_scores)
     avg_npv = np.mean(npv_scores)
-    avg_f1_score = np.mean(f1_scores)
-    avg_youden_index = np.mean(youden_index_scores)
     
     avg_eval_metrics = {
         'Sensitivity': avg_sensitivity,
@@ -613,8 +607,6 @@ def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
         'Accuracy': avg_accuracy,
         'PPV': avg_ppv,
         'NPV': avg_npv,
-        'F1 Score': avg_f1_score,
-        'Youden Index': avg_youden_index
     }
 
     # Compute the average optimal threshold over all iterations
@@ -635,8 +627,6 @@ def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_nd
     accuracy_scores = []
     ppv_scores = []
     npv_scores = []
-    f1_scores = []
-    youden_index_scores = []
 
     # Ensure datasets have the same size 
     X_ndh, y_ndh = remove_extra_elements(X_ndh, y_ndh)
@@ -673,8 +663,6 @@ def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_nd
         accuracy_scores.append(eval_metrics['Accuracy'])
         ppv_scores.append(eval_metrics['PPV'])
         npv_scores.append(eval_metrics['NPV'])
-        f1_scores.append(eval_metrics['F1 Score'])
-        youden_index_scores.append(eval_metrics['Youden Index'])
 
     # Compute the average evaluation metrics across the splits 
     avg_sensitivity = np.mean(sensitivity_scores)
@@ -682,8 +670,6 @@ def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_nd
     avg_accuracy = np.mean(accuracy_scores)
     avg_ppv = np.mean(ppv_scores)
     avg_npv = np.mean(npv_scores)
-    avg_f1_score = np.mean(f1_scores)
-    avg_youden_index = np.mean(youden_index_scores)
     
     avg_eval_metrics = {
         'Sensitivity': avg_sensitivity,
@@ -691,8 +677,6 @@ def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_nd
         'Accuracy': avg_accuracy,
         'PPV': avg_ppv,
         'NPV': avg_npv,
-        'F1 Score': avg_f1_score,
-        'Youden Index': avg_youden_index
     }
 
     return avg_eval_metrics

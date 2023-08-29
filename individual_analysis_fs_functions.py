@@ -58,9 +58,7 @@ def optimal_fs_computation(pitch_mad_50Hz, yaw_mad_50Hz, GT_mask_50Hz, k=5, rand
     accuracy_scores = []
     ppv_scores = []
     npv_scores = []
-    f1_scores = []
-    youden_index_scores = []
-    
+
     # Set of angles to test 
     functional_space_array = list(range(5, 91, 2))
     
@@ -113,8 +111,6 @@ def optimal_fs_computation(pitch_mad_50Hz, yaw_mad_50Hz, GT_mask_50Hz, k=5, rand
         accuracy_scores.append(eval_metrics['Accuracy'])
         ppv_scores.append(eval_metrics['PPV'])
         npv_scores.append(eval_metrics['NPV'])
-        f1_scores.append(eval_metrics['F1 Score'])
-        youden_index_scores.append(eval_metrics['Youden Index'])
         
     # Compute the average evaluation metrics across the splits 
     avg_sensitivity = np.mean(sensitivity_scores)
@@ -122,8 +118,6 @@ def optimal_fs_computation(pitch_mad_50Hz, yaw_mad_50Hz, GT_mask_50Hz, k=5, rand
     avg_accuracy = np.mean(accuracy_scores)
     avg_ppv = np.mean(ppv_scores)
     avg_npv = np.mean(npv_scores)
-    avg_f1_score = np.mean(f1_scores)
-    avg_youden_index = np.mean(youden_index_scores)
 
     # Compute the average optimal fs found across the splits 
     avg_optimal_fs = np.mean(optimal_fs)
@@ -134,8 +128,6 @@ def optimal_fs_computation(pitch_mad_50Hz, yaw_mad_50Hz, GT_mask_50Hz, k=5, rand
         'Accuracy': avg_accuracy,
         'PPV': avg_ppv,
         'NPV': avg_npv,
-        'F1 Score': avg_f1_score,
-        'Youden Index': avg_youden_index
     }
 
     return avg_eval_metrics, avg_optimal_fs
@@ -151,9 +143,7 @@ def optimal_fs_computation_bilateral(pitch_mad_ndh, yaw_mad_ndh, GT_mask_50Hz_nd
     accuracy_scores = []
     ppv_scores = []
     npv_scores = []
-    f1_scores = []
-    youden_index_scores = []
-    
+
     # Set of angles to test 
     functional_space_array = list(range(5, 91, 2))
     
@@ -228,8 +218,6 @@ def optimal_fs_computation_bilateral(pitch_mad_ndh, yaw_mad_ndh, GT_mask_50Hz_nd
         accuracy_scores.append(eval_metrics['Accuracy'])
         ppv_scores.append(eval_metrics['PPV'])
         npv_scores.append(eval_metrics['NPV'])
-        f1_scores.append(eval_metrics['F1 Score'])
-        youden_index_scores.append(eval_metrics['Youden Index'])
         
     # Compute the average evaluation metrics across the splits 
     avg_sensitivity = np.mean(sensitivity_scores)
@@ -237,8 +225,6 @@ def optimal_fs_computation_bilateral(pitch_mad_ndh, yaw_mad_ndh, GT_mask_50Hz_nd
     avg_accuracy = np.mean(accuracy_scores)
     avg_ppv = np.mean(ppv_scores)
     avg_npv = np.mean(npv_scores)
-    avg_f1_score = np.mean(f1_scores)
-    avg_youden_index = np.mean(youden_index_scores)
     
     avg_eval_metrics = {
         'Sensitivity': avg_sensitivity,
@@ -246,8 +232,6 @@ def optimal_fs_computation_bilateral(pitch_mad_ndh, yaw_mad_ndh, GT_mask_50Hz_nd
         'Accuracy': avg_accuracy,
         'PPV': avg_ppv,
         'NPV': avg_npv,
-        'F1 Score': avg_f1_score,
-        'Youden Index': avg_youden_index
     }
 
     return avg_eval_metrics

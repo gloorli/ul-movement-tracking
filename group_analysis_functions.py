@@ -5,7 +5,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+import matplotlib.font_manager as fm
 from activity_count_function import *
 from utilities import *
 from individual_analysis_ac_functions import *
@@ -405,8 +405,8 @@ def merge_group_data_gm(data_list, mask=True):
 
 
 def compute_evaluation_metrics_ac(testing_count_brond_ndh, testing_count_brond_dh,
-                                testing_GT_mask_ndh_1Hz, testing_GT_mask_dh_1Hz, testing_GT_mask_bil_1Hz,
-                                conventional_threshold_unilateral, opt_threshold_ndh, opt_threshold_dh):
+                                  testing_GT_mask_ndh_1Hz, testing_GT_mask_dh_1Hz, testing_GT_mask_bil_1Hz,
+                                  conventional_threshold_unilateral, opt_threshold_ndh, opt_threshold_dh):
     """
     Compute evaluation metrics for different prediction scenarios.
 
@@ -419,33 +419,43 @@ def compute_evaluation_metrics_ac(testing_count_brond_ndh, testing_count_brond_d
         conventional_threshold_unilateral (float): Conventional AC threshold for unilateral prediction.
         opt_threshold_ndh (float): Optimal AC threshold for NDH prediction.
         opt_threshold_dh (float): Optimal AC threshold for DH prediction.
+        metric_name (str): Name of the metric being compared ('AC', 'GM', or 'GMAC').
 
     Returns:
-        Dictionary containing evaluation metrics for different scenarios.
+        A tuple containing two dictionaries:
+        - AC scores dictionary
+        - Evaluation metrics dictionary
     """
     # Compute predictions
     testing_ac_ndh_conv = get_prediction_ac(testing_count_brond_ndh, conventional_threshold_unilateral)
     testing_ac_ndh_opt = get_prediction_ac(testing_count_brond_ndh, opt_threshold_ndh)
-
     testing_ac_dh_conv = get_prediction_ac(testing_count_brond_dh, conventional_threshold_unilateral)
     testing_ac_dh_opt = get_prediction_ac(testing_count_brond_dh, opt_threshold_dh)
-
     testing_ac_bil_conv = get_prediction_bilateral(testing_count_brond_ndh, conventional_threshold_unilateral,
                                                    testing_count_brond_dh, conventional_threshold_unilateral)
     testing_ac_bil_opt = get_prediction_bilateral(testing_count_brond_ndh, opt_threshold_ndh,
                                                   testing_count_brond_dh, opt_threshold_dh)
 
+    # Compute AC score dictionaries
+    ac_scores = {
+        'ndh_conv': testing_ac_ndh_conv,
+        'ndh_opt': testing_ac_ndh_opt,
+        'dh_conv': testing_ac_dh_conv,
+        'dh_opt': testing_ac_dh_opt,
+        'bil_conv': testing_ac_bil_conv,
+        'bil_opt': testing_ac_bil_opt
+    }
+
     # Compute evaluation metrics
     eval_metrics_ndh_conv = get_evaluation_metrics(testing_GT_mask_ndh_1Hz, testing_ac_ndh_conv)
     eval_metrics_ndh_opt = get_evaluation_metrics(testing_GT_mask_ndh_1Hz, testing_ac_ndh_opt)
-
     eval_metrics_dh_conv = get_evaluation_metrics(testing_GT_mask_dh_1Hz, testing_ac_dh_conv)
     eval_metrics_dh_opt = get_evaluation_metrics(testing_GT_mask_dh_1Hz, testing_ac_dh_opt)
-
     eval_metrics_bil_conv = get_evaluation_metrics(testing_GT_mask_bil_1Hz, testing_ac_bil_conv)
     eval_metrics_bil_opt = get_evaluation_metrics(testing_GT_mask_bil_1Hz, testing_ac_bil_opt)
 
-    return {
+    # Create evaluation metrics dictionary
+    eval_metrics = {
         'ndh_conv': eval_metrics_ndh_conv,
         'ndh_opt': eval_metrics_ndh_opt,
         'dh_conv': eval_metrics_dh_conv,
@@ -454,12 +464,34 @@ def compute_evaluation_metrics_ac(testing_count_brond_ndh, testing_count_brond_d
         'bil_opt': eval_metrics_bil_opt
     }
 
+    return ac_scores, eval_metrics
+
 
 def compute_evaluation_metrics_gm(testing_pitch_mad_ndh, testing_pitch_mad_dh,
                                   testing_yaw_mad_ndh, testing_yaw_mad_dh,
                                   testing_GT_mask_2Hz_ndh, testing_GT_mask_2Hz_dh, testing_GT_mask_2Hz_bil,
-                                  conventional_functional_space, group_optimal_fs_ndh, group_optimal_fs_dh):
-    
+                                  conventional_functional_space, group_optimal_fs_ndh, group_optimal_fs_dh,):
+    """
+    Compute evaluation metrics for different prediction scenarios using the GM algorithm.
+
+    Args:
+        testing_pitch_mad_ndh (numpy.ndarray): NumPy array containing pitch_mad values for the left bronchus (NDH).
+        testing_pitch_mad_dh (numpy.ndarray): NumPy array containing pitch_mad values for the right bronchus (DH).
+        testing_yaw_mad_ndh (numpy.ndarray): NumPy array containing yaw_mad values for the left bronchus (NDH).
+        testing_yaw_mad_dh (numpy.ndarray): NumPy array containing yaw_mad values for the right bronchus (DH).
+        testing_GT_mask_2Hz_ndh (pandas.Series): Series containing GT mask values for the left bronchus (NDH).
+        testing_GT_mask_2Hz_dh (pandas.Series): Series containing GT mask values for the right bronchus (DH).
+        testing_GT_mask_2Hz_bil (pandas.Series): Series containing bilateral GT mask values.
+        conventional_functional_space (int): Conventional functional space parameter.
+        group_optimal_fs_ndh (function): Group optimal functional space function for NDH prediction.
+        group_optimal_fs_dh (function): Group optimal functional space function for DH prediction.
+        metric_name (str): Name of the metric being compared ('AC', 'GM', or 'GMAC').
+
+    Returns:
+        A tuple containing two dictionaries:
+        - GM scores dictionary
+        - Evaluation metrics dictionary
+    """
     # Compute predictions @ 2Hz using GM algorithm
     testing_gm_ndh_conv = gm_algorithm(testing_pitch_mad_ndh, testing_yaw_mad_ndh, conventional_functional_space)
     testing_gm_ndh_opt = gm_algorithm(testing_pitch_mad_ndh, testing_yaw_mad_ndh, group_optimal_fs_ndh)
@@ -468,6 +500,16 @@ def compute_evaluation_metrics_gm(testing_pitch_mad_ndh, testing_pitch_mad_dh,
     testing_gm_bil_conv = get_mask_bilateral(testing_gm_ndh_conv, testing_gm_dh_conv)
     testing_gm_bil_opt = get_mask_bilateral(testing_gm_ndh_opt, testing_gm_dh_opt)
     
+    # Compute GM score dictionaries
+    gm_scores = {
+        'ndh_conv': testing_gm_ndh_conv,
+        'ndh_opt': testing_gm_ndh_opt,
+        'dh_conv': testing_gm_dh_conv,
+        'dh_opt': testing_gm_dh_opt,
+        'bil_conv': testing_gm_bil_conv,
+        'bil_opt': testing_gm_bil_opt
+    }
+
     # Compute evaluation metrics by comparing masks and GM scores @ 2 Hz
     eval_metrics_ndh_conv = get_evaluation_metrics(testing_GT_mask_2Hz_ndh, testing_gm_ndh_conv)
     eval_metrics_ndh_opt = get_evaluation_metrics(testing_GT_mask_2Hz_ndh, testing_gm_ndh_opt)
@@ -476,7 +518,8 @@ def compute_evaluation_metrics_gm(testing_pitch_mad_ndh, testing_pitch_mad_dh,
     eval_metrics_bil_conv = get_evaluation_metrics(testing_GT_mask_2Hz_bil, testing_gm_bil_conv)
     eval_metrics_bil_opt = get_evaluation_metrics(testing_GT_mask_2Hz_bil, testing_gm_bil_opt)
 
-    return {
+    # Create evaluation metrics dictionary
+    eval_metrics = {
         'ndh_conv': eval_metrics_ndh_conv,
         'ndh_opt': eval_metrics_ndh_opt,
         'dh_conv': eval_metrics_dh_conv,
@@ -485,11 +528,13 @@ def compute_evaluation_metrics_gm(testing_pitch_mad_ndh, testing_pitch_mad_dh,
         'bil_opt': eval_metrics_bil_opt
     }
 
+    return gm_scores, eval_metrics
+
 
 def compute_evaluation_metrics_gmac(testing_pitch_mad_ndh, testing_pitch_mad_dh,
-                                    testing_count_brond_ndh, testing_count_brond_dh,
-                                    testing_GT_mask_ndh_1Hz, testing_GT_mask_dh_1Hz, testing_GT_mask_bil_1Hz,
-                                    opt_threshold_ndh, opt_threshold_dh, group_optimal_fs_ndh, group_optimal_fs_dh):
+                                                       testing_count_brond_ndh, testing_count_brond_dh,
+                                                       testing_GT_mask_ndh_1Hz, testing_GT_mask_dh_1Hz, testing_GT_mask_bil_1Hz,
+                                                       opt_threshold_ndh, opt_threshold_dh, group_optimal_fs_ndh, group_optimal_fs_dh):
     """
     Compute evaluation metrics for different prediction scenarios using the GMAC algorithm.
 
@@ -507,29 +552,38 @@ def compute_evaluation_metrics_gmac(testing_pitch_mad_ndh, testing_pitch_mad_dh,
         group_optimal_fs_dh (function): Group optimal functional space function for DH prediction.
 
     Returns:
-        Dictionary containing evaluation metrics for different scenarios using the GMAC algorithm.
+        A tuple containing two dictionaries:
+        - GMAC scores dictionary
+        - Evaluation metrics dictionary
     """
     # Compute GMAC predictions
     testing_gmac_ndh_conv = compute_GMAC(testing_pitch_mad_ndh, testing_count_brond_ndh, ac_threshold=0, functional_space=30)
     testing_gmac_ndh_opt = compute_GMAC(testing_pitch_mad_ndh, testing_count_brond_ndh, ac_threshold=opt_threshold_ndh, functional_space=group_optimal_fs_ndh)
-
     testing_gmac_dh_conv = compute_GMAC(testing_pitch_mad_dh, testing_count_brond_dh, ac_threshold=0, functional_space=30)
     testing_gmac_dh_opt = compute_GMAC(testing_pitch_mad_dh, testing_count_brond_dh, ac_threshold=opt_threshold_dh, functional_space=group_optimal_fs_dh)
-
     testing_gmac_bil_conv = get_mask_bilateral(testing_gmac_ndh_conv, testing_gmac_dh_conv)
     testing_gmac_bil_opt = get_mask_bilateral(testing_gmac_ndh_opt, testing_gmac_dh_opt)
+
+    # Compute GMAC score dictionaries
+    gmac_scores = {
+        'ndh_conv': testing_gmac_ndh_conv,
+        'ndh_opt': testing_gmac_ndh_opt,
+        'dh_conv': testing_gmac_dh_conv,
+        'dh_opt': testing_gmac_dh_opt,
+        'bil_conv': testing_gmac_bil_conv,
+        'bil_opt': testing_gmac_bil_opt
+    }
 
     # Compute evaluation metrics
     eval_metrics_gmac_conv_ndh = get_evaluation_metrics(testing_GT_mask_ndh_1Hz, testing_gmac_ndh_conv)
     eval_metrics_gmac_opt_ndh = get_evaluation_metrics(testing_GT_mask_ndh_1Hz, testing_gmac_ndh_opt)
-
     eval_metrics_gmac_conv_dh = get_evaluation_metrics(testing_GT_mask_dh_1Hz, testing_gmac_dh_conv)
     eval_metrics_gmac_opt_dh = get_evaluation_metrics(testing_GT_mask_dh_1Hz, testing_gmac_dh_opt)
-
     eval_metrics_gmac_conv_bil = get_evaluation_metrics(testing_GT_mask_bil_1Hz, testing_gmac_bil_conv)
     eval_metrics_gmac_opt_bil = get_evaluation_metrics(testing_GT_mask_bil_1Hz, testing_gmac_bil_opt)
 
-    return {
+    # Create evaluation metrics dictionary
+    eval_metrics = {
         'ndh_conv': eval_metrics_gmac_conv_ndh,
         'ndh_opt': eval_metrics_gmac_opt_ndh,
         'dh_conv': eval_metrics_gmac_conv_dh,
@@ -537,6 +591,8 @@ def compute_evaluation_metrics_gmac(testing_pitch_mad_ndh, testing_pitch_mad_dh,
         'bil_conv': eval_metrics_gmac_conv_bil,
         'bil_opt': eval_metrics_gmac_opt_bil
     }
+
+    return gmac_scores, eval_metrics
 
 
 def plot_multiple_radar_plot(eval_metrics, figures_path, metric):
@@ -575,6 +631,9 @@ def plot_bar_chart(conventional_metrics, optimal_metrics, metric, save_filename=
     num_metrics = len(metric_names)
     bar_width = 0.35
     ind = np.arange(num_metrics)  # X-axis locations for bars
+    
+    # Load a bold font for annotations
+    prop = fm.FontProperties(weight='bold')
 
     fig, ax = plt.subplots(figsize=(10, 8))
 
@@ -593,15 +652,15 @@ def plot_bar_chart(conventional_metrics, optimal_metrics, metric, save_filename=
     ax.set_xticklabels(metric_names)
     ax.legend()
 
-    # Annotate bars with percentage values
+    # Annotate bars with rounded percentage values (as integers)
     for rects in [rects1, rects2]:
         for rect in rects:
             height = rect.get_height()
-            ax.annotate(f"{height:.2f}%",
+            ax.annotate(f"{int(round(height))}%",
                         xy=(rect.get_x() + rect.get_width() / 2, height),
                         xytext=(0, 3),  # 3 points vertical offset
                         textcoords="offset points",
-                        ha='center', va='bottom')
+                        ha='center', va='bottom', fontproperties=prop)
 
     if save_filename:
         plt.savefig(save_filename)  # Save the plot to the specified file
@@ -649,38 +708,55 @@ def optimal_group_fs_computation(group_pitch_mad_50Hz, group_yaw_mad_50Hz, group
     return optimal_fs
 
 
-def plot_side_by_side_boxplots(optimal_threshold_ndh, optimal_threshold_dh, threshold, plot_title):
+def plot_side_by_side_boxplots(individual_optimal_threshold_ndh, individual_optimal_threshold_dh,
+                               group_optimal_threshold_ndh, group_optimal_threshold_dh, metric):
     sns.set(style="whitegrid")
     plt.figure(figsize=(10, 6))
+
+    if metric == 'AC':
+        conventional_threshold_unilateral = 2
+        plot_title = 'Distribution of the AC optimal thresholds across individuals'
+    elif metric == 'GM':
+        conventional_threshold_unilateral = 30
+        plot_title = 'Distribution of the optimal functional spaces across individuals'
 
     # Colors for 'ndh' and 'dh' sides
     ndh_color = 'skyblue'
     dh_color = 'lightgreen'
 
     # Box plot for ndh side
-    ndh_box = plt.boxplot(optimal_threshold_ndh, positions=[1], labels=['ndh'], patch_artist=True, boxprops=dict(facecolor=ndh_color))
+    ndh_box = plt.boxplot(individual_optimal_threshold_ndh, positions=[1], labels=['ndh'], patch_artist=True, boxprops=dict(facecolor=ndh_color))
     # Box plot for dh side
-    dh_box = plt.boxplot(optimal_threshold_dh, positions=[2], labels=['dh'], patch_artist=True, boxprops=dict(facecolor=dh_color))
+    dh_box = plt.boxplot(individual_optimal_threshold_dh, positions=[2], labels=['dh'], patch_artist=True, boxprops=dict(facecolor=dh_color))
 
-    # Add the threshold line
-    plt.axhline(y=threshold, color='red', linestyle='--', label=f'Conventional threshold = {threshold}')
+    # Add the threshold line for the conventional threshold
+    plt.axhline(y=conventional_threshold_unilateral, color='red', linestyle='--', label=f'Conventional threshold = {conventional_threshold_unilateral}')
+
+    # Add the dashed lines for the optimal thresholds
+    plt.axhline(y=group_optimal_threshold_ndh, color='blue', linestyle='--', label=f'Group Optimal NDH Threshold = {group_optimal_threshold_ndh:.2f}')
+    plt.axhline(y=group_optimal_threshold_dh, color='green', linestyle='--', label=f'Group Optimal DH Threshold = {group_optimal_threshold_dh:.2f}')
 
     plt.title(plot_title)
     plt.xlabel('Side')
     plt.ylabel('Optimal Threshold')
-    plt.legend()
+
+    if metric == 'GM':
+        plt.legend(loc='best')  # Adjust the legend location for better visibility
+    else:
+        plt.legend()
+
     plt.tight_layout()
     plt.show()
-    
+
     # Calculate and print the average values
-    avg_ndh = np.mean(optimal_threshold_ndh)
-    avg_dh = np.mean(optimal_threshold_dh)
+    avg_ndh = np.mean(individual_optimal_threshold_ndh)
+    avg_dh = np.mean(individual_optimal_threshold_dh)
     print(f'Average ndh: {avg_ndh:.2f}')
     print(f'Average dh: {avg_dh:.2f}')
 
     # Calculate and print the median values
-    median_ndh = np.median(optimal_threshold_ndh)
-    median_dh = np.median(optimal_threshold_dh)
+    median_ndh = np.median(individual_optimal_threshold_ndh)
+    median_dh = np.median(individual_optimal_threshold_dh)
     print(f'Median ndh: {median_ndh:.2f}')
     print(f'Median dh: {median_dh:.2f}')
 
@@ -707,6 +783,107 @@ def get_testing_data(initial_path, testing_participant_id, frequency_GT, frequen
             testing_GT_mask_2Hz_ndh, testing_GT_mask_2Hz_dh, testing_GT_mask_2Hz_bil)
 
 
+def get_duration_functional_arm_use(scores_dict, sampling_frequency):
+    """
+    Calculate the duration and percentage of active epochs for functional arm use.
+
+    Args:
+        scores_dict (dict): A dictionary containing binary scores for 6 different fields.
+        sampling_frequency (int): The sampling frequency of the data.
+
+    Returns:
+        dict: A dictionary containing duration and percentage of active epochs for each field.
+    """
+    metric_duration_arm_use = {}
+
+    for field, scores in scores_dict.items():
+        active_epochs = sum(scores)
+        total_epochs = len(scores)
+
+        percentage_active = (active_epochs / total_epochs) * 100
+
+        duration_seconds = active_epochs / sampling_frequency
+        duration_formatted = "{:02d}:{:02d}:{:02d}".format(
+            int(duration_seconds // 3600),
+            int((duration_seconds % 3600) // 60),
+            int(duration_seconds % 60)
+        )
+
+        metric_duration_arm_use[field] = {
+            'percentage_active': percentage_active,
+            'duration_formatted': duration_formatted
+        }
+
+    return metric_duration_arm_use
+
+
+def compare_arm_use_duration_plot(ground_truth, metric_duration, metric_name, save_path=None):
+    """
+    Compare arm use duration using bar charts.
+
+    Args:
+        ground_truth (dict): Ground truth arm use duration dictionary.
+        metric_duration (dict): Metric duration arm use dictionary.
+        metric_name (str): Name of the metric being compared ('AC', 'GM', or 'GMAC').
+        save_path (str): Path to save the figure. If None, the figure won't be saved.
+
+    Returns:
+        None
+    """
+    sns.set(style="whitegrid")
+    
+    sides = ['ndh', 'dh', 'bil']
+
+    for side in sides:
+        plt.figure(figsize=(10, 6))
+        plt.title(f"Functional Arm Use Duration Comparison - {side.capitalize()} - {metric_name}", fontsize=16)
+
+        ground_truth_percentage = ground_truth[side]['percentage_active']
+        metric_duration_conv_percentage = metric_duration[f'{side}_conv']['percentage_active']
+        metric_duration_opt_percentage = metric_duration[f'{side}_opt']['percentage_active']
+
+        x = [0, 1, 2]
+        heights = [ground_truth_percentage, metric_duration_conv_percentage, metric_duration_opt_percentage]
+        labels = ['Ground Truth', 'Conventional', 'Optimal']
+
+        colors = sns.color_palette("Set1")
+
+        ax = sns.barplot(x=x, y=heights, palette=colors)
+        plt.xticks(x, labels)
+        plt.ylabel('Percentage Active Duration (%)', fontsize=12)
+        plt.xlabel('')
+        
+        # Display duration in the middle of each bar
+        durations = [
+            ground_truth[side]['duration_formatted'],
+            metric_duration[f'{side}_conv']['duration_formatted'],
+            metric_duration[f'{side}_opt']['duration_formatted']
+        ]
+        for i, duration in enumerate(durations):
+            ax.text(i, heights[i] / 2, duration, ha='center', fontsize=10, fontweight='bold')
+        
+        # Calculate and display percentage differences
+        diff_conv = ((metric_duration_conv_percentage - ground_truth_percentage) / ground_truth_percentage) * 100
+        diff_opt = ((metric_duration_opt_percentage - ground_truth_percentage) / ground_truth_percentage) * 100
+        
+        # Display + or - value indicating the percentage difference on top of bars
+        diff_conv_symbol = '+' if diff_conv >= 0 else '-'
+        diff_opt_symbol = '+' if diff_opt >= 0 else '-'
+        
+        ax.text(1, metric_duration_conv_percentage + 1, f'{diff_conv_symbol}{abs(int(diff_conv))}%',
+                ha='center', fontsize=12, fontweight='bold', color='black')
+        
+        ax.text(2, metric_duration_opt_percentage + 1, f'{diff_opt_symbol}{abs(int(diff_opt))}%',
+                ha='center', fontsize=12, fontweight='bold', color='black')
+
+        if save_path:
+            file_name = f"Functional_Arm_Use_Duration_Comparison_{side.capitalize()}_{metric_name}.png"
+            full_file_path = os.path.join(save_path, file_name)
+            plt.savefig(full_file_path)
+            print(f"Figure saved as '{full_file_path}'")
+            plt.show()
+        else:
+            plt.show()
 
 
 
