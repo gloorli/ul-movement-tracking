@@ -238,26 +238,27 @@ def plot_resampled_arrays(original_mask, original_frequency, resampled_mask, des
     plt.show()
 
 
-def save_optimal_threshold(file_path, ndh_threshold, dh_threshold, AC = True):
-    # Create the file path
-    if AC: 
-        file_path = os.path.join(file_path, 'optimal_threshold_AC.csv')
-    else: 
-        file_path = os.path.join(file_path, 'optimal_threshold_GM.csv')
+def save_optimal_threshold(file_path, ndh_threshold, dh_threshold, AC=True, group='H'):
+    if AC:
+        filename_prefix = 'optimal_threshold_AC'
+    else:
+        filename_prefix = 'optimal_threshold_GM'
+
+    if group == 'H':
+        filename_prefix = f'H_{filename_prefix}'
+    elif group == 'S':
+        filename_prefix = f'S_{filename_prefix}'
+    else:
+        raise ValueError("Invalid group parameter. Use 'H' for healthy or 'S' for stroke.")
+
+    file_name = f"{filename_prefix}.csv"
+    file_path = os.path.join(file_path, file_name)
 
     try:
-        # Open the file in write mode
         with open(file_path, 'w', newline='') as csvfile:
-            # Create a CSV writer
             csv_writer = csv.writer(csvfile)
-
-            # Write the header row with descriptions
             csv_writer.writerow(['Side', 'Threshold'])
-
-            # Write the ndh threshold as a row
             csv_writer.writerow(['ndh', ndh_threshold])
-
-            # Write the dh threshold as a row
             csv_writer.writerow(['dh', dh_threshold])
 
         print(f"Thresholds saved successfully at: {file_path}")
