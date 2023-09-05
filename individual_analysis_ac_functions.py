@@ -743,12 +743,29 @@ def find_optimal_threshold(ground_truth, activity_counts):
     return optimal_threshold
 
 
-def load_optimal_threshold(file_path, AC=True):
-    # Create the file path based on the AC flag
-    if AC: 
-        file_path = os.path.join(file_path, 'optimal_threshold_AC.csv')
-    else: 
-        file_path = os.path.join(file_path, 'optimal_threshold_GM.csv')
+def load_optimal_threshold(file_path, participant_group='H', AC=True):
+    """
+    Load optimal thresholds from a CSV file.
+
+    Args:
+        file_path (str): The base directory path where the CSV file is located.
+        participant_group (str, optional): 'H' for healthy or 'S' for stroke group.
+            Determines the participant group, which impacts the file name.
+            Defaults to 'H' (healthy group).
+        AC (bool, optional): Whether to load the AC (alternating current) thresholds or GM (general motor) thresholds.
+            Defaults to True (AC thresholds).
+
+    Returns:
+        tuple: A tuple containing the thresholds for the non-dominant hand (ndh) and dominant hand (dh).
+               Returns (None, None) if there was an error loading the thresholds.
+    """
+    # Determine the file name based on the participant group and AC flag
+    if AC:
+        file_name = f'{participant_group}_optimal_threshold_AC.csv'
+    else:
+        file_name = f'{participant_group}_optimal_threshold_GM.csv'
+
+    file_path = os.path.join(file_path, file_name)
 
     try:
         # Initialize variables to store the thresholds

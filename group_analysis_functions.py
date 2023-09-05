@@ -602,28 +602,35 @@ def plot_multiple_radar_plot(eval_metrics, figures_path, metric):
     Args:
         eval_metrics (dict): Dictionary containing evaluation metrics for different scenarios.
         metric (str): Name of the metric being plotted.
-        figures_path (str): Path where the figures should be saved.
+        figures_path (str or None): Path where the figures should be saved or None to not save.
 
     Returns:
         None.
     """
 
-    path = figures_path + '/' + metric
+    # Function to build a save path or return None if figures_path is None
+    def build_save_path(base_path, filename):
+        if base_path is not None:
+            return base_path + '/' + filename
+        return None
+
+    base_path = None if figures_path is None else figures_path + '/' + metric
 
     # Radar Plot
     # Plot radar chart for NDH scenario (conv vs opt)
-    plot_radar_chart(eval_metrics['ndh_conv'], eval_metrics['ndh_opt'], metric, save_filename=path + '_radar_NDH')
+    plot_radar_chart(eval_metrics['ndh_conv'], eval_metrics['ndh_opt'], metric, save_filename=build_save_path(base_path, metric + '_radar_NDH'))
 
     # Plot radar chart for DH scenario (conv vs opt)
-    plot_radar_chart(eval_metrics['dh_conv'], eval_metrics['dh_opt'], metric, save_filename=path +'_radar_DH')
+    plot_radar_chart(eval_metrics['dh_conv'], eval_metrics['dh_opt'], metric, save_filename=build_save_path(base_path, metric + '_radar_DH'))
 
     # Plot radar chart for bilateral scenario (conv vs opt)
-    plot_radar_chart(eval_metrics['bil_conv'], eval_metrics['bil_opt'], metric, save_filename=path +'_radar_bil')
+    plot_radar_chart(eval_metrics['bil_conv'], eval_metrics['bil_opt'], metric, save_filename=build_save_path(base_path, metric + '_radar_bil'))
 
     # BAR Plot
-    plot_bar_chart(eval_metrics['ndh_conv'], eval_metrics['ndh_opt'], metric, save_filename=path + '_bar_NDH')
-    plot_bar_chart(eval_metrics['dh_conv'], eval_metrics['dh_opt'], metric, save_filename=path + '_bar_DH')
-    plot_bar_chart(eval_metrics['bil_conv'], eval_metrics['bil_opt'], metric, save_filename=path + '_bar_bil')
+    plot_bar_chart(eval_metrics['ndh_conv'], eval_metrics['ndh_opt'], metric, save_filename=build_save_path(base_path, metric + '_bar_NDH'))
+    plot_bar_chart(eval_metrics['dh_conv'], eval_metrics['dh_opt'], metric, save_filename=build_save_path(base_path, metric + '_bar_DH'))
+    plot_bar_chart(eval_metrics['bil_conv'], eval_metrics['bil_opt'], metric, save_filename=build_save_path(base_path, metric + '_bar_bil'))
+
     
     
 def plot_bar_chart(conventional_metrics, optimal_metrics, metric, save_filename=None):

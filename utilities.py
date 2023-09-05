@@ -811,3 +811,68 @@ def plot_correlation(x_array, threshold_values, x_value='X'):
         print("Correlation is not statistically significant (p >= 0.05)")
     
     plt.show()
+
+
+def run_notebooks_for_group(notebook_paths, screening_results, group):
+    """
+    Runs multiple notebooks for a given participant group.
+
+    :param notebook_paths: List of paths to the notebooks to be run.
+    :param screening_results: Screening data containing participant details.
+    :param group: Group identifier, 'H' or 'S'.
+    """
+    assert group in ['H', 'S'], "Group must be 'H' or 'S'"
+    
+    for notebook_path in notebook_paths:
+        # Make sure the notebook exists before proceeding
+        if not os.path.exists(notebook_path):
+            print(f"Notebook {notebook_path} not found! Skipping...")
+            continue
+
+        # Extract data based on the group
+        group_data = screening_results[group]
+
+        # Extract the participant_ids and hands
+        participant_ids = group_data['participant_id']
+        dominant_hands = group_data['dominant_hand']
+        if group == 'S':
+            affected_hands = group_data['affected_hand']
+        
+        # Create a tqdm progress bar for participants
+        progress_bar = tqdm(zip(participant_ids, dominant_hands, affected_hands if group == 'S' else dominant_hands), 
+                            total=len(participant_ids), 
+                            desc=f'Processing Participants for {notebook_path}', 
+                            leave=True)
+        
+        # Read the initial notebook content into a variable to make a copy, not touching the original notebook file
+        with open(notebook_path, 'r', encoding='utf-8') as f:
+            initial_notebook_content = f.read()
+
+        # Iterate over the participants
+        for participant_id, dominant_hand, hand_to_use in progress_bar:
+            if group == 'S':
+                # For stroke group, set the dominant hand as the non-affected hand
+                dominant_hand = 'right' if hand_to_use == 'left' else 'left'
+            
+            # Replace the participant_id and dominant_hand using regex
+            notebook_content = re.sub(r'participant_id\s*=\s*\'[HS]\d{3}\'', f"participant_id = '{participant_id}'", initial_notebook_content)
+            notebook_content = re.sub(r'dominant_hand\s*=\s*\'\w+\'', f"dominant_hand = '{dominant_hand.capitalize()}'", notebook_content)
+            notebook_content = re.sub(r'participant_group\s*=\s*\'[HS]\'', f"participant_group = '{group}'", notebook_content)
+
+            # Create a temporary copy of the notebook for this participant
+            temp_notebook_path = f'temp_{participant_id}_{os.path.basename(notebook_path)}'
+            with open(temp_notebook_path, 'wt', encoding='utf-8') as f:
+                f.write(notebook_content)
+
+            # Use subprocess to run the notebook
+            subprocess.run(['jupyter', 'nbconvert', '--to', 'notebook', '--execute', '--inplace', temp_notebook_path])
+
+            # Update the progress bar
+            progress_bar.set_postfix({'Participant': participant_id})
+            progress_bar.update(1)  # Move the progress bar one step forward
+
+            # Remove the temporary copy of the notebook after execution
+            os.remove(temp_notebook_path)
+
+        # Close the progress bar
+        progress_bar.close()
