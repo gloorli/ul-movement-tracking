@@ -1,22 +1,226 @@
+# Standard libraries
+import os
+import csv
+import json
+import math
+import signal
+import inspect
+from datetime import datetime
+import re
+import glob
+import seaborn as sns
+
+# Data processing and analysis
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import spearmanr
-from scipy.signal import butter, filtfilt, find_peaks, resample, savgol_filter, freqz, lfilter
-from mpl_toolkits.mplot3d import Axes3D
+import pandas as pd
+import subprocess
+
+# Scientific computing
+from scipy.signal import (butter, filtfilt, find_peaks, resample,
+                          savgol_filter, freqz, lfilter)
+from scipy.stats import spearmanr, circmean
 from scipy.spatial.transform import Rotation
 from scipy.interpolate import CubicSpline, interp1d
-from scipy.stats import circmean
 from scipy.ndimage import zoom
-from ahrs.filters import Mahony, Madgwick
-from ahrs.common import orientation
-import pandas as pd
-import csv
-from datetime import datetime
+
+# Visualization
+import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
-import os
-import signal
-import math
-import inspect
+from mpl_toolkits.mplot3d import Axes3D
+
+# Progress bar
+from tqdm import tqdm
+
+
+def create_folder(folder_path):
+    """
+    Creates a folder if it does not exist.
+    :param folder_path: str, The path where the folder should be created.
+    """
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+
+def get_participant_info(participant_id, csv_path):
+    """
+    Extracts and returns a dictionary with data for the specified participant from a CSV file.
+
+    Args:
+    - participant_id (str): The ID of the participant whose data we want to extract.
+    - csv_path (str): The path to the CSV file containing the participant data.
+
+    Returns:
+    - dict: A dictionary containing the data for the specified participant.
+            Returns an empty dictionary if the participant ID is not found.
+    """
+
+    # Read the CSV file into a DataFrame
+    df = pd.read_csv(csv_path)
+
+    # Filter the DataFrame to get data for the specified participant
+    participant_data = df[df['participant_id'] == participant_id]
+
+    # If no data found, return an empty dictionary
+    if participant_data.empty:
+        return {}
+
+    # Convert the filtered row to a dictionary
+    # The `iloc[0]` ensures we're taking the first row (in case there are duplicates, which there shouldn't be)
+    participant_dict = participant_data.iloc[0].to_dict()
+
+    return participant_dict
+
+
+def save_to_json(data, path):
+    """
+    Saves a dictionary to a JSON file named after the participant_id in the given path.
+
+    Args:
+    - data (dict): The data dictionary to save.
+    - path (str): The directory where the file should be saved.
+
+    Returns:
+    None
+    """
+    def default_serialize(o):
+        if isinstance(o, np.ndarray):
+            return o.tolist()  # Convert ndarray to list
+        raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+    participant_id = data['participant_id']
+    filename = f"{participant_id}.json"
+    full_path = os.path.join(path, filename)
+    
+    with open(full_path, 'w') as json_file:
+        json.dump(data, json_file, indent=4, default=default_serialize)
+    
+    print(f"Data saved to: {full_path}")
+
+    
+def add_attributes_to_participant(participant_data, **attributes):
+    """
+    Adds multiple attributes with specified values to the participant's data dictionary.
+    Converts lists to numpy arrays.
+
+    Args:
+    - participant_data (dict): The participant's data dictionary to be updated.
+    - **attributes: Variable-length keyword arguments representing attribute names and their values.
+
+    Returns:
+    None
+    """
+    for attr_name, value in attributes.items():
+        if isinstance(value, list):
+            value = np.array(value)
+        participant_data[attr_name] = value
+
+        
+def load_participant_json(participant_id, initial_path):
+    """
+    Loads the participant data from a JSON file.
+
+    Args:
+    - participant_id (str): The ID of the participant whose data needs to be loaded.
+    - initial_path (str): The directory where the participant folders are located.
+
+    Returns:
+    - dict: The loaded participant data.
+    """
+
+    filename = f"{participant_id}.json"
+    folder_path = os.path.join(initial_path, participant_id)
+    full_path = os.path.join(folder_path, filename)
+    
+    if not os.path.exists(full_path):
+        raise FileNotFoundError(f"No file found for participant ID: {participant_id} at {full_path}")
+
+    with open(full_path, 'r') as json_file:
+        data = json.load(json_file)
+
+    return data
+
+
+def get_attribute(participant_data, *fields):
+    """
+    Returns the desired attributes from the participant data.
+
+    Args:
+    - participant_data (dict): Participant data dictionary.
+    - *fields: Fields to extract from the dictionary.
+
+    Returns:
+    - list: List of desired attributes. If an attribute is a tuple or list, it is converted to a numpy array.
+    """
+    results = []
+
+    for field in fields:
+        if field in participant_data:
+            value = participant_data[field]
+            if isinstance(value, (tuple, list)):
+                value = np.array(value)
+            results.append(value)
+        else:
+            results.append(None)
+
+    return results
+
+
+def get_dominant_hand(participant_data):
+    """
+    Returns the dominant hand for healthy participants 
+    and the affected hand for stroke patients.
+
+    Args:
+    - participant_data (dict): Participant data dictionary.
+
+    Returns:
+    - str: 'dominant' or 'affected' hand.
+    """
+    if participant_data['participant_id'][0] == 'H':
+        return participant_data['dominant_hand']
+    elif participant_data['participant_id'][0] == 'S':
+        # For stroke patients, we'll return the opposite of the affected hand.
+        if participant_data['affected_hand'] == 'right':
+            return 'left'
+        elif participant_data['affected_hand'] == 'left':
+            return 'right'
+        else:
+            raise ValueError("Invalid affected hand value.")
+    else:
+        raise ValueError("Invalid participant ID format.")
+
+
+def get_json_paths(initial_path, group, excluded_participant=None):
+    """
+    Get all JSON paths for health or stroke based on the given group.
+
+    Args:
+    - initial_path (str): Initial directory to begin the search.
+    - group (str): Either 'H' for health or 'S' for stroke.
+    - excluded_participant (str, optional): The ID or name of the participant to exclude from the search.
+  
+    Returns:
+    - list: List of paths for the desired JSON files.
+    """
+
+    if group not in ['H', 'S']:
+        raise ValueError("Group must be either 'H' for health or 'S' for stroke.")
+
+    # List directories starting with the given group
+    directories = [d for d in os.listdir(initial_path) if os.path.isdir(os.path.join(initial_path, d)) and d.startswith(group)]
+
+    # If an excluded participant is specified, remove that directory from consideration
+    if excluded_participant:
+        directories = [d for d in directories if excluded_participant not in d]
+
+    json_files = []
+
+    for directory in directories:
+        dir_path = os.path.join(initial_path, directory)
+        # Search for .json files in the directory
+        json_files.extend(glob.glob(os.path.join(dir_path, '*.json')))
+
+    return json_files
 
 
 def get_statistics(data):
@@ -265,37 +469,6 @@ def save_optimal_threshold(file_path, ndh_threshold, dh_threshold, AC=True, grou
     except IOError as e:
         print(f"An error occurred while saving the thresholds: {e}")
 
-
-def save_metrics_dictionary_as_csv(metrics_dictionary, folder, metric):
-    """
-    Saves the metrics dictionary as a CSV file in the specified folder.
-
-    Args:
-        metrics_dictionary: Dictionary with metrics data.
-        folder: Folder path where the CSV file should be saved.
-        metric: The type of metric ('AC', 'GM', 'GMAC').
-    Raises:
-        ValueError: If the metric provided is not one of 'AC', 'GM', or 'GMAC'.
-    """
-    if metric == 'AC':
-        filename = os.path.join(folder, 'evaluation_metrics_AC.csv')
-    elif metric == 'GM': 
-        filename = os.path.join(folder, 'evaluation_metrics_GM.csv')
-    elif metric == 'GMAC': 
-        filename = os.path.join(folder, 'evaluation_metrics_GMAC.csv')
-    else:
-        raise ValueError("Invalid metric. Metric should be one of 'AC', 'GM', or 'GMAC'.")
-
-    with open(filename, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        
-        # Write the data rows
-        for (vertical, horizontal), value in metrics_dictionary.items():
-            writer.writerow([vertical, horizontal, value])
-
-    print(f"The metrics dictionary has been saved as {filename}.")
-
-
 def read_csv_to_numpy(file_path1, file_path2):
     try:
         # Read CSV files into pandas DataFrames
@@ -309,100 +482,6 @@ def read_csv_to_numpy(file_path1, file_path2):
     array2 = df2.to_numpy().ravel()
 
     return array1, array2
-
-
-def plot_radar_chart(conventional_metrics, optimal_metrics, metric, save_filename=None):
-    metric_names = list(conventional_metrics.keys())
-    num_metrics = len(metric_names)
-
-    angles = [n / float(num_metrics) * 2 * np.pi for n in range(num_metrics)]
-    angles += angles[:1]
-
-    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw=dict(polar=True))
-
-    # Extract the values from the metrics dictionaries
-    conventional_values = [conventional_metrics[metric_name] for metric_name in metric_names]
-    optimal_values = [optimal_metrics[metric_name] for metric_name in metric_names]
-
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-    ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(metric_names)
-
-    if metric == 'AC':
-        # Plot the conventional metrics in blue
-        conventional_values += conventional_values[:1]
-        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Threshold', color='blue')
-        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
-
-        # Plot the optimal metrics in green
-        optimal_values += optimal_values[:1]
-        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Threshold', color='green')
-        ax.fill(angles, optimal_values, alpha=0.50, color='green')
-
-        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal AC Thresholds')
-        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
-
-        # Annotate data points with percentage values for conventional metrics
-        for angle, value, metric_name in zip(angles, conventional_values, metric_names):
-            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
-                        horizontalalignment='center', verticalalignment='center')
-
-        # Annotate data points with percentage values for optimal metrics
-        for angle, value, metric_name in zip(angles, optimal_values, metric_names):
-            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
-                        horizontalalignment='center', verticalalignment='center')
-    if metric == 'GM':
-        # Plot the conventional metrics in blue
-        conventional_values += conventional_values[:1]
-        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Functional Space', color='blue')
-        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
-
-        # Plot the optimal metrics in green
-        optimal_values += optimal_values[:1]
-        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Functional Space', color='green')
-        ax.fill(angles, optimal_values, alpha=0.50, color='green')
-
-        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal Functional Spaces for GM scores')
-        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
-
-        # Annotate data points with percentage values for conventional metrics
-        for angle, value, metric_name in zip(angles, conventional_values, metric_names):
-            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
-                        horizontalalignment='center', verticalalignment='center')
-
-        # Annotate data points with percentage values for optimal metrics
-        for angle, value, metric_name in zip(angles, optimal_values, metric_names):
-            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
-                        horizontalalignment='center', verticalalignment='center')
-    if metric == 'GMAC':
-        # Plot the conventional metrics in blue
-        conventional_values += conventional_values[:1]
-        ax.plot(angles, conventional_values, 'o-', linewidth=2, label='Conventional Functional Space', color='blue')
-        ax.fill(angles, conventional_values, alpha=0.50, color='blue')
-
-        # Plot the optimal metrics in green
-        optimal_values += optimal_values[:1]
-        ax.plot(angles, optimal_values, 'o-', linewidth=2, label='Optimal Functional Space', color='green')
-        ax.fill(angles, optimal_values, alpha=0.50, color='green')
-
-        ax.set_title('Evaluation Metrics Comparison between Conventional vs Optimal AC Threshold and FS for GMAC scores')
-        ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
-
-        # Annotate data points with percentage values for conventional metrics
-        for angle, value, metric_name in zip(angles, conventional_values, metric_names):
-            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
-                        horizontalalignment='center', verticalalignment='center')
-
-        # Annotate data points with percentage values for optimal metrics
-        for angle, value, metric_name in zip(angles, optimal_values, metric_names):
-            ax.annotate(f"{value:.2f}%", xy=(angle, value), xytext=(angle, value + 0.05),
-                        horizontalalignment='center', verticalalignment='center')
-    plt.tight_layout()
-    if save_filename:
-        plt.savefig(save_filename)  # Save the plot to the specified file
-    else:
-        plt.show()  # Show the plot if save_filename is not provided
 
 
 def resample_binary_mask(mask, original_frequency, desired_frequency):
@@ -440,6 +519,10 @@ def get_evaluation_metrics(ground_truth, predictions):
         A dictionary containing the evaluation metrics.
     """
 
+    # Convert inputs to NumPy arrays if they are not already
+    ground_truth = np.array(ground_truth)
+    predictions = np.array(predictions)
+
     # Ensure arrays have same sizes 
     ground_truth, predictions = remove_extra_elements(ground_truth, predictions)
 
@@ -475,6 +558,33 @@ def get_evaluation_metrics(ground_truth, predictions):
         'PPV': ppv,
         'NPV': npv,
     }
+
+
+def get_mask_bilateral(GT_mask_ndh, GT_mask_dh):
+    """
+    Creates a bilateral mask by performing element-wise logical AND operation on the given NDH and DH masks.
+    
+    Args:
+        GT_mask_ndh (list or ndarray): List or array representing the ground truth NDH mask.
+        GT_mask_dh (list or ndarray): List or array representing the ground truth DH mask.
+        
+    Returns:
+        ndarray: Bilateral mask where the value is 1 if and only if GT_mask_ndh AND GT_mask_dh row is 1; otherwise, it's 0.
+    """
+    
+    # Convert input to numpy arrays if they are lists
+    if isinstance(GT_mask_ndh, list):
+        GT_mask_ndh = np.array(GT_mask_ndh)
+    if isinstance(GT_mask_dh, list):
+        GT_mask_dh = np.array(GT_mask_dh)
+    
+    # Check if the input arrays have the same shape
+    assert GT_mask_ndh.shape == GT_mask_dh.shape, "The input arrays must have the same shape."
+    
+    # Perform element-wise logical AND operation on the masks
+    mask_bilateral = np.logical_and(GT_mask_ndh, GT_mask_dh).astype(int)
+    
+    return mask_bilateral
 
 
 def window_data(data, original_sampling_frequency, window_length_seconds):
@@ -514,47 +624,47 @@ def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_C
     Creates a dictionary with metrics data organized by the combination of vertical and horizontal axes.
 
     Args:
-        metrics_ndh_CT: Metrics data for ndh and CT.
-        metrics_dh_CT: Metrics data for dh and CT.
-        metrics_bilateral_CT: Metrics data for bilateral and CT.
-        metrics_ndh_OT: Metrics data for ndh and OT.
-        metrics_dh_OT: Metrics data for dh and OT.
-        metrics_bilateral_OT: Metrics data for bilateral and OT.
-
+        (...)
     Returns:
         Dictionary with metrics data organized by the combination of vertical and horizontal axes.
     """
+
     data = {
-        ('OT_ndh', 'Sensitivity'): metrics_ndh_OT['Sensitivity'],
-        ('OT_ndh', 'Specificity'): metrics_ndh_OT['Specificity'],
-        ('OT_ndh', 'Accuracy'): metrics_ndh_OT['Accuracy'],
-        ('OT_ndh', 'PPV'): metrics_ndh_OT['PPV'],
-        ('OT_ndh', 'NPV'): metrics_ndh_OT['NPV'],
-        ('OT_dh', 'Sensitivity'): metrics_dh_OT['Sensitivity'],
-        ('OT_dh', 'Specificity'): metrics_dh_OT['Specificity'],
-        ('OT_dh', 'Accuracy'): metrics_dh_OT['Accuracy'],
-        ('OT_dh', 'PPV'): metrics_dh_OT['PPV'],
-        ('OT_dh', 'NPV'): metrics_dh_OT['NPV'],
-        ('OT_bilateral', 'Sensitivity'): metrics_bilateral_OT['Sensitivity'],
-        ('OT_bilateral', 'Specificity'): metrics_bilateral_OT['Specificity'],
-        ('OT_bilateral', 'Accuracy'): metrics_bilateral_OT['Accuracy'],
-        ('OT_bilateral', 'PPV'): metrics_bilateral_OT['PPV'],
-        ('OT_bilateral', 'NPV'): metrics_bilateral_OT['NPV'],
-        ('CT_ndh', 'Sensitivity'): metrics_ndh_CT['Sensitivity'],
-        ('CT_ndh', 'Specificity'): metrics_ndh_CT['Specificity'],
-        ('CT_ndh', 'Accuracy'): metrics_ndh_CT['Accuracy'],
-        ('CT_ndh', 'PPV'): metrics_ndh_CT['PPV'],
-        ('CT_ndh', 'NPV'): metrics_ndh_CT['NPV'],
-        ('CT_dh', 'Sensitivity'): metrics_dh_CT['Sensitivity'],
-        ('CT_dh', 'Specificity'): metrics_dh_CT['Specificity'],
-        ('CT_dh', 'Accuracy'): metrics_dh_CT['Accuracy'],
-        ('CT_dh', 'PPV'): metrics_dh_CT['PPV'],
-        ('CT_dh', 'NPV'): metrics_dh_CT['NPV'],
-        ('CT_bilateral', 'Sensitivity'): metrics_bilateral_CT['Sensitivity'],
-        ('CT_bilateral', 'Specificity'): metrics_bilateral_CT['Specificity'],
-        ('CT_bilateral', 'Accuracy'): metrics_bilateral_CT['Accuracy'],
-        ('CT_bilateral', 'PPV'): metrics_bilateral_CT['PPV'],
-        ('CT_bilateral', 'NPV'): metrics_bilateral_CT['NPV']
+        'OT_ndh_Sensitivity': metrics_ndh_OT['Sensitivity'],
+        'OT_ndh_Specificity': metrics_ndh_OT['Specificity'],
+        'OT_ndh_Accuracy': metrics_ndh_OT['Accuracy'],
+        'OT_ndh_PPV': metrics_ndh_OT['PPV'],
+        'OT_ndh_NPV': metrics_ndh_OT['NPV'],
+
+        'OT_dh_Sensitivity': metrics_dh_OT['Sensitivity'],
+        'OT_dh_Specificity': metrics_dh_OT['Specificity'],
+        'OT_dh_Accuracy': metrics_dh_OT['Accuracy'],
+        'OT_dh_PPV': metrics_dh_OT['PPV'],
+        'OT_dh_NPV': metrics_dh_OT['NPV'],
+
+        'OT_bilateral_Sensitivity': metrics_bilateral_OT['Sensitivity'],
+        'OT_bilateral_Specificity': metrics_bilateral_OT['Specificity'],
+        'OT_bilateral_Accuracy': metrics_bilateral_OT['Accuracy'],
+        'OT_bilateral_PPV': metrics_bilateral_OT['PPV'],
+        'OT_bilateral_NPV': metrics_bilateral_OT['NPV'],
+
+        'CT_ndh_Sensitivity': metrics_ndh_CT['Sensitivity'],
+        'CT_ndh_Specificity': metrics_ndh_CT['Specificity'],
+        'CT_ndh_Accuracy': metrics_ndh_CT['Accuracy'],
+        'CT_ndh_PPV': metrics_ndh_CT['PPV'],
+        'CT_ndh_NPV': metrics_ndh_CT['NPV'],
+
+        'CT_dh_Sensitivity': metrics_dh_CT['Sensitivity'],
+        'CT_dh_Specificity': metrics_dh_CT['Specificity'],
+        'CT_dh_Accuracy': metrics_dh_CT['Accuracy'],
+        'CT_dh_PPV': metrics_dh_CT['PPV'],
+        'CT_dh_NPV': metrics_dh_CT['NPV'],
+
+        'CT_bilateral_Sensitivity': metrics_bilateral_CT['Sensitivity'],
+        'CT_bilateral_Specificity': metrics_bilateral_CT['Specificity'],
+        'CT_bilateral_Accuracy': metrics_bilateral_CT['Accuracy'],
+        'CT_bilateral_PPV': metrics_bilateral_CT['PPV'],
+        'CT_bilateral_NPV': metrics_bilateral_CT['NPV']
     }
 
     return data
@@ -725,24 +835,7 @@ def find_specific_csv_files(initial_path, csv_file_names, participant_group, tes
     return csv_files_dict
 
 
-def get_mask_bilateral(GT_mask_ndh, GT_mask_dh):
-    """
-    Creates a bilateral mask by performing element-wise logical AND operation on the given left and dh masks.
-    
-    Args:
-        GT_mask_ndh (ndarray): Array representing the ground truth ndh mask.
-        GT_mask_dh (ndarray): Array representing the ground truth dh mask.
-        
-    Returns:
-        ndarray: Bilateral mask where the value is 1 if and only if GT_mask_ndh AND GT_mask_dh row is 1; othedhise, it's 0.
-    """
-    # Check if the input arrays have the same shape
-    assert GT_mask_ndh.shape == GT_mask_dh.shape, "The input arrays must have the same shape."
-    
-    # Perform element-wise logical AND operation on the masks
-    mask_bilateral = np.logical_and(GT_mask_ndh, GT_mask_dh).astype(int)
-    
-    return mask_bilateral
+
 
 
 def extract_data_screening_participant(csv_file_path):
@@ -876,3 +969,120 @@ def run_notebooks_for_group(notebook_paths, screening_results, group):
 
         # Close the progress bar
         progress_bar.close()
+
+
+def resample_angle_data(angle_data, original_frequency, desired_frequency):
+    """
+    Resamples angle data using cubic spline interpolation.
+
+    Args:
+        angle_data (numpy.ndarray): 1D numpy array containing angle values.
+        original_frequency (int): Original frequency of angle data.
+        desired_frequency (int): Desired frequency for resampling.
+
+    Returns:
+        numpy.ndarray: Resampled angle data as a 1D numpy array.
+    """
+    # Calculate the time array for the original data
+    time_original = np.linspace(0, (original_frequency - 1) / original_frequency, original_frequency)
+
+    # Calculate the time array for the desired resampled data
+    time_desired = np.linspace(0, (desired_frequency - 1) / desired_frequency, desired_frequency)
+
+    # Create a cubic spline interpolation function
+    cubic_spline = CubicSpline(time_original, angle_data)
+
+    # Evaluate the cubic spline at the desired time points to get the resampled data
+    resampled_data = cubic_spline(time_desired)
+
+    return resampled_data
+
+
+def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, data3_ot, metric_name):
+    sns.set_style("whitegrid")
+    plt.figure(figsize=(12, 6))
+
+    positions = [1, 2, 4, 5, 7, 8]
+    width = 0.2
+
+    # Plot 'ndh' side
+    plt.boxplot([data1_ct, data1_ot], positions=positions[:2], labels=['NDH CT', 'NDH OT'], patch_artist=True, widths=width, whis=2)
+    # Plot 'dh' side
+    plt.boxplot([data2_ct, data2_ot], positions=positions[2:4], labels=['DH CT', 'DH OT'], patch_artist=True, widths=width, whis=2)
+    # Plot 'bilateral' side
+    plt.boxplot([data3_ct, data3_ot], positions=positions[4:], labels=['Bilateral CT', 'Bilateral OT'], patch_artist=True, widths=width, whis=2)
+
+    plt.title(f'Distribution of {metric_name} across individuals for ndh, dh, and Bilateral UL usage (CT vs OT)')
+    plt.xlabel('Side')
+    plt.ylabel(metric_name)
+
+    colors = ['lightblue', 'lightgreen', 'lightblue', 'lightgreen', 'lightblue', 'lightgreen']
+    for patch, color in zip(plt.gca().patches, colors):
+        patch.set_facecolor(color)
+
+    # Create the legend
+    legend_elements = [plt.Rectangle((0, 0), 1, 1, color='lightblue', label='Conventional Threshold'),
+                       plt.Rectangle((0, 0), 1, 1, color='lightgreen', label='Optimal Threshold')]
+    plt.legend(handles=legend_elements, loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_side_metrics(data_array, metric_names):
+    for metric_name in metric_names:
+        ndh_data_ot = []
+        ndh_data_ct = []
+        dh_data_ot = []
+        dh_data_ct = []
+        bilateral_data_ot = []
+        bilateral_data_ct = []
+
+        for data in data_array:
+            for key, value in data.items():
+                parts = key.split('_')
+                if len(parts) == 3 and parts[2] == metric_name:
+                    if parts[0] == 'OT' and parts[1] == 'ndh':
+                        ndh_data_ot.append(value)
+                    elif parts[0] == 'CT' and parts[1] == 'ndh':
+                        ndh_data_ct.append(value)
+                    elif parts[0] == 'OT' and parts[1] == 'dh':
+                        dh_data_ot.append(value)
+                    elif parts[0] == 'CT' and parts[1] == 'dh':
+                        dh_data_ct.append(value)
+                    elif parts[0] == 'OT' and parts[1] == 'bilateral':
+                        bilateral_data_ot.append(value)
+                    elif parts[0] == 'CT' and parts[1] == 'bilateral':
+                        bilateral_data_ct.append(value)
+
+        if not ndh_data_ot or not ndh_data_ct or not dh_data_ot or not dh_data_ct or not bilateral_data_ot or not bilateral_data_ct:
+            print(f"Data not found for the metric: {metric_name}")
+            continue
+        
+        # Plotting
+        plot_data_side_by_side(ndh_data_ct, ndh_data_ot, dh_data_ct, dh_data_ot, bilateral_data_ct, bilateral_data_ot, metric_name)
+
+
+def get_GT_dict(testing_dataset):
+    """
+    Constructs a dictionary containing ground truth masks for NDH, DH, and BIL at 50Hz.
+
+    Args:
+        testing_dataset (dict): Participant dataset containing GT_mask_DH_50Hz and GT_mask_NDH_50Hz.
+
+    Returns:
+        dict: Dictionary containing ground truth masks for NDH, DH, and BIL at 50Hz.
+    """
+    
+    # Initialize dictionary to store ground truth masks
+    testing_dict_GT_mask_50Hz = {}
+    
+    # Initialize sub-dictionaries for each limb condition to store the ground truth mask for 'GT'
+    testing_dict_GT_mask_50Hz['NDH'] = {'GT': testing_dataset['GT_mask_NDH_50Hz']}
+    testing_dict_GT_mask_50Hz['DH'] = {'GT': testing_dataset['GT_mask_DH_50Hz']}
+    
+    # Compute the ground truth mask for bilateral (BIL) condition
+    bil_gt_mask = get_mask_bilateral(testing_dataset['GT_mask_NDH_50Hz'], testing_dataset['GT_mask_DH_50Hz'])
+    testing_dict_GT_mask_50Hz['BIL'] = {'GT': bil_gt_mask}
+
+    return testing_dict_GT_mask_50Hz

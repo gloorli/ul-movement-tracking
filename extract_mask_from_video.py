@@ -230,6 +230,8 @@ def get_frames(segmented_data):
     # Use regex to extract the frame numbers from the substring
     matches = re.search(r'\[(.*?)\]', result_str)
 
+    frames = []  # Initialize frames as an empty list
+
     if matches:
         # Extract the content inside the brackets and convert to integers
         content_inside_brackets = matches.group(1)
@@ -260,6 +262,24 @@ def closest_label(array, numbers_of_interest):
     return modified_array
 
 
+def extract_mask_from_videos(videos_paths, export_json):
+    mask_per_video = []
+
+    # Loop over all the video_path in the videos_paths array
+    for video_path in videos_paths:
+        # Call segment_data function
+        segmented_data = segment_data(export_json, video_path)
+
+        # Extract the masks using the labeled frames
+        mask_video = get_mask(segmented_data)
+        mask_per_video.append(mask_video)
+
+    # Merge all the mask_video together using np.concatenate
+    mask = np.concatenate(mask_per_video)
+
+    return mask
+
+
 def get_mask(segmented_data):
     labels = ['NF', 'Functional', 'Whole-body Movement']
     mask_labels = [1, 0, -1]
@@ -269,7 +289,7 @@ def get_mask(segmented_data):
 
     # Get the labels in the correct order: 1, 0, or -1 associated with the correct frame number from frame_array
     label_array = find_labels(json.dumps(segmented_data))
-
+    
     # Ensure they have the same size otherwise raise an error
     if len(frame_array) != len(label_array):
         raise ValueError("Frame and label arrays should have the same size.")
@@ -289,22 +309,8 @@ def get_mask(segmented_data):
     return mask
 
 
-def extract_mask_from_videos(videos_paths, export_json):
-    mask_per_video = []
 
-    # Loop over all the video_path in the videos_paths array
-    for video_path in videos_paths:
-        # Call segment_data function
-        segmented_data = segment_data(export_json, video_path)
 
-        # Extract the masks using the labeled frames
-        mask_video = get_mask(segmented_data)
-        mask_per_video.append(mask_video)
-
-    # Merge all the mask_video together using np.concatenate
-    mask = np.concatenate(mask_per_video)
-
-    return mask
 
 
 def plot_movement_tendency(data):
