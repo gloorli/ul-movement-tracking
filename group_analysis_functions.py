@@ -740,8 +740,8 @@ def get_GT_dict(testing_dataset):
     testing_dict_GT_mask_25Hz = {}
     
     # Initialize sub-dictionaries for each limb condition to store the ground truth mask for 'GT'
-    testing_dict_GT_mask_50Hz['NDH'] = {'GT': testing_dataset['GT_mask_NDH_25Hz']}
-    testing_dict_GT_mask_50Hz['DH'] = {'GT': testing_dataset['GT_mask_DH_25Hz']}
+    testing_dict_GT_mask_25Hz['NDH'] = {'GT': testing_dataset['GT_mask_NDH_25Hz']}
+    testing_dict_GT_mask_25Hz['DH'] = {'GT': testing_dataset['GT_mask_DH_25Hz']}
     
     # Compute the ground truth mask for bilateral (BIL) condition
     bil_gt_mask = get_mask_bilateral(testing_dataset['GT_mask_NDH_25Hz'], testing_dataset['GT_mask_DH_25Hz'])
@@ -763,27 +763,27 @@ def compare_arm_use_duration_plot(ground_truth, metric_duration, metric_name, sa
     Returns:
         None
     """
-    sns.set(style="whitegrid")
+    sns.set(style="white")
+    sns.set_context("notebook", font_scale=1.25, rc={"lines.linewidth": 2.5})
     
-    # Note: Changing 'sides' to uppercase to match the ground_truth keys
     sides = ['NDH', 'DH', 'BIL']
+    
     for side in sides:
         plt.figure(figsize=(10, 6))
-        plt.title(f"Functional Arm Use Duration Comparison - {side} - {metric_name}", fontsize=16)
-
+        plt.title(f"Functional Arm Use Duration Comparison - {side} - {metric_name}", fontsize=18, pad=20)
+        
         ground_truth_percentage = ground_truth[side]['GT']['percentage_active']
         metric_duration_conv_percentage = metric_duration[side.lower()]['conv']['percentage_active']
         metric_duration_opt_percentage = metric_duration[side.lower()]['opt']['percentage_active']
-
+        
         x = [0, 1, 2]
         heights = [ground_truth_percentage, metric_duration_conv_percentage, metric_duration_opt_percentage]
         labels = ['Ground Truth', 'Conventional', 'Optimal']
-
-        colors = sns.color_palette("Set1")
-
-        ax = sns.barplot(x=x, y=heights, palette=colors)
+        colors = ['#FF0000', '#007BFF', '#28a745']  # Red for GT, and modern shades of blue and green
+        
+        ax = sns.barplot(x=x, y=heights, palette=colors, edgecolor=".2")
         plt.xticks(x, labels)
-        plt.ylabel('Percentage Active Duration (%)', fontsize=12)
+        plt.ylabel('Percentage Active Duration (%)', fontsize=14)
         plt.xlabel('')
         
         durations = [
@@ -793,21 +793,22 @@ def compare_arm_use_duration_plot(ground_truth, metric_duration, metric_name, sa
         ]
         
         for i, duration in enumerate(durations):
-            ax.text(i, heights[i] / 2, duration, ha='center', fontsize=10, fontweight='bold')
+            ax.text(i, heights[i] / 2, duration, ha='center', fontsize=12, fontweight='bold')  # Inside bar plot
         
-         # Calculate and display percentage differences
-        diff_conv = ((metric_duration_conv_percentage - ground_truth_percentage) / ground_truth_percentage) * 100
-        diff_opt = ((metric_duration_opt_percentage - ground_truth_percentage) / ground_truth_percentage) * 100
+        # Calculate and display percentage differences
+        reference_val = ground_truth_percentage  # Ground Truth is the reference
         
-        # Display + or - value indicating the percentage difference on top of bars
+        diff_conv = ((metric_duration_conv_percentage - reference_val) / reference_val) * 100
+        diff_opt = ((metric_duration_opt_percentage - reference_val) / reference_val) * 100
         diff_conv_symbol = '+' if diff_conv >= 0 else '-'
         diff_opt_symbol = '+' if diff_opt >= 0 else '-'
 
-        ax.text(1, metric_duration_conv_percentage + 1, f"Deviation from GT: {diff_conv_symbol}{abs(int(diff_conv))}%", 
-                ha='center', fontsize=12, fontweight='bold', color='black')
-        
-        ax.text(2, metric_duration_opt_percentage + 1, f"Deviation from GT: {diff_opt_symbol}{abs(int(diff_opt))}%", 
-                ha='center', fontsize=12, fontweight='bold', color='black')
+        y_max = max(heights)
+        plt.ylim(0, y_max + y_max * 0.2)  # Add 20% extra space at the top
+
+        ax.text(0, ground_truth_percentage + y_max * 0.01, "Reference", ha='center', fontsize=12, fontweight='bold', color='black')
+        ax.text(1, metric_duration_conv_percentage + y_max * 0.01, f"Deviation from GT : {diff_conv_symbol}{abs(int(diff_conv))}%", ha='center', fontsize=12, fontweight='bold', color='black')
+        ax.text(2, metric_duration_opt_percentage + y_max * 0.01, f"Deviation from GT : {diff_opt_symbol}{abs(int(diff_opt))}%", ha='center', fontsize=12, fontweight='bold', color='black')
 
         if save_path:
             file_name = f"Functional_Arm_Use_Duration_Comparison_{side}_{metric_name}.png"

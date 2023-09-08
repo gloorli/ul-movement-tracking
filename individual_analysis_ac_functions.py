@@ -11,6 +11,7 @@ from sklearn.metrics import accuracy_score, precision_score, f1_score, jaccard_s
 from sklearn.metrics import cohen_kappa_score
 from utilities import *
 from sklearn.model_selection import KFold
+import seaborn as sns
 
 
 def get_data(folder, dominant_hand):
@@ -37,7 +38,8 @@ def get_data(folder, dominant_hand):
     GT_mask_LW = pd.read_csv(GT_mask_LW_path)
     GT_mask_RW = pd.read_csv(GT_mask_RW_path)
 
-    if dominant_hand == 'Right': 
+    # important: make the condition case-insensitive
+    if dominant_hand.lower() == 'right': 
         dh_data = RW_data
         GT_mask_dh = np.array(GT_mask_RW)
         ndh_data = LW_data
@@ -127,32 +129,43 @@ def compute_bilateral_magnitude(activity_counts_sensor1, activity_counts_sensor2
 
 
 def get_magnitude_ratio(activity_counts_sensor_ndh, activity_counts_sensor_dh):
+    """
+    Compute the magnitude ratio between non-dominant hand (NDH) and dominant hand (DH).
+
+    Parameters:
+    - activity_counts_sensor_ndh (array-like): Activity counts from the NDH sensor.
+    - activity_counts_sensor_dh (array-like): Activity counts from the DH sensor.
+
+    Returns:
+    - mag_ratio_log (np.ndarray): Log-transformed magnitude ratios.
+    """
+    import numpy as np
     
+    # Convert inputs to NumPy arrays
     activity_counts_sensor_ndh = np.array(activity_counts_sensor_ndh)
     activity_counts_sensor_dh = np.array(activity_counts_sensor_dh)
     
+    # Compute bilateral magnitude (this function's operation is not provided)
     bilateral_magnitude = compute_bilateral_magnitude(activity_counts_sensor_ndh, activity_counts_sensor_dh)
     
-    # Create masks
+    # Masks for special conditions
     bm_zero_mask = (bilateral_magnitude == 0.0)
     ndh_zero_mask = (activity_counts_sensor_ndh == 0.0)
     dh_zero_mask = (activity_counts_sensor_dh == 0.0)
     
-    # Compute the vector magnitude ratio for each second for valid division values
-    mag_ratio = np.divide(activity_counts_sensor_ndh, activity_counts_sensor_dh, out=np.ones_like(activity_counts_sensor_ndh), where=(activity_counts_sensor_dh != 0) & (activity_counts_sensor_ndh != 0))
+    # Compute the vector magnitude ratio, avoiding division by zero
+    mag_ratio = np.divide(activity_counts_sensor_ndh, activity_counts_sensor_dh, 
+                          out=np.ones_like(activity_counts_sensor_ndh), 
+                          where=(activity_counts_sensor_dh != 0) & (activity_counts_sensor_ndh != 0))
     
-    # Transform the ratio values using a natural logarithm only for the valid candidates
+    # Log transform the magnitude ratio
     mag_ratio_log = np.log(mag_ratio)
     
-    # Handle cases with bilateral_magnitude = 0 
+    # Handle special cases
     mag_ratio_log[bm_zero_mask] = np.nan
-    
-    # Handle case with both ndh_zero_mask AND dh_zero_mask active
     mag_ratio_log[np.logical_and(ndh_zero_mask, dh_zero_mask)] = np.nan
-    
-    # Handle cases with ndh_zero_mask OR dh_zero_mask active but not BOTH at the same time
-    mag_ratio_log[np.logical_and(ndh_zero_mask, ~dh_zero_mask)] = -7  # Left is at 0, indicating full use of the dominant (left) side 
-    mag_ratio_log[np.logical_and(~ndh_zero_mask, dh_zero_mask)] = 7   # Right is at 0, indicating full use of the non-dominant (right) side
+    mag_ratio_log[np.logical_and(ndh_zero_mask, ~dh_zero_mask)] = -7  
+    mag_ratio_log[np.logical_and(~ndh_zero_mask, dh_zero_mask)] = 7   
     
     return mag_ratio_log
 
@@ -188,60 +201,87 @@ def get_tendency_ratio(ratio_array):
     return (neg_pct, pos_pct, zer_pct)
 
 
-def plot_distribution_ratio(data):
-    data = np.array(data)
-    data = data[~np.isnan(data)] # remove NaN values
+def plot_distribution_ratio(data, non_affected_hand="right", saving_path=None):
+    """
+    Plot the distribution ratio of the affected and non-affected hand using Seaborn.
 
-    plt.hist(data, bins=15, color='#1f77b4')
-    plt.xlabel('Ratio [a.u.]')
-    plt.ylabel('Frequency')
-    plt.text(0.1, -0.15, 'Dominant side', transform=plt.gca().transAxes, horizontalalignment='center')
-    plt.text(0.98, -0.15, 'Non Dominant Side', transform=plt.gca().transAxes, horizontalalignment='center', ha='right')
+    Parameters:
+    - data (array-like): The ratio data to be plotted.
+    - non_affected_hand (str): The side of the non-affected hand ("Left" or "Right", default: "Right").
+    - saving_path (str, optional): Folder path to save the figure. If None, the figure won't be saved.
+    """
+    
+    sns.set(style="whitegrid")
+    plt.figure(figsize=(10, 6))
+    
+    data = np.array(data)
+    data = data[~np.isnan(data)]  # Remove NaN values
+    
+    sns.histplot(data, bins=15, color='#1f77b4', kde=True)
+    plt.xlabel('Ratio [a.u.]', fontsize=14)
+    plt.ylabel('Frequency', fontsize=14)
+    
+    # Determine labels based on the non-affected hand
+    if non_affected_hand.lower() == "right":
+        plt.text(0.1, -0.15, 'Non-affected (Right Hand)', transform=plt.gca().transAxes, horizontalalignment='center', fontsize=12)
+        plt.text(0.98, -0.15, 'Affected (Left Hand)', transform=plt.gca().transAxes, horizontalalignment='center', ha='right', fontsize=12)
+    else:
+        plt.text(0.1, -0.15, 'Non-affected (Left Hand)', transform=plt.gca().transAxes, horizontalalignment='center', fontsize=12)
+        plt.text(0.98, -0.15, 'Affected (Right Hand)', transform=plt.gca().transAxes, horizontalalignment='center', ha='right', fontsize=12)
     
     # Add vertical line for median
     median_val = np.nanmedian(data)
     plt.axvline(median_val, linestyle='--', color='red', label='Median')
-    plt.legend(loc='upper center')
+    plt.legend(loc='upper center', fontsize=12)
+    
+    if saving_path is not None:
+        full_file_path = os.path.join(saving_path, "ratio_distribution.png")
+        plt.savefig(full_file_path)
+        print(f"Figure saved as '{full_file_path}'")
     
     plt.show()
 
-
-def plot_density(BM, ratio):
-    # Define the range of the ratio values
-    ratio_range = (-8, 8)
     
-    ratio = np.squeeze(ratio)
+def plot_density(BM, ratio, non_affected_hand='right', saving_path=None):
+    """
+    Create a density plot for Bilateral Magnitude (BM) and ratio data.
+
+    Parameters:
+    - BM (array-like): Bilateral Magnitude data.
+    - ratio (array-like): Ratio data (one limb's activity count divided by the other limb's).
+    - non_affected_hand (str): The side of the non-affected hand ("Left" or "Right", default: "Right").
+    - saving_path (str, optional): Folder path to save the figure. If None, the figure won't be saved.
+    """
+    
+    sns.set(style="whitegrid")
+    
     # Remove NaN values from the ratio and BM arrays
     nan_mask = np.isnan(ratio)
     BM = BM[~nan_mask]
     ratio = ratio[~nan_mask]
     
-    # Determine the duration of each ratio value
-    ratio_duration = np.zeros(len(ratio))
-    unique_ratios = np.unique(ratio)
-    for r in unique_ratios:
-        mask = (ratio == r)
-        ratio_duration[mask] = np.sum(mask)
-    max_duration = np.max(ratio_duration)
+    plt.figure(figsize=(12, 8))
     
-    # Create the colormap for the density plot
-    cmap = ListedColormap(plt.cm.get_cmap('bwr')(np.linspace(0, 1, 256)))
+    # Create the histogram plot
+    sns.histplot(x=ratio, y=BM, bins=50, cbar=True, cmap="coolwarm", cbar_kws={'label': 'Frequency'})
     
-    # Create the density plot
-    fig, ax = plt.subplots(figsize=(8, 6))
-    img = ax.scatter(ratio, BM, c=ratio_duration, cmap=cmap, edgecolors='none', alpha=0.75)
-    ax.set_xlim(ratio_range)
-    ax.set_xlabel('Ratio')
-    ax.set_ylabel('Bilateral Magnitude')
-    #ax.set_title('Density Plot of Ratio and Bilateral Magnitude')
-    plt.text(0.1, -0.15, 'Dominant side', transform=plt.gca().transAxes, horizontalalignment='center')
-    plt.text(0.98, -0.15, 'Non Dominant Side', transform=plt.gca().transAxes, horizontalalignment='center', ha='right')
+    # Axis labels and title
+    plt.xlabel("Magnitude Ratio", fontsize=14)
+    plt.ylabel("Bilateral Magnitude", fontsize=14)
     
-    # Create the color bar
-    cbar = fig.colorbar(img)
-    cbar.ax.set_ylabel('Duration (s)', rotation=270, labelpad=15)
-    cbar.set_ticks(np.linspace(0, max_duration, 5, dtype=int))
-    
+    # Determine labels based on the non-affected hand
+    if non_affected_hand.lower() == "right":
+        plt.text(-7.5, np.min(BM), 'Non-affected (Right Hand)', fontsize=12, ha='center')
+        plt.text(7.5, np.min(BM), 'Affected (Left Hand)', fontsize=12, ha='center')
+    else:
+        plt.text(-7.5, np.min(BM), 'Non-affected (Left Hand)', fontsize=12, ha='center')
+        plt.text(7.5, np.min(BM), 'Affected (Right Hand)', fontsize=12, ha='center')
+
+    if saving_path is not None:
+        full_file_path = os.path.join(saving_path, "density_plot.png")
+        plt.savefig(full_file_path)
+        print(f"Figure saved as '{full_file_path}'")
+        
     plt.show()
 
 

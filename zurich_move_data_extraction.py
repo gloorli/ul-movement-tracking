@@ -91,7 +91,7 @@ def extract_time_data_from_mat_file(file_path):
     return df_time
 
 
-def extract_sensors_data_from_mat_file(file_path: str, sensor_placement, sensors_features, dataframe_features) -> dict:
+def f(file_path: str, sensor_placement, sensors_features, dataframe_features) -> dict:
     """
     Extracts data from a .mat file and returns a dictionary of dataframes.
 
