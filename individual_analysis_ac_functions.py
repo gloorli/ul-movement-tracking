@@ -588,9 +588,10 @@ def get_prediction_ac(data, threshold):
     data = np.array(data)
 
     # Compute the predictions based on the threshold
-    predictions = np.where(data <= threshold, 0, 1)
+    predictions = np.where(data > threshold, 1, 0)
 
     return predictions
+
 
 def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
     conventional_threshold_unilateral = 2
@@ -751,7 +752,7 @@ def find_optimal_threshold(ground_truth, activity_counts):
     activity_counts = np.array(activity_counts)
     
     # Define the thresholds you want to investigate
-    thresholds = np.linspace(0, np.max(activity_counts), num=100000)
+    thresholds = np.arange(0, int(np.max(activity_counts)) + 1)
 
     # Calculate false positive rate (FPR) and true positive rate (TPR) for different thresholds
     fpr, tpr = calculate_tpr_fpr(ground_truth, activity_counts, thresholds)

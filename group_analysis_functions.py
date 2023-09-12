@@ -10,6 +10,7 @@ from activity_count_function import *
 from utilities import *
 from individual_analysis_ac_functions import *
 from individual_analysis_fs_functions import *
+from adjustText import adjust_text
 
 
 def regroup_field_data_metrics(csv_files):
@@ -134,56 +135,57 @@ def optimal_group_fs_computation(group_pitch_mad_50Hz, group_yaw_mad_50Hz, group
 
 
 def plot_side_by_side_boxplots(individual_optimal_threshold_ndh, individual_optimal_threshold_dh,
-                               group_optimal_threshold_ndh, group_optimal_threshold_dh, metric):
+                               group_optimal_threshold_ndh, group_optimal_threshold_dh, metric, group, path = None):
     sns.set(style="whitegrid")
     plt.figure(figsize=(10, 6))
 
+    # Conditional settings for metric and group
     if metric == 'AC':
         conventional_threshold_unilateral = 2
         plot_title = 'Distribution of the AC optimal thresholds across individuals'
+        threshold_type = 'Threshold'
     elif metric == 'GM':
         conventional_threshold_unilateral = 30
         plot_title = 'Distribution of the optimal functional spaces across individuals'
+        threshold_type = 'Functional Space'
+    
+    if group == 'S':
+        ndh_label = 'Affected Hand'
+        dh_label = 'Non-Affected Hand'
+    elif group == 'H':
+        ndh_label = 'Non-Dominant Hand'
+        dh_label = 'Dominant Hand'
 
-    # Colors for 'ndh' and 'dh' sides
     ndh_color = 'skyblue'
     dh_color = 'lightgreen'
 
-    # Box plot for ndh side
-    ndh_box = plt.boxplot(individual_optimal_threshold_ndh, positions=[1], labels=['ndh'], patch_artist=True, boxprops=dict(facecolor=ndh_color))
-    # Box plot for dh side
-    dh_box = plt.boxplot(individual_optimal_threshold_dh, positions=[2], labels=['dh'], patch_artist=True, boxprops=dict(facecolor=dh_color))
+    plt.boxplot(individual_optimal_threshold_ndh, positions=[1], labels=[ndh_label], patch_artist=True, boxprops=dict(facecolor=ndh_color))
+    plt.boxplot(individual_optimal_threshold_dh, positions=[2], labels=[dh_label], patch_artist=True, boxprops=dict(facecolor=dh_color))
 
-    # Add the threshold line for the conventional threshold
-    plt.axhline(y=conventional_threshold_unilateral, color='red', linestyle='--', label=f'Conventional threshold = {conventional_threshold_unilateral}')
-
-    # Add the dashed lines for the optimal thresholds
-    plt.axhline(y=group_optimal_threshold_ndh, color='blue', linestyle='--', label=f'Group Optimal NDH Threshold = {group_optimal_threshold_ndh:.2f}')
-    plt.axhline(y=group_optimal_threshold_dh, color='green', linestyle='--', label=f'Group Optimal DH Threshold = {group_optimal_threshold_dh:.2f}')
+    plt.axhline(y=conventional_threshold_unilateral, color='red', linestyle='--', label=f'Conventional {threshold_type} = {conventional_threshold_unilateral}')
+    plt.axhline(y=group_optimal_threshold_ndh, color='blue', linestyle='--', label=f'Group Optimal {ndh_label} {threshold_type} = {group_optimal_threshold_ndh:.2f}')
+    plt.axhline(y=group_optimal_threshold_dh, color='green', linestyle='--', label=f'Group Optimal {dh_label} {threshold_type} = {group_optimal_threshold_dh:.2f}')
 
     plt.title(plot_title)
     plt.xlabel('Side')
-    plt.ylabel('Optimal Threshold')
+    plt.ylabel('Individual Optimal {}'.format(threshold_type))
 
-    if metric == 'GM':
-        plt.legend(loc='best')  # Adjust the legend location for better visibility
-    else:
-        plt.legend()
+    # Determine maximum value to set y-limit
+    y_max = max(max(individual_optimal_threshold_ndh), max(individual_optimal_threshold_dh), conventional_threshold_unilateral)
+    plt.ylim([0, y_max * 1.2])  # Set y-limit to 120% of the maximum value
+
+    plt.legend(loc='upper right')
 
     plt.tight_layout()
+    
+    # Save the figure
+    if path is not None:
+        filename = f'boxplot_{group}_{metric}.png'
+        full_path = f"{path}/{filename}"
+        plt.savefig(full_path)
+        print(f"Figure saved at {full_path}")
+        
     plt.show()
-
-    # Calculate and print the average values
-    avg_ndh = np.mean(individual_optimal_threshold_ndh)
-    avg_dh = np.mean(individual_optimal_threshold_dh)
-    print(f'Average ndh: {avg_ndh:.2f}')
-    print(f'Average dh: {avg_dh:.2f}')
-
-    # Calculate and print the median values
-    median_ndh = np.median(individual_optimal_threshold_ndh)
-    median_dh = np.median(individual_optimal_threshold_dh)
-    print(f'Median ndh: {median_ndh:.2f}')
-    print(f'Median dh: {median_dh:.2f}')
 
 
 def extract_values_across_participants(paths, *fields):
@@ -515,6 +517,105 @@ def compute_evaluation_metrics(participant_data, thresholds, metric):
     return metric_scores, metric_eval
 
 
+def plot_radar_chart(conventional_metrics, optimal_metrics, metric, scenario, save_filename=None, show_plot=True):
+
+    sns.set(style="whitegrid")
+
+    def configure_axis(ax, angles, metric_names):
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(metric_names, fontsize=14)
+
+    def plot_data(ax, angles, values, label, color):
+        values += values[:1]
+        ax.plot(angles, values, linewidth=2, linestyle='solid', label=label, color=color)
+        ax.fill(angles, values, color=color, alpha=0.5)
+
+    def annotate_points(ax, angles, values, metric_names):
+        texts = []
+        for i, (angle, value, metric_name) in enumerate(zip(angles, values, metric_names)):
+            texts.append(ax.annotate(f"{value}%", xy=(angle, value), xytext=(10*np.sign(np.cos(angle)), 10*np.sign(np.sin(angle))),
+                            textcoords='offset points', ha='center', va='center', fontsize=12, fontweight='bold'))
+        adjust_text(texts)  # Adjust text positions to minimize overlaps
+
+    metric_names = list(conventional_metrics.keys())
+    num_metrics = len(metric_names)
+    angles = [n / float(num_metrics) * 2 * np.pi for n in range(num_metrics)]
+    angles += angles[:1]
+
+    fig, ax = plt.subplots(figsize=(16, 8), subplot_kw=dict(polar=True))
+
+    conventional_values = [round(conventional_metrics[metric_name]) for metric_name in metric_names]
+    optimal_values = [round(optimal_metrics[metric_name]) for metric_name in metric_names]
+
+    configure_axis(ax, angles, metric_names)
+
+    plot_data(ax, angles, conventional_values, f'Conventional {metric}', 'royalblue')
+    annotate_points(ax, angles, conventional_values, metric_names)
+
+    plot_data(ax, angles, optimal_values, f'Optimal {metric}', 'forestgreen')
+    annotate_points(ax, angles, optimal_values, metric_names)
+
+    ax.set_title(f'Evaluation Metrics Comparison between Conventional vs Optimal {metric} [Side: {scenario.upper()}]', fontsize=16, fontweight='bold')
+    ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1), fontsize=12)
+    
+    if save_filename:
+        plt.savefig(save_filename)
+    if show_plot:
+        plt.tight_layout()
+        plt.show()
+
+
+        
+def plot_bar_chart(conventional_metrics, optimal_metrics, metric, scenario, save_filename=None, show_plot=True):
+    
+    sns.set(style="whitegrid")  # Use seaborn for a more modern look
+    
+    metric_names = list(conventional_metrics.keys())
+    num_metrics = len(metric_names)
+    bar_width = 0.35
+    ind = np.arange(num_metrics)  # X-axis locations for bars
+    
+    # Load a bold font for annotations
+    prop = fm.FontProperties(weight='bold')
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Extract the values from the metrics dictionaries
+    conventional_values = list(conventional_metrics.values())
+    optimal_values = list(optimal_metrics.values())
+    
+    # Calculate the maximum y-value needed
+    max_y_value = max(max(conventional_values), max(optimal_values))
+    ax.set_ylim(0, max_y_value * 1.2)  # Set y-limit to 120% of max y-value
+
+    # Plot the bars
+    rects1 = ax.bar(ind, conventional_values, bar_width, label='Conventional', color='royalblue')  # Modified color
+    rects2 = ax.bar(ind + bar_width, optimal_values, bar_width, label='Optimal', color='forestgreen')  # Modified color
+
+    ax.set_xlabel('Metrics')
+    ax.set_ylabel('Percentage')
+    ax.set_title(f'Comparison of {metric} Metrics: Conventional vs Optimal [Side: {scenario.upper()}]')
+    ax.set_xticks(ind + bar_width / 2)
+    ax.set_xticklabels(metric_names)
+    ax.legend(loc='upper right')  # Keep the legend inside
+
+    # Annotate bars with rounded percentage values (as integers)
+    for rects in [rects1, rects2]:
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate(f"{int(round(height))}%",
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontproperties=prop)
+            
+    if save_filename:
+        plt.savefig(save_filename)  # Save the plot to the specified file
+    if show_plot:
+        plt.tight_layout()
+        plt.show()  # Show the plot if show_plot is True
+        
+        
 def plot_multiple_radar_plot(eval_metrics, figures_path, metric, show_plot=False):
     """
     Plot multiple radar charts and bar charts based on evaluation metrics.
@@ -541,7 +642,7 @@ def plot_multiple_radar_plot(eval_metrics, figures_path, metric, show_plot=False
 
     # Loop through scenarios and types of plots
     for scenario in ['ndh', 'dh', 'bil']:
-        for plot_type in ['radar', 'bar']:
+        for plot_type in ['bar']:
             save_path = build_save_path(base_path, scenario, plot_type)
             
             if plot_type == 'radar':
@@ -551,138 +652,6 @@ def plot_multiple_radar_plot(eval_metrics, figures_path, metric, show_plot=False
                 plot_bar_chart(eval_metrics[scenario]['conv'], eval_metrics[scenario]['opt'], metric, scenario,
                                save_filename=save_path, show_plot=show_plot)
                 
-                
-def plot_bar_chart(conventional_metrics, optimal_metrics, metric, scenario, save_filename=None, show_plot=True):
-    
-    metric_names = list(conventional_metrics.keys())
-    num_metrics = len(metric_names)
-    bar_width = 0.35
-    ind = np.arange(num_metrics)  # X-axis locations for bars
-    
-    # Load a bold font for annotations
-    prop = fm.FontProperties(weight='bold')
-
-    fig, ax = plt.subplots(figsize=(10, 8))
-
-    # Extract the values from the metrics dictionaries
-    conventional_values = list(conventional_metrics.values())
-    optimal_values = list(optimal_metrics.values())
-
-    # Plot the bars
-    rects1 = ax.bar(ind, conventional_values, bar_width, label='Conventional', color='blue')
-    rects2 = ax.bar(ind + bar_width, optimal_values, bar_width, label='Optimal', color='green')
-
-    ax.set_xlabel('Metrics')
-    ax.set_ylabel('Percentage')
-    ax.set_title(f'Comparison of {metric} Metrics: Conventional vs Optimal [Side: {scenario.upper()}]')
-    ax.set_xticks(ind + bar_width / 2)
-    ax.set_xticklabels(metric_names)
-    ax.legend()
-
-    # Annotate bars with rounded percentage values (as integers)
-    for rects in [rects1, rects2]:
-        for rect in rects:
-            height = rect.get_height()
-            ax.annotate(f"{int(round(height))}%",
-                        xy=(rect.get_x() + rect.get_width() / 2, height),
-                        xytext=(0, 3),  # 3 points vertical offset
-                        textcoords="offset points",
-                        ha='center', va='bottom', fontproperties=prop)
-            
-    if save_filename:
-        plt.savefig(save_filename)  # Save the plot to the specified file
-    if show_plot:
-        plt.tight_layout()
-        plt.show()  # Show the plot if show_plot is True
-
-        
-def configure_axis(ax, angles, metric_names):
-    """
-    Configure the axis for the radar chart.
-    
-    Args:
-        ax (matplotlib.pyplot.axis): Axis object for the radar plot.
-        angles (list): Angles for the metrics.
-        metric_names (list): Names of the metrics being plotted.
-        
-    Returns:
-        None.
-    """
-    ax.set_theta_offset(np.pi / 2)
-    ax.set_theta_direction(-1)
-    ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(metric_names)
-
-    
-def plot_data(ax, angles, values, label, color):
-    """
-    Plot data on the radar chart.
-    
-    Args:
-        ax (matplotlib.pyplot.axis): Axis object for the radar plot.
-        angles (list): Angles for the metrics.
-        values (list): Values of the metrics.
-        label (str): Label for the data.
-        color (str): Color for the plot.
-        
-    Returns:
-        None.
-    """
-    values += values[:1]
-    ax.plot(angles, values, 'o-', linewidth=2, label=label, color=color)
-    ax.fill(angles, values, alpha=0.50, color=color)
-
-def annotate_points(ax, angles, values, metric_names):
-    """
-    Annotate the points on the radar chart.
-    
-    Args:
-        ax (matplotlib.pyplot.axis): Axis object for the radar plot.
-        angles (list): Angles for the metrics.
-        values (list): Values of the metrics.
-        metric_names (list): Names of the metrics being plotted.
-        
-    Returns:
-        None.
-    """
-    for angle, value, metric_name in zip(angles, values, metric_names):
-        ax.annotate(f"{round(value)}%", xy=(angle, value), xytext=(angle, value + 0.05),
-                    horizontalalignment='center', verticalalignment='center')
-
-
-def plot_radar_chart(conventional_metrics, optimal_metrics, metric, scenario, save_filename=None, show_plot=True):
-    metric_names = list(conventional_metrics.keys())
-    num_metrics = len(metric_names)
-
-    angles = [n / float(num_metrics) * 2 * np.pi for n in range(num_metrics)]
-    angles += angles[:1]
-
-    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw=dict(polar=True))
-
-    conventional_values = [round(conventional_metrics[metric_name]) for metric_name in metric_names]
-    optimal_values = [round(optimal_metrics[metric_name]) for metric_name in metric_names]
-
-    configure_axis(ax, angles, metric_names)
-
-    label = f'Conventional {metric}' if metric != 'AC' else 'Conventional Threshold'
-    plot_data(ax, angles, conventional_values, label, 'blue')
-    annotate_points(ax, angles, conventional_values, metric_names)
-
-    label = f'Optimal {metric}' if metric != 'AC' else 'Optimal Threshold'
-    plot_data(ax, angles, optimal_values, label, 'green')
-    annotate_points(ax, angles, optimal_values, metric_names)
-
-    ax.set_title(f'Evaluation Metrics Comparison between Conventional vs Optimal {metric} [Side: {scenario.upper()}]')
-    ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
-    
-    plt.tight_layout()
-    
-    if save_filename:
-        plt.savefig(save_filename)
-    if show_plot:
-        plt.tight_layout()
-        plt.show()
-
 
 def get_duration_functional_arm_use(scores_dict, sampling_frequency):
     """
@@ -818,3 +787,53 @@ def compare_arm_use_duration_plot(ground_truth, metric_duration, metric_name, sa
             plt.show()
         else:
             plt.show()
+
+
+def compute_testing_participant(testing_participant_paths, testing_group, initial_path): 
+    # Get group dataset from the testing participants
+    AC_NDH = get_group_data(testing_participant_paths, field = 'AC_NDH')
+    AC_DH = get_group_data(testing_participant_paths, field = 'AC_DH')
+    GT_mask_NDH_1Hz = get_group_data(testing_participant_paths, field = 'GT_mask_NDH_1Hz')
+    GT_mask_DH_1Hz = get_group_data(testing_participant_paths, field = 'GT_mask_DH_1Hz')
+
+    group_GT_mask_NDH_50Hz = get_group_data(testing_participant_paths, field='GT_mask_NDH_50Hz')
+    group_GT_mask_DH_50Hz = get_group_data(testing_participant_paths, field='GT_mask_DH_50Hz')
+    group_pitch_NDH = get_group_data(testing_participant_paths, field='pitch_NDH')
+    group_pitch_DH = get_group_data(testing_participant_paths, field='pitch_DH')
+    group_yaw_NDH = get_group_data(testing_participant_paths, field='yaw_NDH')
+    group_yaw_DH = get_group_data(testing_participant_paths, field='yaw_DH')
+    
+    # Downsample @ 2 Hz 
+    GT_frequency = 50 # Hz
+    frequency_GM = 2 # Hz
+    GT_mask_NDH_2Hz = resample_mask(group_GT_mask_NDH_50Hz, GT_frequency, frequency_GM)
+    GT_mask_DH_2Hz = resample_mask(group_GT_mask_DH_50Hz, GT_frequency, frequency_GM)
+    
+    # Create a dictionary to save the merged_testing_participant
+    merged_testing_dataset = {
+        'participant_id': testing_group + '_merged', 
+        'AC_NDH': AC_NDH,
+        'AC_DH': AC_DH,
+        'GT_mask_NDH_1Hz': GT_mask_NDH_1Hz,
+        'GT_mask_DH_1Hz': GT_mask_DH_1Hz,
+        'GT_mask_NDH_50Hz': group_GT_mask_NDH_50Hz,
+        'GT_mask_DH_50Hz': group_GT_mask_DH_50Hz,
+        'pitch_NDH': group_pitch_NDH,
+        'pitch_DH': group_pitch_DH,
+        'yaw_NDH': group_yaw_NDH,
+        'yaw_DH': group_yaw_DH,
+        'GT_mask_NDH_2Hz': GT_mask_NDH_2Hz, 
+        'GT_mask_DH_2Hz':GT_mask_DH_2Hz
+    }
+    
+    # Construct the path where the JSON file will be saved
+    path_to_save = os.path.join(initial_path, f"{merged_testing_dataset['participant_id']}")
+    
+    # Save the dictionary as a JSON file
+    save_to_json(merged_testing_dataset, path_to_save)
+    
+    # Print to indicate where the file was saved
+    print(f"Dataset has been saved at: {path_to_save}")
+
+    return merged_testing_dataset
+

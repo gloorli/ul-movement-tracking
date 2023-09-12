@@ -701,31 +701,7 @@ def extract_age(csv_file_path):
     return age_data
 
 
-def side_by_side_box_plot(data1, data2, labels=None, x_axis_labels=None):
-    """
-    Plots two arrays as side-by-side vertical box plots on the same plot.
 
-    Args:
-        data1 (numpy.ndarray): First array of data.
-        data2 (numpy.ndarray): Second array of data.
-        labels (list, optional): Labels for the two box plots.
-        x_axis_labels (list, optional): Labels for the x-axis.
-
-    Returns:
-        None
-    """
-    plt.figure(figsize=(10, 6))  # Adjust the figure size as needed
-
-    box_plot_data = [data1, data2]
-    box_plot = plt.boxplot(box_plot_data, vert=True, patch_artist=True, labels=labels)
-
-    if x_axis_labels:
-        plt.xticks(range(1, len(x_axis_labels) + 1), x_axis_labels)
-
-    plt.ylabel("Age")
-    plt.title("Age Distribution Comparison between Healthy and Stroke groups")
-    plt.grid(True)
-    plt.show()
 
 
 def load_data_from_csv(folder, data_type):
@@ -998,38 +974,7 @@ def resample_angle_data(angle_data, original_frequency, desired_frequency):
     return resampled_data
 
 
-def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, data3_ot, metric_name):
-    sns.set_style("whitegrid")
-    plt.figure(figsize=(12, 6))
-
-    positions = [1, 2, 4, 5, 7, 8]
-    width = 0.2
-
-    # Plot 'ndh' side
-    plt.boxplot([data1_ct, data1_ot], positions=positions[:2], labels=['NDH CT', 'NDH OT'], patch_artist=True, widths=width, whis=2)
-    # Plot 'dh' side
-    plt.boxplot([data2_ct, data2_ot], positions=positions[2:4], labels=['DH CT', 'DH OT'], patch_artist=True, widths=width, whis=2)
-    # Plot 'bilateral' side
-    plt.boxplot([data3_ct, data3_ot], positions=positions[4:], labels=['Bilateral CT', 'Bilateral OT'], patch_artist=True, widths=width, whis=2)
-
-    plt.title(f'Distribution of {metric_name} across individuals for ndh, dh, and Bilateral UL usage (CT vs OT)')
-    plt.xlabel('Side')
-    plt.ylabel(metric_name)
-
-    colors = ['lightblue', 'lightgreen', 'lightblue', 'lightgreen', 'lightblue', 'lightgreen']
-    for patch, color in zip(plt.gca().patches, colors):
-        patch.set_facecolor(color)
-
-    # Create the legend
-    legend_elements = [plt.Rectangle((0, 0), 1, 1, color='lightblue', label='Conventional Threshold'),
-                       plt.Rectangle((0, 0), 1, 1, color='lightgreen', label='Optimal Threshold')]
-    plt.legend(handles=legend_elements, loc='upper left')
-
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_side_metrics(data_array, metric_names):
+def plot_side_metrics(data_array, metric_names, save_path=None):
     for metric_name in metric_names:
         ndh_data_ot = []
         ndh_data_ct = []
@@ -1060,7 +1005,54 @@ def plot_side_metrics(data_array, metric_names):
             continue
         
         # Plotting
-        plot_data_side_by_side(ndh_data_ct, ndh_data_ot, dh_data_ct, dh_data_ot, bilateral_data_ct, bilateral_data_ot, metric_name)
+        plot_data_side_by_side(ndh_data_ct, ndh_data_ot, dh_data_ct, dh_data_ot, bilateral_data_ct, bilateral_data_ot, metric_name, save_path)
+
+
+def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, data3_ot, metric_name, save_path=None):
+    sns.set_style("whitegrid")
+    plt.figure(figsize=(12, 6))
+
+    positions = [1, 2, 4, 5, 7, 8]
+    width = 0.2
+
+    def calc_improvement(data_ct, data_ot):
+        mean_ct = np.mean(data_ct)
+        mean_ot = np.mean(data_ot)
+        improvement = ((mean_ot - mean_ct) / mean_ct) * 100
+        return math.ceil(improvement)  # Using math.ceil() to round up to the nearest integer
+
+    for data_ct, data_ot, label in zip([data1_ct, data2_ct, data3_ct], [data1_ot, data2_ot, data3_ot], ['NDH', 'DH', 'Bilateral']):
+        improvement = calc_improvement(data_ct, data_ot)
+        print(f"For {label}, the deviation from conventional metric {metric_name}  is {improvement:.2f}%.")
+    
+#     all_data = np.concatenate([data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, data3_ot])
+#     max_val = np.max(all_data)
+    #plt.ylim([0, max_val * 1.2])
+
+    plt.boxplot([data1_ct, data1_ot], positions=positions[:2], labels=['NDH CT', 'NDH OT'], patch_artist=True, widths=width, whis=2)
+    plt.boxplot([data2_ct, data2_ot], positions=positions[2:4], labels=['DH CT', 'DH OT'], patch_artist=True, widths=width, whis=2)
+    plt.boxplot([data3_ct, data3_ot], positions=positions[4:], labels=['Bilateral CT', 'Bilateral OT'], patch_artist=True, widths=width, whis=2)
+
+    plt.title(f'Distribution of {metric_name} across individuals for ndh, dh, and Bilateral UL usage (CT vs OT)')
+    plt.xlabel('Side')
+    plt.ylabel(metric_name)
+
+    colors = ['lightblue', 'lightgreen', 'lightblue', 'lightgreen', 'lightblue', 'lightgreen']
+    for patch, color in zip(plt.gca().patches, colors):
+        patch.set_facecolor(color)
+
+    legend_elements = [plt.Rectangle((0, 0), 1, 1, color='lightblue', label='Conventional Threshold'),
+                       plt.Rectangle((0, 0), 1, 1, color='lightgreen', label='Optimal Threshold')]
+    
+    plt.legend(handles=legend_elements, loc='best', prop={'size': 12})
+
+    if save_path is not None:
+        filename = f'boxplot_across_individuals_{metric_name}.png'
+        full_path = f"{save_path}/{filename}"
+        plt.savefig(full_path)
+        print(f"Figure saved at {full_path}")
+
+    plt.show()
 
 
 def get_GT_dict(testing_dataset):
