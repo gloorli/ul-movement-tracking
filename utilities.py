@@ -9,6 +9,7 @@ from datetime import datetime
 import re
 import glob
 import seaborn as sns
+import matplotlib.font_manager as fm
 
 # Data processing and analysis
 import numpy as np
@@ -202,12 +203,12 @@ def get_json_paths(initial_path, group, excluded_participant=None):
     Returns:
     - list: List of paths for the desired JSON files.
     """
-
+    
     if group not in ['H', 'S']:
         raise ValueError("Group must be either 'H' for health or 'S' for stroke.")
 
     # List directories starting with the given group
-    directories = [d for d in os.listdir(initial_path) if os.path.isdir(os.path.join(initial_path, d)) and d.startswith(group)]
+    directories = [d for d in os.listdir(initial_path) if os.path.isdir(os.path.join(initial_path, d)) and re.fullmatch(f"{group}\d+", d)]
 
     # If an excluded participant is specified, remove that directory from consideration
     if excluded_participant:
@@ -518,39 +519,40 @@ def get_evaluation_metrics(ground_truth, predictions):
     Returns:
         A dictionary containing the evaluation metrics.
     """
-
+    
+    # Validate inputs
+    if ground_truth.ndim != 1 or predictions.ndim != 1:
+        raise ValueError("Input arrays must be one-dimensional.")
+    
+    if not np.isin(ground_truth, [0, 1]).all() or not np.isin(predictions, [0, 1]).all():
+        raise ValueError("Input arrays must contain only 0s and 1s.")
+    
     # Convert inputs to NumPy arrays if they are not already
     ground_truth = np.array(ground_truth)
     predictions = np.array(predictions)
 
-    # Ensure arrays have same sizes 
+        # Ensure arrays have the same sizes
     ground_truth, predictions = remove_extra_elements(ground_truth, predictions)
-
+    
     # Calculate evaluation metrics
-    true_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 1))
-    false_positives = np.sum(np.logical_and(predictions == 1, ground_truth == 0))
-    false_negatives = np.sum(np.logical_and(predictions == 0, ground_truth == 1))
-    true_negatives = np.sum(np.logical_and(predictions == 0, ground_truth == 0))
-
-    sensitivity = true_positives / (true_positives + false_negatives)
-    specificity = true_negatives / (true_negatives + false_positives)
-    accuracy = (true_positives + true_negatives) / (true_positives + true_negatives + false_positives + false_negatives)
-
-    # Calculate PPV (Positive Predictive Value) with denominator check
-    positive_predictions = np.sum(predictions == 1)
-    ppv = true_positives / positive_predictions if positive_predictions != 0 else 0
-
-    # Calculate NPV (Negative Predictive Value) with denominator check
-    negative_predictions = np.sum(predictions == 0)
-    npv = true_negatives / negative_predictions if negative_predictions != 0 else 0
-
+    tp = np.sum((predictions == 1) & (ground_truth == 1))
+    fp = np.sum((predictions == 1) & (ground_truth == 0))
+    fn = np.sum((predictions == 0) & (ground_truth == 1))
+    tn = np.sum((predictions == 0) & (ground_truth == 0))
+    
+    sensitivity = tp / (tp + fn) if tp + fn != 0 else 0
+    specificity = tn / (tn + fp) if tn + fp != 0 else 0
+    accuracy = (tp + tn) / (tp + tn + fp + fn) if tp + tn + fp + fn != 0 else 0
+    ppv = tp / (tp + fp) if tp + fp != 0 else 0
+    npv = tn / (tn + fn) if tn + fn != 0 else 0
+    
     # Convert metrics to percentages
     sensitivity *= 100
     specificity *= 100
     accuracy *= 100
     ppv *= 100
     npv *= 100
-
+    
     return {
         'Sensitivity': sensitivity,
         'Specificity': specificity,
@@ -558,7 +560,6 @@ def get_evaluation_metrics(ground_truth, predictions):
         'PPV': ppv,
         'NPV': npv,
     }
-
 
 def get_mask_bilateral(GT_mask_ndh, GT_mask_dh):
     """
@@ -974,87 +975,6 @@ def resample_angle_data(angle_data, original_frequency, desired_frequency):
     return resampled_data
 
 
-def plot_side_metrics(data_array, metric_names, save_path=None):
-    for metric_name in metric_names:
-        ndh_data_ot = []
-        ndh_data_ct = []
-        dh_data_ot = []
-        dh_data_ct = []
-        bilateral_data_ot = []
-        bilateral_data_ct = []
-
-        for data in data_array:
-            for key, value in data.items():
-                parts = key.split('_')
-                if len(parts) == 3 and parts[2] == metric_name:
-                    if parts[0] == 'OT' and parts[1] == 'ndh':
-                        ndh_data_ot.append(value)
-                    elif parts[0] == 'CT' and parts[1] == 'ndh':
-                        ndh_data_ct.append(value)
-                    elif parts[0] == 'OT' and parts[1] == 'dh':
-                        dh_data_ot.append(value)
-                    elif parts[0] == 'CT' and parts[1] == 'dh':
-                        dh_data_ct.append(value)
-                    elif parts[0] == 'OT' and parts[1] == 'bilateral':
-                        bilateral_data_ot.append(value)
-                    elif parts[0] == 'CT' and parts[1] == 'bilateral':
-                        bilateral_data_ct.append(value)
-
-        if not ndh_data_ot or not ndh_data_ct or not dh_data_ot or not dh_data_ct or not bilateral_data_ot or not bilateral_data_ct:
-            print(f"Data not found for the metric: {metric_name}")
-            continue
-        
-        # Plotting
-        plot_data_side_by_side(ndh_data_ct, ndh_data_ot, dh_data_ct, dh_data_ot, bilateral_data_ct, bilateral_data_ot, metric_name, save_path)
-
-
-def plot_data_side_by_side(data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, data3_ot, metric_name, save_path=None):
-    sns.set_style("whitegrid")
-    plt.figure(figsize=(12, 6))
-
-    positions = [1, 2, 4, 5, 7, 8]
-    width = 0.2
-
-    def calc_improvement(data_ct, data_ot):
-        mean_ct = np.mean(data_ct)
-        mean_ot = np.mean(data_ot)
-        improvement = ((mean_ot - mean_ct) / mean_ct) * 100
-        return math.ceil(improvement)  # Using math.ceil() to round up to the nearest integer
-
-    for data_ct, data_ot, label in zip([data1_ct, data2_ct, data3_ct], [data1_ot, data2_ot, data3_ot], ['NDH', 'DH', 'Bilateral']):
-        improvement = calc_improvement(data_ct, data_ot)
-        print(f"For {label}, the deviation from conventional metric {metric_name}  is {improvement:.2f}%.")
-    
-#     all_data = np.concatenate([data1_ct, data1_ot, data2_ct, data2_ot, data3_ct, data3_ot])
-#     max_val = np.max(all_data)
-    #plt.ylim([0, max_val * 1.2])
-
-    plt.boxplot([data1_ct, data1_ot], positions=positions[:2], labels=['NDH CT', 'NDH OT'], patch_artist=True, widths=width, whis=2)
-    plt.boxplot([data2_ct, data2_ot], positions=positions[2:4], labels=['DH CT', 'DH OT'], patch_artist=True, widths=width, whis=2)
-    plt.boxplot([data3_ct, data3_ot], positions=positions[4:], labels=['Bilateral CT', 'Bilateral OT'], patch_artist=True, widths=width, whis=2)
-
-    plt.title(f'Distribution of {metric_name} across individuals for ndh, dh, and Bilateral UL usage (CT vs OT)')
-    plt.xlabel('Side')
-    plt.ylabel(metric_name)
-
-    colors = ['lightblue', 'lightgreen', 'lightblue', 'lightgreen', 'lightblue', 'lightgreen']
-    for patch, color in zip(plt.gca().patches, colors):
-        patch.set_facecolor(color)
-
-    legend_elements = [plt.Rectangle((0, 0), 1, 1, color='lightblue', label='Conventional Threshold'),
-                       plt.Rectangle((0, 0), 1, 1, color='lightgreen', label='Optimal Threshold')]
-    
-    plt.legend(handles=legend_elements, loc='best', prop={'size': 12})
-
-    if save_path is not None:
-        filename = f'boxplot_across_individuals_{metric_name}.png'
-        full_path = f"{save_path}/{filename}"
-        plt.savefig(full_path)
-        print(f"Figure saved at {full_path}")
-
-    plt.show()
-
-
 def get_GT_dict(testing_dataset):
     """
     Constructs a dictionary containing ground truth masks for NDH, DH, and BIL at 50Hz.
@@ -1078,3 +998,283 @@ def get_GT_dict(testing_dataset):
     testing_dict_GT_mask_50Hz['BIL'] = {'GT': bil_gt_mask}
 
     return testing_dict_GT_mask_50Hz
+
+
+def plot_bar_chart(conventional_metrics, optimal_metrics, metric, scenario, group, save_filename=None, show_plot=True):
+    
+    sns.set(style="whitegrid")  # Use seaborn for a more modern look
+    
+    # Filter out keys that are in the excluded_keys set
+    excluded_keys = {'PPV', 'NPV'}    
+    metric_names = [key for key in conventional_metrics.keys() if key not in excluded_keys]
+    num_metrics = len(metric_names)
+    bar_width = 0.35
+    ind = np.arange(num_metrics)  # X-axis locations for bars
+    
+    # Load a bold font for annotations
+    prop = fm.FontProperties(weight='bold')
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Filtering the values based on the metric names
+    conventional_values = [conventional_metrics[key] for key in metric_names]
+    optimal_values = [optimal_metrics[key] for key in metric_names]
+    
+    # Calculate the maximum y-value needed
+    max_y_value = max(max(conventional_values), max(optimal_values))
+    ax.set_ylim(0, max_y_value * 1.2)  # Set y-limit to 120% of max y-value
+
+    # Plot the bars
+    rects1 = ax.bar(ind, conventional_values, bar_width, label='Conventional', color='royalblue')  # Modified color
+    rects2 = ax.bar(ind + bar_width, optimal_values, bar_width, label='Optimal', color='forestgreen')  # Modified color
+ 
+    if group == 'H':
+        if scenario == 'ndh':
+            scenario_plot = 'Non-Dom. H'
+        elif scenario == 'dh':
+            scenario_plot = 'Dom. H'
+        else:
+            scenario_plot = 'Bil'
+    else:
+        if scenario == 'ndh':
+            scenario_plot = 'Aff. H'
+        elif scenario == 'dh':
+            scenario_plot = 'Non-Aff. H'
+        else:
+            scenario_plot = 'Bil'
+
+    ax.set_xlabel('Metrics')
+    ax.set_ylabel('Percentage')
+    ax.set_title(f'Comparison of {metric} Metrics: Conventional vs Optimal [Side: {scenario_plot}]', fontsize=16)
+    ax.set_xticks(ind + bar_width / 2)
+    ax.set_xticklabels(metric_names)
+    ax.legend(loc='upper right')  # Keep the legend inside
+
+    # Annotate bars with rounded percentage values (as integers)
+    for rects in [rects1, rects2]:
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate(f"{int(round(height))}%",
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontproperties=prop)
+            
+    if save_filename:
+        plt.savefig(save_filename)  # Save the plot to the specified file
+        print('Figure saved')
+    if show_plot:
+        plt.tight_layout()
+        plt.show()  # Show the plot if show_plot is True
+        
+        
+def plot_multiple_radar_plot(eval_metrics, figures_path, metric, group, show_plot=False):
+    """
+    Plot multiple radar charts and bar charts based on evaluation metrics.
+
+    Args:
+        eval_metrics (dict): Dictionary containing evaluation metrics for different scenarios.
+        metric (str): Name of the metric being plotted.
+        figures_path (str or None): Path where the figures should be saved, or None to not save.
+        show_plot (bool): Whether to display the plot in the notebook.
+
+    Returns:
+        None.
+    """
+
+    def build_save_path(base_path, scenario, plot_type):
+        if base_path is not None:
+            return os.path.join(base_path, f"{metric}_{plot_type}_{scenario}.png")
+        return None
+
+    base_path = figures_path  # The base_path is simply the figures_path or None.
+    
+    if base_path and not os.path.exists(base_path):
+        os.makedirs(base_path)  # Create directory if it doesn't exist
+
+    # Loop through scenarios and types of plots
+    for scenario in ['ndh', 'dh', 'bil']:
+        for plot_type in ['bar']:
+            save_path = build_save_path(base_path, scenario, plot_type)
+            
+            if plot_type == 'radar':
+                plot_radar_chart(eval_metrics[scenario]['conv'], eval_metrics[scenario]['opt'], metric, scenario,
+                                 save_filename=save_path, show_plot=show_plot)
+            else:
+                plot_bar_chart(eval_metrics[scenario]['conv'], eval_metrics[scenario]['opt'], metric, scenario, group,
+                               save_filename=save_path, show_plot=show_plot)
+
+
+def side_by_side_box_plot_age(data1, data2, labels=None, x_axis_labels=None, save_path=None):
+    """
+    Plots two arrays as side-by-side vertical box plots on the same plot using Seaborn.
+    Also prints out key statistics for each group.
+    
+    Args:
+        data1 (numpy.ndarray): First array of data.
+        data2 (numpy.ndarray): Second array of data.
+        labels (list, optional): Labels for the two box plots.
+        x_axis_labels (list, optional): Labels for the x-axis.
+        
+    Returns:
+        None
+    """
+    
+    # Combine the data into a DataFrame for easier plotting with Seaborn
+    df1 = pd.DataFrame({'Age': data1, 'Group': np.repeat(labels[0], len(data1))})
+    df2 = pd.DataFrame({'Age': data2, 'Group': np.repeat(labels[1], len(data2))})
+    df = pd.concat([df1, df2])
+    
+    # Compute and print key statistics for each group
+    for label, group_data in [(labels[0], data1), (labels[1], data2)]:
+        print(f"Statistics for {label} group:")
+        print(f"  Mean: {np.mean(group_data):.2f}")
+        print(f"  Median: {np.median(group_data):.2f}")
+        print(f"  Standard Deviation: {np.std(group_data):.2f}")
+        print(f"  IQR: {np.percentile(group_data, 75) - np.percentile(group_data, 25):.2f}")
+        print("-" * 40)
+    
+    # Customize Seaborn style
+    sns.set(style="whitegrid")
+    sns.set_palette("pastel")
+    
+    # Create the Seaborn plot
+    plt.figure(figsize=(10, 6))
+    ax = sns.boxplot(x='Group', y='Age', data=df, width=0.3)
+    
+    # Adjust box properties for a more compact look
+    for patch in ax.artists:
+        r, g, b, a = patch.get_facecolor()
+        patch.set_facecolor((r, g, b, .6))
+    
+    # Add titles and labels
+    plt.ylabel("Age", fontsize=14)
+    plt.xlabel("Group", fontsize=14)  # Add this line to change the x-label size to 14
+    plt.title("Age Distribution Comparison between Healthy and Stroke Groups", fontsize=14)
+
+    # Change tick label sizes
+    plt.xticks(ticks=range(len(x_axis_labels)), labels=x_axis_labels, fontsize=14)  # Add fontsize=14
+    plt.yticks(fontsize=14)  # Add this line to change y tick label sizes to 14
+
+    
+    if x_axis_labels:
+        plt.xticks(ticks=range(len(x_axis_labels)), labels=x_axis_labels)
+    
+    if save_path is not None:
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        filename = f'boxplot_age_distribution.png'
+        full_path = f"{save_path}/{filename}"
+        plt.savefig(full_path)
+        print(f"Figure saved at {full_path}")
+    
+    plt.show()
+
+
+def extract_fields_from_json_files(file_paths, fields):
+    """
+    Given a list of JSON file paths and a list of fields,
+    return a dictionary containing NumPy arrays for each field
+    collected from each JSON file.
+
+    Parameters:
+        - file_paths (list): List of paths to JSON files
+        - fields (list): List of fields to be extracted from each JSON file
+
+    Returns:
+        - results (dict): Dictionary containing NumPy arrays of extracted values
+                          for each field
+    """
+    
+    # Initialize an empty list for each field to store values
+    results = {field: [] for field in fields}
+
+    for path in file_paths:
+        # Validate file existence
+        if not os.path.exists(path):
+            print(f"Warning: File {path} does not exist.")
+            continue
+
+        # Load JSON file
+        with open(path, 'r') as f:
+            data = json.load(f)
+
+        # Extract and store values of the specified fields
+        for field in fields:
+            value = data.get(field, None)
+            if value is None:
+                print(f"Warning: Field {field} does not exist in file {path}.")
+            results[field].append(value)
+
+    # Convert lists to NumPy arrays
+    for field in fields:
+        results[field] = np.array(results[field])
+
+    return results
+
+
+def plot_spearman_correlation(array1, array2, title, path_to_save=None, alpha=0.05):
+    """
+    Plots a scatter plot of two arrays along with a fitted linear regression line.
+    """
+    # Calculate the Spearman correlation coefficient and p-value
+    correlation_coefficient, p_value = spearmanr(array1, array2)
+
+    # Create a larger figure and axis
+    plt.figure(figsize=(10, 6))
+
+    # Create a scatter plot with flashy blue color, larger size, and different marker
+    plt.scatter(array1, array2, color='blue', s=50, marker='o', label=f"Spearman coefficient ρ = {correlation_coefficient:.2f}\n p-value = {p_value:.4f}")
+
+    # Add a linear regression line
+    coefs = np.polyfit(array1, array2, 1)
+    line_fit = np.polyval(coefs, array1)
+    plt.plot(array1, line_fit, color='red', label='Linear Fit')
+
+    # Add labels and a legend
+    plt.xlabel("ARAT Score")
+    plt.ylabel("Optimal parameter value")
+    plt.title(title)
+    plt.legend(loc='upper right')
+
+    # Save or show the plot
+    if path_to_save:
+        plt.savefig(f"{path_to_save}/{title}.png")
+        print(f"Plot saved at: {path_to_save}/{title}.png")
+    else:
+        plt.show()
+
+    # Interpret the significance of the correlation
+    if p_value < alpha:
+        significance = "Statistically significant"
+    else:
+        significance = "Not statistically significant"
+        
+    print(f"The Spearman correlation coefficient is {correlation_coefficient:.2f}.")
+    print(f"The p-value is {p_value:.4f}.")
+    print(f"Interpretation: {interpret_correlation(correlation_coefficient)}.")
+    print(f"Significance: {significance} at alpha = {alpha}.")
+
+
+def interpret_correlation(correlation_coefficient):
+    """
+    Returns the interpretation of the Spearman correlation coefficient.
+    """
+    if correlation_coefficient >= 0.8:
+        return "Very strong positive monotonic relationship"
+    elif correlation_coefficient >= 0.6:
+        return "Strong positive monotonic relationship"
+    elif correlation_coefficient >= 0.4:
+        return "Moderate positive monotonic relationship"
+    elif correlation_coefficient >= 0.2:
+        return "Weak positive monotonic relationship"
+    elif correlation_coefficient > -0.2:
+        return "Very weak or no monotonic relationship"
+    elif correlation_coefficient > -0.4:
+        return "Weak negative monotonic relationship"
+    elif correlation_coefficient > -0.6:
+        return "Moderate negative monotonic relationship"
+    elif correlation_coefficient > -0.8:
+        return "Strong negative monotonic relationship"
+    else:
+        return "Very strong negative monotonic relationship"

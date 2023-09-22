@@ -1,16 +1,24 @@
+# Standard Library Imports
 import os
 import csv
+
+# Third-Party Libraries
 import pandas as pd
 import numpy as np
-from scipy.interpolate import CubicSpline
 import matplotlib.pyplot as plt
-import seaborn as sns
+import matplotlib.lines as mlines
 import matplotlib.font_manager as fm
+from matplotlib.lines import Line2D
+import seaborn as sns
+from scipy.interpolate import CubicSpline
+from adjustText import adjust_text
+
+# Local Imports
 from activity_count_function import *
 from utilities import *
 from individual_analysis_ac_functions import *
 from individual_analysis_fs_functions import *
-from adjustText import adjust_text
+
 
 
 def regroup_field_data_metrics(csv_files):
@@ -102,7 +110,7 @@ def optimal_group_ac_threshold_computation(group_count_brond, group_GT_mask_1Hz,
     group_count_brond, group_GT_mask_1Hz = remove_extra_elements(group_count_brond, group_GT_mask_1Hz)
     if optimal:
         # Train your model and find the optimal threshold 
-        optimal_threshold = find_optimal_threshold(group_GT_mask_1Hz, group_count_brond)
+        avg_eval_metrics, optimal_threshold = k_fold_cross_validation(group_count_brond, group_GT_mask_1Hz)
     else: 
         optimal_threshold = conventional_threshold_unilateral
         print('Using conventional threshold')
@@ -134,58 +142,200 @@ def optimal_group_fs_computation(group_pitch_mad_50Hz, group_yaw_mad_50Hz, group
     return optimal_fs
 
 
-def plot_side_by_side_boxplots(individual_optimal_threshold_ndh, individual_optimal_threshold_dh,
-                               group_optimal_threshold_ndh, group_optimal_threshold_dh, metric, group, path = None):
-    sns.set(style="whitegrid")
-    plt.figure(figsize=(10, 6))
+def plot_side_by_side_boxplots_both_group(
+        ind_opt_thres_h_ndh, ind_opt_thres_h_dh,
+        ind_opt_thres_s_na, ind_opt_thres_s_a,
+        grp_opt_thres_h_ndh, grp_opt_thres_h_dh,
+        grp_opt_thres_s_na, grp_opt_thres_s_a,
+        metric, path=None):
 
-    # Conditional settings for metric and group
+    sns.set(style="whitegrid")
+    plt.figure(figsize=(14, 6))
+
     if metric == 'AC':
         conventional_threshold_unilateral = 2
-        plot_title = 'Distribution of the AC optimal thresholds across individuals'
-        threshold_type = 'Threshold'
+        threshold_type = 'AC Threshold'
     elif metric == 'GM':
         conventional_threshold_unilateral = 30
-        plot_title = 'Distribution of the optimal functional spaces across individuals'
         threshold_type = 'Functional Space'
-    
-    if group == 'S':
-        ndh_label = 'Affected Hand'
-        dh_label = 'Non-Affected Hand'
-    elif group == 'H':
-        ndh_label = 'Non-Dominant Hand'
-        dh_label = 'Dominant Hand'
 
-    ndh_color = 'skyblue'
-    dh_color = 'lightgreen'
+    # New order of labels and data to match your preferred order
+    positions = [1, 2, 4, 5]
+    labels_legend_grp_thresh = ['Grp H-Dom', 'Grp H-NonDom', 'Grp S-NonAff', 'Grp S-Aff']
+    labels = ['Healthy Dom. H', 'Healthy Non-Dom. H', 'Stroke Non-Aff. H', 'Stroke Aff. H']
+    all_data = [ind_opt_thres_h_dh, ind_opt_thres_h_ndh, ind_opt_thres_s_na, ind_opt_thres_s_a]
+    grp_opt_thres = [grp_opt_thres_h_dh, grp_opt_thres_h_ndh, grp_opt_thres_s_na, grp_opt_thres_s_a]
 
-    plt.boxplot(individual_optimal_threshold_ndh, positions=[1], labels=[ndh_label], patch_artist=True, boxprops=dict(facecolor=ndh_color))
-    plt.boxplot(individual_optimal_threshold_dh, positions=[2], labels=[dh_label], patch_artist=True, boxprops=dict(facecolor=dh_color))
+    # The order of box and threshold colors should also be re-arranged
+    box_colors = ['skyblue', 'lightgreen', 'lightcoral', 'lightpink']
+    grp_thres_colors = ['deepskyblue', 'limegreen', 'indianred', 'hotpink']
+
+    handles = []
+    for pos, data, box_color, label, grp_thres, grp_color in zip(positions, all_data, box_colors, labels, grp_opt_thres, grp_thres_colors):
+        plt.boxplot(data, positions=[pos], labels=[label], patch_artist=True, boxprops=dict(facecolor=box_color))
+        hline = plt.hlines(y=grp_thres, xmin=pos-0.2, xmax=pos+0.2, colors=grp_color)
+        handles.append(hline)
 
     plt.axhline(y=conventional_threshold_unilateral, color='red', linestyle='--', label=f'Conventional {threshold_type} = {conventional_threshold_unilateral}')
-    plt.axhline(y=group_optimal_threshold_ndh, color='blue', linestyle='--', label=f'Group Optimal {ndh_label} {threshold_type} = {group_optimal_threshold_ndh:.2f}')
-    plt.axhline(y=group_optimal_threshold_dh, color='green', linestyle='--', label=f'Group Optimal {dh_label} {threshold_type} = {group_optimal_threshold_dh:.2f}')
+    plt.title(f'Distribution of the Optimal {threshold_type}s', fontsize=16)
+    plt.xlabel('Groups and Sides', fontsize=14)
+    plt.xticks(fontsize=14)  # Change 16 to your desired font size
+    plt.ylabel(f'Individual Optimal {threshold_type}', fontsize=14)
+    plt.yticks(fontsize=14)  # Change 16 to your desired font size
 
-    plt.title(plot_title)
-    plt.xlabel('Side')
-    plt.ylabel('Individual Optimal {}'.format(threshold_type))
+    y_max = max([max(data) for data in all_data] + [conventional_threshold_unilateral])
+    plt.ylim([0, y_max * 1.2])
 
-    # Determine maximum value to set y-limit
-    y_max = max(max(individual_optimal_threshold_ndh), max(individual_optimal_threshold_dh), conventional_threshold_unilateral)
-    plt.ylim([0, y_max * 1.2])  # Set y-limit to 120% of the maximum value
+    # Create legend for group thresholds
+    grp_legend_handles = [Line2D([0], [0], color=grp_thres_color, linewidth=2) for grp_thres_color in grp_thres_colors]
+    grp_legend_labels = [f"{label} ({grp_thres})" for label, grp_thres in zip(labels_legend_grp_thresh, grp_opt_thres)]  # using labels_legend_grp_thresh instead of labels
 
-    plt.legend(loc='upper right')
 
+    # Create legend handle for the conventional threshold
+    conventional_legend_handle = Line2D([0], [0], color='red', linewidth=2, linestyle='--')
+    conventional_legend_label = f"Conventional {threshold_type} = {conventional_threshold_unilateral}"
+
+    # Combine all legend handles and labels
+    all_legend_handles = grp_legend_handles + [conventional_legend_handle]
+    all_legend_labels = grp_legend_labels + [conventional_legend_label]
+
+    # Create the legend
+    plt.legend(handles=all_legend_handles, labels=all_legend_labels, loc='best', title='Legend')
     plt.tight_layout()
-    
-    # Save the figure
+
     if path is not None:
-        filename = f'boxplot_{group}_{metric}.png'
+        filename = f'boxplot_{metric}.png'
         full_path = f"{path}/{filename}"
         plt.savefig(full_path)
         print(f"Figure saved at {full_path}")
-        
+
     plt.show()
+
+
+def plot_side_metrics(data_array_h, data_array_s, metric_names, algorithm, save_path=None):
+    for metric_name in metric_names:
+        # Initialize arrays for each group ('H' and 'S')
+        ndh_data_ot_h, ndh_data_ct_h, dh_data_ot_h, dh_data_ct_h = [], [], [], []
+        ndh_data_ot_s, ndh_data_ct_s, dh_data_ot_s, dh_data_ct_s = [], [], [], []
+        
+        # Data extraction for 'H' group
+        for data in data_array_h:
+            for key, value in data.items():
+                parts = key.split('_')
+                if len(parts) == 3 and parts[2] == metric_name:
+                    if parts[0] == 'OT' and parts[1] == 'ndh':
+                        ndh_data_ot_h.append(value)
+                    elif parts[0] == 'CT' and parts[1] == 'ndh':
+                        ndh_data_ct_h.append(value)
+                    elif parts[0] == 'OT' and parts[1] == 'dh':
+                        dh_data_ot_h.append(value)
+                    elif parts[0] == 'CT' and parts[1] == 'dh':
+                        dh_data_ct_h.append(value)
+
+        # Data extraction for 'S' group
+        for data in data_array_s:
+            for key, value in data.items():
+                parts = key.split('_')
+                if len(parts) == 3 and parts[2] == metric_name:
+                    if parts[0] == 'OT' and parts[1] == 'ndh':
+                        ndh_data_ot_s.append(value)
+                    elif parts[0] == 'CT' and parts[1] == 'ndh':
+                        ndh_data_ct_s.append(value)
+                    elif parts[0] == 'OT' and parts[1] == 'dh':
+                        dh_data_ot_s.append(value)
+                    elif parts[0] == 'CT' and parts[1] == 'dh':
+                        dh_data_ct_s.append(value)
+
+        # Check data availability
+        if not (ndh_data_ot_h and ndh_data_ct_h and dh_data_ot_h and dh_data_ct_h and 
+                ndh_data_ot_s and ndh_data_ct_s and dh_data_ot_s and dh_data_ct_s):
+            print(f"Data not found for the metric: {metric_name}")
+            continue
+
+        # Call the plotting function
+        plot_data_side_by_side(
+            ndh_data_ct_h, ndh_data_ot_h, dh_data_ct_h, dh_data_ot_h,
+            ndh_data_ct_s, ndh_data_ot_s, dh_data_ct_s, dh_data_ot_s,
+            metric_name, algorithm, save_path
+        )
+
+
+# Function to plot boxplots for both 'H' and 'S' groups
+def plot_data_side_by_side(
+        data1_ct_h, data1_ot_h, data2_ct_h, data2_ot_h,
+        data1_ct_s, data1_ot_s, data2_ct_s, data2_ot_s,
+        metric_name, algorithm, save_path):
+    
+    sns.set_style("whitegrid")
+    plt.figure(figsize=(16, 6))
+
+    # Positions and labels
+    positions = np.arange(1, 17, 2)
+    width = 0.4
+    labels_NDH_H = ['H Non-Dom.', 'H Non-Dom.']
+    labels_DH_H = ['H Dom.', 'H Dom.']
+    labels_NDH_S = ['S Aff.', 'S Aff.']
+    labels_DH_S = ['S Non-Aff.', 'S Non-Aff.']
+    all_labels = labels_NDH_H + labels_DH_H + labels_NDH_S + labels_DH_S
+    all_data = [data1_ct_h, data1_ot_h, data2_ct_h, data2_ot_h, data1_ct_s, data1_ot_s, data2_ct_s, data2_ot_s]
+
+    plt.boxplot(all_data, positions=positions, labels=all_labels, patch_artist=True, widths=width, whis=2)
+    
+    colors = ['lightblue', 'lightgreen'] * 4
+    for patch, color in zip(plt.gca().patches, colors):
+        patch.set_facecolor(color)
+    
+    plt.title(r'Distribution of the ' + metric_name + ' for ' + algorithm + 
+          r' Metric Across $\bf{Healthy}$ and $\bf{Stroke}$ Individuals (CT vs OT)', fontsize=16)
+
+    plt.xlabel('Side and Group', fontsize=14)
+    
+    plt.ylabel(metric_name, fontsize=14)
+    plt.xticks(fontsize=14) 
+    plt.yticks(fontsize=14) 
+    
+    legend_elements = [plt.Rectangle((0, 0), 1, 1, color='lightblue', label='Conventional Parameters'),
+                       plt.Rectangle((0, 0), 1, 1, color='lightgreen', label='Optimal Parameters')]
+    
+    plt.legend(handles=legend_elements, loc='best', prop={'size': 12})
+    
+    if save_path is not None:
+        filename = f'boxplot_across_individuals_{algorithm}_H_S_{metric_name}.png'
+        full_path = f"{save_path}/{filename}"
+        plt.savefig(full_path)
+        print(f"Figure saved at {full_path}")
+
+    plt.show()
+
+    
+def get_group_optimal_thresholds(path):
+    csv_files = [
+        'H_optimal_threshold_AC.csv', 
+        'S_optimal_threshold_AC.csv',
+        'H_optimal_threshold_GM.csv',
+        'S_optimal_threshold_GM.csv'
+    ]
+
+    H_AC_ndh, H_AC_dh, S_AC_ndh, S_AC_dh = 0, 0, 0, 0
+    H_GM_ndh, H_GM_dh, S_GM_ndh, S_GM_dh = 0, 0, 0, 0
+
+    for csv_file in csv_files:
+        file_path = f"{path}/{csv_file}"
+        df = pd.read_csv(file_path)
+        
+        # Extract the 'Threshold' values and map them based on 'Side'
+        thresholds = df.set_index('Side')['Threshold'].to_dict()
+
+        if csv_file == 'H_optimal_threshold_AC.csv':
+            H_AC_ndh, H_AC_dh = thresholds['ndh'], thresholds['dh']
+        elif csv_file == 'S_optimal_threshold_AC.csv':
+            S_AC_ndh, S_AC_dh = thresholds['ndh'], thresholds['dh']
+        elif csv_file == 'H_optimal_threshold_GM.csv':
+            H_GM_ndh, H_GM_dh = thresholds['ndh'], thresholds['dh']
+        elif csv_file == 'S_optimal_threshold_GM.csv':
+            S_GM_ndh, S_GM_dh = thresholds['ndh'], thresholds['dh']
+
+    return H_AC_ndh, H_AC_dh, S_AC_ndh, S_AC_dh, H_GM_ndh, H_GM_dh, S_GM_ndh, S_GM_dh
 
 
 def extract_values_across_participants(paths, *fields):
@@ -517,142 +667,6 @@ def compute_evaluation_metrics(participant_data, thresholds, metric):
     return metric_scores, metric_eval
 
 
-def plot_radar_chart(conventional_metrics, optimal_metrics, metric, scenario, save_filename=None, show_plot=True):
-
-    sns.set(style="whitegrid")
-
-    def configure_axis(ax, angles, metric_names):
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(metric_names, fontsize=14)
-
-    def plot_data(ax, angles, values, label, color):
-        values += values[:1]
-        ax.plot(angles, values, linewidth=2, linestyle='solid', label=label, color=color)
-        ax.fill(angles, values, color=color, alpha=0.5)
-
-    def annotate_points(ax, angles, values, metric_names):
-        texts = []
-        for i, (angle, value, metric_name) in enumerate(zip(angles, values, metric_names)):
-            texts.append(ax.annotate(f"{value}%", xy=(angle, value), xytext=(10*np.sign(np.cos(angle)), 10*np.sign(np.sin(angle))),
-                            textcoords='offset points', ha='center', va='center', fontsize=12, fontweight='bold'))
-        adjust_text(texts)  # Adjust text positions to minimize overlaps
-
-    metric_names = list(conventional_metrics.keys())
-    num_metrics = len(metric_names)
-    angles = [n / float(num_metrics) * 2 * np.pi for n in range(num_metrics)]
-    angles += angles[:1]
-
-    fig, ax = plt.subplots(figsize=(16, 8), subplot_kw=dict(polar=True))
-
-    conventional_values = [round(conventional_metrics[metric_name]) for metric_name in metric_names]
-    optimal_values = [round(optimal_metrics[metric_name]) for metric_name in metric_names]
-
-    configure_axis(ax, angles, metric_names)
-
-    plot_data(ax, angles, conventional_values, f'Conventional {metric}', 'royalblue')
-    annotate_points(ax, angles, conventional_values, metric_names)
-
-    plot_data(ax, angles, optimal_values, f'Optimal {metric}', 'forestgreen')
-    annotate_points(ax, angles, optimal_values, metric_names)
-
-    ax.set_title(f'Evaluation Metrics Comparison between Conventional vs Optimal {metric} [Side: {scenario.upper()}]', fontsize=16, fontweight='bold')
-    ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1), fontsize=12)
-    
-    if save_filename:
-        plt.savefig(save_filename)
-    if show_plot:
-        plt.tight_layout()
-        plt.show()
-
-
-        
-def plot_bar_chart(conventional_metrics, optimal_metrics, metric, scenario, save_filename=None, show_plot=True):
-    
-    sns.set(style="whitegrid")  # Use seaborn for a more modern look
-    
-    metric_names = list(conventional_metrics.keys())
-    num_metrics = len(metric_names)
-    bar_width = 0.35
-    ind = np.arange(num_metrics)  # X-axis locations for bars
-    
-    # Load a bold font for annotations
-    prop = fm.FontProperties(weight='bold')
-
-    fig, ax = plt.subplots(figsize=(10, 8))
-
-    # Extract the values from the metrics dictionaries
-    conventional_values = list(conventional_metrics.values())
-    optimal_values = list(optimal_metrics.values())
-    
-    # Calculate the maximum y-value needed
-    max_y_value = max(max(conventional_values), max(optimal_values))
-    ax.set_ylim(0, max_y_value * 1.2)  # Set y-limit to 120% of max y-value
-
-    # Plot the bars
-    rects1 = ax.bar(ind, conventional_values, bar_width, label='Conventional', color='royalblue')  # Modified color
-    rects2 = ax.bar(ind + bar_width, optimal_values, bar_width, label='Optimal', color='forestgreen')  # Modified color
-
-    ax.set_xlabel('Metrics')
-    ax.set_ylabel('Percentage')
-    ax.set_title(f'Comparison of {metric} Metrics: Conventional vs Optimal [Side: {scenario.upper()}]')
-    ax.set_xticks(ind + bar_width / 2)
-    ax.set_xticklabels(metric_names)
-    ax.legend(loc='upper right')  # Keep the legend inside
-
-    # Annotate bars with rounded percentage values (as integers)
-    for rects in [rects1, rects2]:
-        for rect in rects:
-            height = rect.get_height()
-            ax.annotate(f"{int(round(height))}%",
-                        xy=(rect.get_x() + rect.get_width() / 2, height),
-                        xytext=(0, 3),  # 3 points vertical offset
-                        textcoords="offset points",
-                        ha='center', va='bottom', fontproperties=prop)
-            
-    if save_filename:
-        plt.savefig(save_filename)  # Save the plot to the specified file
-    if show_plot:
-        plt.tight_layout()
-        plt.show()  # Show the plot if show_plot is True
-        
-        
-def plot_multiple_radar_plot(eval_metrics, figures_path, metric, show_plot=False):
-    """
-    Plot multiple radar charts and bar charts based on evaluation metrics.
-
-    Args:
-        eval_metrics (dict): Dictionary containing evaluation metrics for different scenarios.
-        metric (str): Name of the metric being plotted.
-        figures_path (str or None): Path where the figures should be saved, or None to not save.
-        show_plot (bool): Whether to display the plot in the notebook.
-
-    Returns:
-        None.
-    """
-
-    def build_save_path(base_path, scenario, plot_type):
-        if base_path is not None:
-            return os.path.join(base_path, f"{metric}_{plot_type}_{scenario}.png")
-        return None
-
-    base_path = figures_path  # The base_path is simply the figures_path or None.
-    
-    if base_path and not os.path.exists(base_path):
-        os.makedirs(base_path)  # Create directory if it doesn't exist
-
-    # Loop through scenarios and types of plots
-    for scenario in ['ndh', 'dh', 'bil']:
-        for plot_type in ['bar']:
-            save_path = build_save_path(base_path, scenario, plot_type)
-            
-            if plot_type == 'radar':
-                plot_radar_chart(eval_metrics[scenario]['conv'], eval_metrics[scenario]['opt'], metric, scenario,
-                                 save_filename=save_path, show_plot=show_plot)
-            else:
-                plot_bar_chart(eval_metrics[scenario]['conv'], eval_metrics[scenario]['opt'], metric, scenario,
-                               save_filename=save_path, show_plot=show_plot)
-                
-
 def get_duration_functional_arm_use(scores_dict, sampling_frequency):
     """
     Calculate the duration and percentage of active epochs for functional arm use.
@@ -694,52 +708,23 @@ def get_duration_functional_arm_use(scores_dict, sampling_frequency):
     return metric_duration_arm_use
 
 
-def get_GT_dict(testing_dataset):
-    """
-    Constructs a dictionary containing ground truth masks for NDH, DH, and BIL at 50Hz.
-
-    Args:
-        testing_dataset (dict): Participant dataset containing GT_mask_DH_50Hz and GT_mask_NDH_50Hz.
-
-    Returns:
-        dict: Dictionary containing ground truth masks for NDH, DH, and BIL at 50Hz.
-    """
-    
-    # Initialize dictionary to store ground truth masks
-    testing_dict_GT_mask_25Hz = {}
-    
-    # Initialize sub-dictionaries for each limb condition to store the ground truth mask for 'GT'
-    testing_dict_GT_mask_25Hz['NDH'] = {'GT': testing_dataset['GT_mask_NDH_25Hz']}
-    testing_dict_GT_mask_25Hz['DH'] = {'GT': testing_dataset['GT_mask_DH_25Hz']}
-    
-    # Compute the ground truth mask for bilateral (BIL) condition
-    bil_gt_mask = get_mask_bilateral(testing_dataset['GT_mask_NDH_25Hz'], testing_dataset['GT_mask_DH_25Hz'])
-    testing_dict_GT_mask_25Hz['BIL'] = {'GT': bil_gt_mask}
-
-    return testing_dict_GT_mask_25Hz
-
-
-def compare_arm_use_duration_plot(ground_truth, metric_duration, metric_name, save_path=None):
-    """
-    Compare arm use duration using bar charts.
-
-    Args:
-        ground_truth (dict): Ground truth arm use duration dictionary.
-        metric_duration (dict): Metric duration arm use dictionary.
-        metric_name (str): Name of the metric being compared ('AC', 'GM', or 'GMAC').
-        save_path (str): Path to save the figure. If None, the figure won't be saved.
-
-    Returns:
-        None
-    """
+def compare_arm_use_duration_plot(ground_truth, metric_duration, metric_name, group, save_path=None):
     sns.set(style="white")
     sns.set_context("notebook", font_scale=1.25, rc={"lines.linewidth": 2.5})
     
-    sides = ['NDH', 'DH', 'BIL']
+    sides = ['NDH', 'DH']
     
-    for side in sides:
-        plt.figure(figsize=(10, 6))
-        plt.title(f"Functional Arm Use Duration Comparison - {side} - {metric_name}", fontsize=18, pad=20)
+    if group == 'H':
+        plotting_side = ['Non-Dom. H', 'Dom. H']
+    else: 
+        plotting_side = ['Aff. H', 'Non-Aff. H']
+    
+    # Create a figure and a 1x2 subplot grid (one row, two columns)
+    fig, axes = plt.subplots(1, 2, figsize=(20, 6))
+
+    for ax, side, plot_side in zip(reversed(axes), sides, plotting_side):
+
+        ax.set_title(f"Functional Arm Use Duration Comparison - {plot_side} - {metric_name}", fontsize=18, pad=20)
         
         ground_truth_percentage = ground_truth[side]['GT']['percentage_active']
         metric_duration_conv_percentage = metric_duration[side.lower()]['conv']['percentage_active']
@@ -748,12 +733,14 @@ def compare_arm_use_duration_plot(ground_truth, metric_duration, metric_name, sa
         x = [0, 1, 2]
         heights = [ground_truth_percentage, metric_duration_conv_percentage, metric_duration_opt_percentage]
         labels = ['Ground Truth', 'Conventional', 'Optimal']
-        colors = ['#FF0000', '#007BFF', '#28a745']  # Red for GT, and modern shades of blue and green
+        colors = ['#808080', '#007BFF', '#28a745']
         
-        ax = sns.barplot(x=x, y=heights, palette=colors, edgecolor=".2")
-        plt.xticks(x, labels)
-        plt.ylabel('Percentage Active Duration (%)', fontsize=14)
-        plt.xlabel('')
+        sns.barplot(x=x, y=heights, palette=colors, edgecolor=".2", ax=ax)
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels)
+        ax.set_ylabel('Percentage Active Duration (%)', fontsize=14)
+        ax.set_xlabel('')
+        ax.set_yticks(np.arange(0, 101, 10))
         
         durations = [
             ground_truth[side]['GT']['duration_formatted'],
@@ -762,31 +749,134 @@ def compare_arm_use_duration_plot(ground_truth, metric_duration, metric_name, sa
         ]
         
         for i, duration in enumerate(durations):
-            ax.text(i, heights[i] / 2, duration, ha='center', fontsize=12, fontweight='bold')  # Inside bar plot
+            ax.text(i, heights[i] / 2, duration, ha='center', fontsize=12, fontweight='bold')
         
-        # Calculate and display percentage differences
-        reference_val = ground_truth_percentage  # Ground Truth is the reference
-        
+        reference_val = ground_truth_percentage
         diff_conv = ((metric_duration_conv_percentage - reference_val) / reference_val) * 100
         diff_opt = ((metric_duration_opt_percentage - reference_val) / reference_val) * 100
         diff_conv_symbol = '+' if diff_conv >= 0 else '-'
         diff_opt_symbol = '+' if diff_opt >= 0 else '-'
-
+        
         y_max = max(heights)
-        plt.ylim(0, y_max + y_max * 0.2)  # Add 20% extra space at the top
-
+        ax.set_ylim(0, y_max + y_max * 0.2)
+        
         ax.text(0, ground_truth_percentage + y_max * 0.01, "Reference", ha='center', fontsize=12, fontweight='bold', color='black')
         ax.text(1, metric_duration_conv_percentage + y_max * 0.01, f"Deviation from GT : {diff_conv_symbol}{abs(int(diff_conv))}%", ha='center', fontsize=12, fontweight='bold', color='black')
         ax.text(2, metric_duration_opt_percentage + y_max * 0.01, f"Deviation from GT : {diff_opt_symbol}{abs(int(diff_opt))}%", ha='center', fontsize=12, fontweight='bold', color='black')
+        
+    if save_path:
+        file_name = f"Functional_Arm_Use_Duration_Comparison_{metric_name}.png"
+        full_file_path = os.path.join(save_path, file_name)
+        plt.savefig(full_file_path)
+        print(f"Figure saved as '{full_file_path}'")
+    else:
+        plt.show()
 
-        if save_path:
-            file_name = f"Functional_Arm_Use_Duration_Comparison_{side}_{metric_name}.png"
-            full_file_path = os.path.join(save_path, file_name)
-            plt.savefig(full_file_path)
-            print(f"Figure saved as '{full_file_path}'")
-            plt.show()
-        else:
-            plt.show()
+
+def build_save_path_with_participant_id(base_path, participant_id, metric):
+    """
+    Constructs a save path for the plot by appending the participant ID folder to the base path.
+
+    Parameters:
+    base_path (str): The base directory where the plots should be saved.
+    participant_id (str): The ID of the participant.
+    metric (str): The metric for which the plot is being created.
+
+    Returns:
+    str: The full path where the plot should be saved.
+    """
+    # Append folder named after testing participant ID to the base path
+    path_eval_fig = os.path.join(base_path, f"testing_{participant_id}")
+    
+    # Create directory if it doesn't exist
+    os.makedirs(path_eval_fig, exist_ok=True)
+    
+    # Construct the full save path
+    save_path = os.path.join(path_eval_fig, f"{metric}_combined.png")
+    
+    return save_path
+
+
+def plot_combined_evaluation_metrics(eval_metrics, figures_path, participant_id, metric, group, show_plot=True):
+    
+    # Saving path 
+    if figures_path is not None: 
+        save_path = build_save_path_with_participant_id(figures_path, participant_id, metric)
+    
+    # Initialize plot
+    fig, ax = plt.subplots(figsize=(10, 8))
+    sns.set(style="whitegrid")
+    
+    scenarios = ['dh', 'ndh']
+    metric_names = ['Sensitivity', 'Specificity', 'Accuracy']
+    
+    # Adding space between groups by adjusting the positions of the second group
+    ind = np.array([0, 1, 2, 4, 5, 6])
+    bar_width = 0.35
+    
+    # Font property for bold text
+    prop = fm.FontProperties(weight='bold')
+
+    # Variables for legend
+    legends_added = {'Conventional': False, 'Optimal': False}
+    
+    # Create bar plots
+    for i, scenario in enumerate(scenarios):
+        for j, m_name in enumerate(metric_names):
+            position = ind[i * len(metric_names) + j]
+            conv_value = eval_metrics[scenario]['conv'][m_name]
+            opt_value = eval_metrics[scenario]['opt'][m_name]
+            
+            label_conv = 'Conventional' if not legends_added['Conventional'] else ""
+            label_opt = 'Optimal' if not legends_added['Optimal'] else ""
+            
+            ax.bar(position - bar_width / 2, conv_value, bar_width, color='royalblue', label=label_conv)
+            ax.bar(position + bar_width / 2, opt_value, bar_width, color='forestgreen', label=label_opt)
+            
+            legends_added['Conventional'] = True
+            legends_added['Optimal'] = True
+            
+            # Annotate bars with percentage rounded to closest int
+            for value, pos in [(conv_value, position - bar_width / 2), (opt_value, position + bar_width / 2)]:
+                ax.annotate(f"{int(round(value))}%", 
+                            xy=(pos, value), 
+                            xytext=(0, 3), 
+                            textcoords="offset points", 
+                            ha='center', 
+                            va='bottom', 
+                            fontproperties=prop)
+                
+    ax.set_xticks(ind)
+    
+    if group == 'H':
+        xticklabels = [f"{m} ({'Dom. H' if scenario == 'dh' else 'Non-Dom. H'})" for scenario in scenarios for m in metric_names]
+    else:  # group == 'S'
+        xticklabels = [f"{m} ({'Non-Aff. H' if scenario == 'dh' else 'Aff. H'})" for scenario in scenarios for m in metric_names]
+    
+    ax.set_ylim(0, 1.2 * max([eval_metrics[scenario]['conv'][m_name] for scenario in scenarios for m_name in metric_names] +
+                             [eval_metrics[scenario]['opt'][m_name] for scenario in scenarios for m_name in metric_names]))
+
+        
+    ax.set_xticklabels(xticklabels, rotation=45)
+    ax.set_xlabel('Evaluation Metrics and Sides', fontsize=14)
+    plt.xticks(fontsize=14)
+    ax.set_ylabel('Evaluation [%]', fontsize=14)
+    ax.set_title(f'{metric} Comparison: Conventional vs Optimal', fontsize=14)
+    ax.legend()
+    
+    # Place legend at best location
+    ax.legend(loc='best')
+    
+    # Ensure there's enough room at the bottom for the x-axis labels
+    fig.subplots_adjust(bottom=0.3)
+
+    if figures_path is not None:
+        plt.savefig(save_path)
+        print(f'Figure saved at {save_path}')
+
+    if show_plot:
+        plt.tight_layout()
+        plt.show()
 
 
 def compute_testing_participant(testing_participant_paths, testing_group, initial_path): 
@@ -798,16 +888,18 @@ def compute_testing_participant(testing_participant_paths, testing_group, initia
 
     group_GT_mask_NDH_50Hz = get_group_data(testing_participant_paths, field='GT_mask_NDH_50Hz')
     group_GT_mask_DH_50Hz = get_group_data(testing_participant_paths, field='GT_mask_DH_50Hz')
+    group_GT_mask_NDH_25Hz = get_group_data(testing_participant_paths, field='GT_mask_NDH_25Hz')
+    group_GT_mask_DH_25Hz = get_group_data(testing_participant_paths, field='GT_mask_DH_25Hz')
     group_pitch_NDH = get_group_data(testing_participant_paths, field='pitch_NDH')
     group_pitch_DH = get_group_data(testing_participant_paths, field='pitch_DH')
     group_yaw_NDH = get_group_data(testing_participant_paths, field='yaw_NDH')
     group_yaw_DH = get_group_data(testing_participant_paths, field='yaw_DH')
     
     # Downsample @ 2 Hz 
-    GT_frequency = 50 # Hz
+    GT_frequency = 25 # Hz
     frequency_GM = 2 # Hz
-    GT_mask_NDH_2Hz = resample_mask(group_GT_mask_NDH_50Hz, GT_frequency, frequency_GM)
-    GT_mask_DH_2Hz = resample_mask(group_GT_mask_DH_50Hz, GT_frequency, frequency_GM)
+    GT_mask_NDH_2Hz = resample_mask(group_GT_mask_NDH_25Hz, GT_frequency, frequency_GM)
+    GT_mask_DH_2Hz = resample_mask(group_GT_mask_DH_25Hz, GT_frequency, frequency_GM)
     
     # Create a dictionary to save the merged_testing_participant
     merged_testing_dataset = {
@@ -818,6 +910,8 @@ def compute_testing_participant(testing_participant_paths, testing_group, initia
         'GT_mask_DH_1Hz': GT_mask_DH_1Hz,
         'GT_mask_NDH_50Hz': group_GT_mask_NDH_50Hz,
         'GT_mask_DH_50Hz': group_GT_mask_DH_50Hz,
+        'GT_mask_NDH_25Hz': group_GT_mask_NDH_25Hz,
+        'GT_mask_DH_25Hz': group_GT_mask_DH_25Hz,
         'pitch_NDH': group_pitch_NDH,
         'pitch_DH': group_pitch_DH,
         'yaw_NDH': group_yaw_NDH,
@@ -837,3 +931,27 @@ def compute_testing_participant(testing_participant_paths, testing_group, initia
 
     return merged_testing_dataset
 
+
+def get_GT_dict(testing_dataset):
+    """
+    Constructs a dictionary containing ground truth masks for NDH, DH, and BIL at 25Hz.
+
+    Args:
+        testing_dataset (dict): Participant dataset containing GT_mask_DH_25Hz and GT_mask_NDH_25Hz.
+
+    Returns:
+        dict: Dictionary containing ground truth masks for NDH, DH, and BIL at 25Hz.
+    """
+    
+    # Initialize dictionary to store ground truth masks
+    testing_dict_GT_mask_25Hz = {}
+    
+    # Initialize sub-dictionaries for each limb condition to store the ground truth mask for 'GT'
+    testing_dict_GT_mask_25Hz['NDH'] = {'GT': testing_dataset['GT_mask_NDH_25Hz']}
+    testing_dict_GT_mask_25Hz['DH'] = {'GT': testing_dataset['GT_mask_DH_25Hz']}
+    
+    # Compute the ground truth mask for bilateral (BIL) condition
+    bil_gt_mask = get_mask_bilateral(testing_dataset['GT_mask_NDH_25Hz'], testing_dataset['GT_mask_DH_25Hz'])
+    testing_dict_GT_mask_25Hz['BIL'] = {'GT': bil_gt_mask}
+
+    return testing_dict_GT_mask_25Hz

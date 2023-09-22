@@ -411,100 +411,12 @@ def plt_zoom(df, duration1):
     closest_magnitude = zoom_df.loc[closest_index, 'magnitude']
 
     # Plot a point at the closest x and y values
-    plt.scatter(closest_time, closest_magnitude, color='red', label='Duration1')
+    plt.scatter(closest_time, closest_magnitude, color='red', label='Duration')
 
     plt.xlabel('Time')
     plt.ylabel('Magnitude')
     plt.legend()
     plt.show()
-
-    
-def plot_acceleration_with_timepoints(df, duration1, trimmed_number_frames, trimmed_recording_time):
-    sampling_frequency = 50
-
-    # Calculate magnitude of acceleration
-    df['magnitude'] = np.sqrt(df['acc_x']**2 + df['acc_y']**2 + df['acc_z']**2)
-
-    # Compute time values based on sampling frequency and round to millisecond
-    df['time'] = np.round(pd.Series(range(len(df))) / sampling_frequency, 3)
-
-    # Calculate derivative of magnitude using numpy gradient function
-    df['magnitude_derivative'] = np.gradient(df['magnitude'], df['time'])
-
-    duration2 = duration1 + trimmed_recording_time
-
-    # Plot magnitude over time
-    plt.figure(figsize=(12, 6))
-    plt.plot(df['time'], df['magnitude'], label='Magnitude')
-
-   # Plot special red dots for given durations if provided
-    if duration1:
-        closest_time = df.loc[np.abs(df['time'] - duration1).idxmin(), 'time']
-        closest_magnitude = df.loc[np.abs(df['time'] - duration1).idxmin(), 'magnitude']
-        plt.plot(closest_time, closest_magnitude, 'ro', label='Duration 1')
-
-    if duration2:
-        closest_time = df.loc[np.abs(df['time'] - duration2).idxmin(), 'time']
-        closest_magnitude = df.loc[np.abs(df['time'] - duration2).idxmin(), 'magnitude']
-        plt.plot(closest_time, closest_magnitude, 'ro', label='Duration 2')
-
-
-    plt.xlabel('Time')
-    plt.ylabel('Magnitude')
-    plt.legend()
-    plt.show()
-
-    # Plot magnitude derivative over time
-    plt.figure(figsize=(12, 6))
-    plt.plot(df['time'], df['magnitude_derivative'], label='Magnitude Derivative')
-
-  # Plot special red dots for given durations if provided
-    if duration1:
-        closest_time = df.loc[np.abs(df['time'] - duration1).idxmin(), 'time']
-        closest_magnitude = df.loc[np.abs(df['time'] - duration1).idxmin(), 'magnitude']
-        plt.plot(closest_time, closest_magnitude, 'ro', label='Duration 1')
-
-    if duration2:
-        closest_time = df.loc[np.abs(df['time'] - duration2).idxmin(), 'time']
-        closest_magnitude = df.loc[np.abs(df['time'] - duration2).idxmin(), 'magnitude']
-        plt.plot(closest_time, closest_magnitude, 'ro', label='Duration 2')
-        
-    plt.xlabel('Time')
-    plt.ylabel('Magnitude Derivative')
-    plt.legend()
-    plt.show()
-    
-    # Calculate time duration and sample count between the two points
-    duration = abs(duration2 - duration1)
-    sample_count = len(df[(df['time'] >= duration1) & (df['time'] <= duration2)])
-
-    # Adjust sample_count to ensure sample_count = 2 * trimmed_number_frames
-    difference = sample_count - 2 * trimmed_number_frames
-    if difference > 0:
-        duration2 -= difference / sampling_frequency
-        sample_count -= difference
-
-    print("Duration 1:", duration1)
-    print("Duration 2:", duration2)
-    print("Number of Samples:", sample_count)
-    print("Number of Video Frames:", trimmed_number_frames)
-    if trimmed_number_frames * 2 == sample_count:
-        print("Conditions ok")
-
-    # Reorder columns with 'time' as the first feature
-    cols = ['time'] + [col for col in df.columns if col != 'time']
-    df = df[cols]
-    
-    # Apply the conversion to the 'time' column
-    df['time'] = df['time'].apply(convert_to_timedelta)
-    
-    # Zoom in to adjust duration1
-    plt_zoom(df, duration1)
-    
-    # Remove these features
-    df = df.drop(['magnitude_derivative', 'magnitude'], axis=1)
-    
-    return df, duration1, duration2
 
 
 def trim_data(df, start_duration, end_duration):

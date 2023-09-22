@@ -39,6 +39,7 @@ def get_data(folder, dominant_hand):
     GT_mask_RW = pd.read_csv(GT_mask_RW_path)
 
     # important: make the condition case-insensitive
+    # for stroke: dh = non-affected hand 
     if dominant_hand.lower() == 'right': 
         dh_data = RW_data
         GT_mask_dh = np.array(GT_mask_RW)
@@ -52,6 +53,198 @@ def get_data(folder, dominant_hand):
 
     # Return the loaded dataframes
     return ndh_data, chest_data, dh_data, GT_mask_ndh, GT_mask_dh
+
+
+def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
+    conventional_threshold_unilateral = 2
+    kf = KFold(n_splits=k, shuffle=True, random_state=random_state)
+    
+    sensitivity_scores = []
+    specificity_scores = []
+    accuracy_scores = []
+    ppv_scores = []
+    npv_scores = []
+    optimal_thresholds = []  
+
+    # Ensure datasets have the same size 
+    X, y = remove_extra_elements(X, y)
+
+    for idx, (train_index, test_index) in enumerate(kf.split(X), 1):
+        print(f"Iteration {idx}/{k}")
+        
+        X_train, X_eval = X[train_index], X[test_index]
+        y_train, y_eval = y[train_index], y[test_index]
+        
+        if optimal:
+            # Train your model and find the optimal threshold using X_train and y_train
+            optimal_threshold = find_optimal_threshold(y_train, X_train)
+        else: 
+            optimal_threshold = conventional_threshold_unilateral
+            print('Using conventional threshold')
+        # Use the optimal threshold to get predictions by dichotomizing X_eval 
+        pred_opt_threshold = get_prediction_ac(X_eval, optimal_threshold)
+
+        # Compute evaluation metrics for this iteration comparing the predictions and the y_eval_ndh  
+        eval_metrics = get_evaluation_metrics(y_eval, pred_opt_threshold)
+            
+        # Store the performance metrics for this iteration
+        sensitivity_scores.append(eval_metrics['Sensitivity'])
+        specificity_scores.append(eval_metrics['Specificity'])
+        accuracy_scores.append(eval_metrics['Accuracy'])
+        ppv_scores.append(eval_metrics['PPV'])
+        npv_scores.append(eval_metrics['NPV'])
+
+        # Store the optimal threshold for this iteration
+        optimal_thresholds.append(optimal_threshold)
+
+    # Compute the average evaluation metrics across the splits 
+    avg_sensitivity = np.mean(sensitivity_scores)
+    avg_specificity = np.mean(specificity_scores)
+    avg_accuracy = np.mean(accuracy_scores)
+    avg_ppv = np.mean(ppv_scores)
+    avg_npv = np.mean(npv_scores)
+    
+    avg_eval_metrics = {
+        'Sensitivity': avg_sensitivity,
+        'Specificity': avg_specificity,
+        'Accuracy': avg_accuracy,
+        'PPV': avg_ppv,
+        'NPV': avg_npv,
+    }
+
+    # Compute the average optimal threshold over all iterations
+    avg_optimal_threshold = np.mean(optimal_thresholds)
+    avg_optimal_threshold = round(avg_optimal_threshold, 2)
+
+    return avg_eval_metrics, avg_optimal_threshold
+
+
+def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_ndh, opt_threshold_dh,
+                                      k=5, random_state=42, optimal=True):
+    
+    conventional_threshold_bilateral = 0
+    kf = KFold(n_splits=k, shuffle=True, random_state=random_state)
+    
+    sensitivity_scores = []
+    specificity_scores = []
+    accuracy_scores = []
+    ppv_scores = []
+    npv_scores = []
+
+    # Ensure datasets have the same size 
+    X_ndh, y_ndh = remove_extra_elements(X_ndh, y_ndh)
+    X_dh, y_dh = remove_extra_elements(X_dh, y_dh)
+
+    # Split ndh and dh datasets separately 
+    for idx, (train_index, test_index) in enumerate(kf.split(X_ndh), 1):
+        print(f"Iteration {idx}/{k}")
+        
+        X_train_ndh, X_eval_ndh = X_ndh[train_index], X_ndh[test_index]
+        y_train_ndh, y_eval_ndh = y_ndh[train_index], y_ndh[test_index]
+        
+        X_train_dh, X_eval_dh = X_dh[train_index], X_dh[test_index]
+        y_train_dh, y_eval_dh = y_dh[train_index], y_dh[test_index]
+        
+        # Get the bilateral ground truth mask  
+        mask_bilateral_eval = get_mask_bilateral(y_eval_ndh, y_eval_dh)
+            
+        if optimal:
+            # Compute predictions using optimal threshold for bilateral usage
+            pred_bilateral = get_prediction_bilateral(X_eval_ndh, opt_threshold_ndh,
+                                                      X_eval_dh, opt_threshold_dh)
+        else: 
+            # Compute predictions using conventional threshold for bilateral usage
+            pred_bilateral = get_prediction_bilateral(X_eval_ndh, conventional_threshold_bilateral,
+                                                      X_eval_dh, conventional_threshold_bilateral)
+            
+        # Get the evaluation metrics
+        eval_metrics = get_evaluation_metrics(mask_bilateral_eval, pred_bilateral)
+            
+        # Store the performance metrics for this iteration
+        sensitivity_scores.append(eval_metrics['Sensitivity'])
+        specificity_scores.append(eval_metrics['Specificity'])
+        accuracy_scores.append(eval_metrics['Accuracy'])
+        ppv_scores.append(eval_metrics['PPV'])
+        npv_scores.append(eval_metrics['NPV'])
+
+    # Compute the average evaluation metrics across the splits 
+    avg_sensitivity = np.mean(sensitivity_scores)
+    avg_specificity = np.mean(specificity_scores)
+    avg_accuracy = np.mean(accuracy_scores)
+    avg_ppv = np.mean(ppv_scores)
+    avg_npv = np.mean(npv_scores)
+    
+    avg_eval_metrics = {
+        'Sensitivity': avg_sensitivity,
+        'Specificity': avg_specificity,
+        'Accuracy': avg_accuracy,
+        'PPV': avg_ppv,
+        'NPV': avg_npv,
+    }
+
+    return avg_eval_metrics
+
+
+def calculate_tpr_fpr(ground_truth, activity_counts, thresholds):
+    tpr = []
+    fpr = []
+    
+    for threshold in thresholds:
+        # Apply the threshold to the activity counts
+        # ie convert the AC into binary predictions 
+        predictions = activity_counts > threshold
+        # Calculate True Positive Rate (TPR) and False Positive Rate (FPR)
+        tp = np.sum((ground_truth == 1) & (predictions == 1))
+        fn = np.sum((ground_truth == 1) & (predictions == 0))
+        tn = np.sum((ground_truth == 0) & (predictions == 0))
+        fp = np.sum((ground_truth == 0) & (predictions == 1))
+        
+        tpr.append(tp / (tp + fn))
+        fpr.append(fp / (fp + tn))
+    
+    return np.array(fpr), np.array(tpr)
+
+
+def find_optimal_threshold(ground_truth, activity_counts):
+    # Bailey and Lang, 2013
+    conventional_threshold_unilateral = 2 
+    
+    # Convert to Numpy arrays
+    ground_truth = np.array(ground_truth)
+    activity_counts = np.array(activity_counts)
+    
+    # Define the thresholds you want to investigate
+    thresholds = np.arange(0, int(np.max(activity_counts)) + 1)
+
+    # Calculate false positive rate (FPR) and true positive rate (TPR) for different thresholds
+    fpr, tpr = calculate_tpr_fpr(ground_truth, activity_counts, thresholds)
+    
+    # Calculate the AUC (Area Under the ROC Curve)
+    auc = roc_auc_score(ground_truth, activity_counts)
+
+    # Calculate the Youden Index (Youden's J) for each threshold
+    youden_index = tpr - fpr
+
+    # Find the index of the threshold that maximizes the Youden Index
+    optimal_threshold_index = np.argmax(youden_index)
+
+    # Retrieve the optimal threshold
+    optimal_threshold = thresholds[optimal_threshold_index]
+   
+    # Print the optimal threshold, conventional threshold, and AUC
+    print(f"AUC: {auc}")
+    print(f"Optimal Threshold: {optimal_threshold:.2f}")
+    print(f"Conventional Threshold: {conventional_threshold_unilateral:.2f}")
+
+    # Check if AUC is clinically useful
+    if auc >= 0.75:
+        print("AUC is clinically useful (≥0.75)")
+    else:
+        print("AUC is not clinically useful (<0.75)")
+
+    optimal_threshold = round(optimal_threshold, 2)
+    return optimal_threshold
+
 
 
 def get_sampling_frequency(df):
@@ -593,195 +786,7 @@ def get_prediction_ac(data, threshold):
     return predictions
 
 
-def k_fold_cross_validation(X, y, k=5, random_state=42, optimal=True):
-    conventional_threshold_unilateral = 2
-    kf = KFold(n_splits=k, shuffle=True, random_state=random_state)
-    
-    sensitivity_scores = []
-    specificity_scores = []
-    accuracy_scores = []
-    ppv_scores = []
-    npv_scores = []
-    optimal_thresholds = []  
 
-    # Ensure datasets have the same size 
-    X, y = remove_extra_elements(X, y)
-
-    for idx, (train_index, test_index) in enumerate(kf.split(X), 1):
-        print(f"Iteration {idx}/{k}")
-        
-        X_train, X_eval = X[train_index], X[test_index]
-        y_train, y_eval = y[train_index], y[test_index]
-        
-        if optimal:
-            # Train your model and find the optimal threshold using X_train and y_train
-            optimal_threshold = find_optimal_threshold(y_train, X_train)
-        else: 
-            optimal_threshold = conventional_threshold_unilateral
-            print('Using conventional threshold')
-        # Use the optimal threshold to get predictions by dichotomizing X_eval 
-        pred_opt_threshold = get_prediction_ac(X_eval, optimal_threshold)
-
-        # Compute evaluation metrics for this iteration comparing the predictions and the y_eval_ndh  
-        eval_metrics = get_evaluation_metrics(y_eval, pred_opt_threshold)
-            
-        # Store the performance metrics for this iteration
-        sensitivity_scores.append(eval_metrics['Sensitivity'])
-        specificity_scores.append(eval_metrics['Specificity'])
-        accuracy_scores.append(eval_metrics['Accuracy'])
-        ppv_scores.append(eval_metrics['PPV'])
-        npv_scores.append(eval_metrics['NPV'])
-
-        # Store the optimal threshold for this iteration
-        optimal_thresholds.append(optimal_threshold)
-
-    # Compute the average evaluation metrics across the splits 
-    avg_sensitivity = np.mean(sensitivity_scores)
-    avg_specificity = np.mean(specificity_scores)
-    avg_accuracy = np.mean(accuracy_scores)
-    avg_ppv = np.mean(ppv_scores)
-    avg_npv = np.mean(npv_scores)
-    
-    avg_eval_metrics = {
-        'Sensitivity': avg_sensitivity,
-        'Specificity': avg_specificity,
-        'Accuracy': avg_accuracy,
-        'PPV': avg_ppv,
-        'NPV': avg_npv,
-    }
-
-    # Compute the average optimal threshold over all iterations
-    avg_optimal_threshold = np.mean(optimal_thresholds)
-    avg_optimal_threshold = round(avg_optimal_threshold, 2)
-
-    return avg_eval_metrics, avg_optimal_threshold
-
-
-def k_fold_cross_validation_bilateral(X_ndh, X_dh, y_ndh, y_dh, opt_threshold_ndh, opt_threshold_dh,
-                                      k=5, random_state=42, optimal=True):
-    
-    conventional_threshold_bilateral = 0
-    kf = KFold(n_splits=k, shuffle=True, random_state=random_state)
-    
-    sensitivity_scores = []
-    specificity_scores = []
-    accuracy_scores = []
-    ppv_scores = []
-    npv_scores = []
-
-    # Ensure datasets have the same size 
-    X_ndh, y_ndh = remove_extra_elements(X_ndh, y_ndh)
-    X_dh, y_dh = remove_extra_elements(X_dh, y_dh)
-
-    # Split ndh and dh datasets separately 
-    for idx, (train_index, test_index) in enumerate(kf.split(X_ndh), 1):
-        print(f"Iteration {idx}/{k}")
-        
-        X_train_ndh, X_eval_ndh = X_ndh[train_index], X_ndh[test_index]
-        y_train_ndh, y_eval_ndh = y_ndh[train_index], y_ndh[test_index]
-        
-        X_train_dh, X_eval_dh = X_dh[train_index], X_dh[test_index]
-        y_train_dh, y_eval_dh = y_dh[train_index], y_dh[test_index]
-        
-        # Get the bilateral ground truth mask  
-        mask_bilateral_eval = get_mask_bilateral(y_eval_ndh, y_eval_dh)
-            
-        if optimal:
-            # Compute predictions using optimal threshold for bilateral usage
-            pred_bilateral = get_prediction_bilateral(X_eval_ndh, opt_threshold_ndh,
-                                                      X_eval_dh, opt_threshold_dh)
-        else: 
-            # Compute predictions using conventional threshold for bilateral usage
-            pred_bilateral = get_prediction_bilateral(X_eval_ndh, conventional_threshold_bilateral,
-                                                      X_eval_dh, conventional_threshold_bilateral)
-            
-        # Get the evaluation metrics
-        eval_metrics = get_evaluation_metrics(mask_bilateral_eval, pred_bilateral)
-            
-        # Store the performance metrics for this iteration
-        sensitivity_scores.append(eval_metrics['Sensitivity'])
-        specificity_scores.append(eval_metrics['Specificity'])
-        accuracy_scores.append(eval_metrics['Accuracy'])
-        ppv_scores.append(eval_metrics['PPV'])
-        npv_scores.append(eval_metrics['NPV'])
-
-    # Compute the average evaluation metrics across the splits 
-    avg_sensitivity = np.mean(sensitivity_scores)
-    avg_specificity = np.mean(specificity_scores)
-    avg_accuracy = np.mean(accuracy_scores)
-    avg_ppv = np.mean(ppv_scores)
-    avg_npv = np.mean(npv_scores)
-    
-    avg_eval_metrics = {
-        'Sensitivity': avg_sensitivity,
-        'Specificity': avg_specificity,
-        'Accuracy': avg_accuracy,
-        'PPV': avg_ppv,
-        'NPV': avg_npv,
-    }
-
-    return avg_eval_metrics
-
-
-def calculate_tpr_fpr(ground_truth, activity_counts, thresholds):
-    tpr = []
-    fpr = []
-    
-    for threshold in thresholds:
-        # Apply the threshold to the activity counts
-        # ie convert the AC into binary predictions 
-        predictions = activity_counts > threshold
-        # Calculate True Positive Rate (TPR) and False Positive Rate (FPR)
-        tp = np.sum((ground_truth == 1) & (predictions == 1))
-        fn = np.sum((ground_truth == 1) & (predictions == 0))
-        tn = np.sum((ground_truth == 0) & (predictions == 0))
-        fp = np.sum((ground_truth == 0) & (predictions == 1))
-        
-        tpr.append(tp / (tp + fn))
-        fpr.append(fp / (fp + tn))
-    
-    return np.array(fpr), np.array(tpr)
-
-
-def find_optimal_threshold(ground_truth, activity_counts):
-    # Bailey and Lang, 2013
-    conventional_threshold_unilateral = 2 
-    
-    # Convert to Numpy arrays
-    ground_truth = np.array(ground_truth)
-    activity_counts = np.array(activity_counts)
-    
-    # Define the thresholds you want to investigate
-    thresholds = np.arange(0, int(np.max(activity_counts)) + 1)
-
-    # Calculate false positive rate (FPR) and true positive rate (TPR) for different thresholds
-    fpr, tpr = calculate_tpr_fpr(ground_truth, activity_counts, thresholds)
-    
-    # Calculate the AUC (Area Under the ROC Curve)
-    auc = roc_auc_score(ground_truth, activity_counts)
-
-    # Calculate the Youden Index (Youden's J) for each threshold
-    youden_index = tpr - fpr
-
-    # Find the index of the threshold that maximizes the Youden Index
-    optimal_threshold_index = np.argmax(youden_index)
-
-    # Retrieve the optimal threshold
-    optimal_threshold = thresholds[optimal_threshold_index]
-   
-    # Print the optimal threshold, conventional threshold, and AUC
-    print(f"AUC: {auc}")
-    print(f"Optimal Threshold: {optimal_threshold:.2f}")
-    print(f"Conventional Threshold: {conventional_threshold_unilateral:.2f}")
-
-    # Check if AUC is clinically useful
-    if auc >= 0.75:
-        print("AUC is clinically useful (≥0.75)")
-    else:
-        print("AUC is not clinically useful (<0.75)")
-
-    optimal_threshold = round(optimal_threshold, 2)
-    return optimal_threshold
 
 
 def load_optimal_threshold(file_path, participant_group='H', AC=True):
