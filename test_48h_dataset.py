@@ -296,9 +296,9 @@ def get_data_48h_imu(participant_path, imu_path, start_date, end_date, affected_
     # Non Dominant and Dominant Hand dataset attribution
     ndh_data = trimmed_RW_data if affected_hand.lower() == 'right' else trimmed_LW_data
     dh_data = trimmed_LW_data if affected_hand.lower() == 'right' else trimmed_RW_data
-
+    
     if num_sensors == 3:
-        return ndh_data, dh_data, trimmed_chest_data
+        return ndh_data, trimmed_chest_data, dh_data 
     else: 
         return ndh_data, dh_data
 

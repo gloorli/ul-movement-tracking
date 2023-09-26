@@ -3,7 +3,6 @@ import pandas as pd
 from extract_mask_from_video import *
 import cv2
 from datetime import *
-from datetime import datetime, timedelta
 import math
 
 
