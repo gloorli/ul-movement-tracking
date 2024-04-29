@@ -1,0 +1,17 @@
+__pycache__/
+.ipynb_checkpoints/
+# ignore all videos
+*.MOV
+*.MP4
+# ignore Apple Desktop Services Stores
+*.DS_Store
+# ignore virtual environment
+.venv
+
+#ignore IMU comparison recordings
+data/ZMvsAxivity/
+#ignore smartwatch recrding
+data/Hxx1/
+
+#ignore pickle files
+*.pkl
