@@ -233,6 +233,25 @@ def get_datetime_timestamp(header):
     
     return start_datetime_obj, end_datetime_obj
 
+def get_datetime_timestamp_Axivity(start_datetime_str="2024-03-21 11:28:52.315", end_datetime_str="2024-03-21 16:34:31.435"): 
+    
+    format_str = '%Y-%m-%d %H:%M:%S'
+    
+    print(start_datetime_str, end_datetime_str)
+    # Extract milliseconds from the string
+    start_milliseconds = int(start_datetime_str.split('.')[-1])
+    end_milliseconds = int(end_datetime_str.split('.')[-1])
+
+    # Parse the datetime without milliseconds
+    start_datetime_obj = datetime.strptime(start_datetime_str[:-4], format_str)
+    end_datetime_obj = datetime.strptime(end_datetime_str[:-4], format_str)
+
+    # Add the milliseconds to the datetime object
+    start_datetime_obj = start_datetime_obj.replace(microsecond=start_milliseconds)
+    end_datetime_obj = end_datetime_obj.replace(microsecond=end_milliseconds)
+    
+    return start_datetime_obj, end_datetime_obj
+
 
 def create_timestamps(IMU_start_timestamp, IMU_end_timestamp, sampling_freq):
     # Calculate the time difference between start and end timestamps

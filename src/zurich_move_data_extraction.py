@@ -120,6 +120,25 @@ def extract_sensors_data_from_mat_file(file_path: str, sensor_placement, sensors
             
     return dfs
 
+def extract_sensors_data_from_axivity_file(file_path: str, dataframe_features):
+    """
+    Extracts data from a CSV file and returns a DataFrame.
+
+    Args:
+        file_path (str): The path to the CSV file.
+        dataframe_features (list): List of desired features in the output dataframe.
+
+    Returns:
+        dict: A DataFrame containing a dataframe for the sensor placement 
+            present in the CSV.
+    """
+
+    # Read data from CSV
+    df = pd.DataFrame(columns=dataframe_features)
+    df = pd.read_csv(file_path, names=dataframe_features, header=0)
+
+    return df
+
 
 def export_to_csv(file_path, dfs, sensor_placement, sensors_features, dataframe_features):
     """
