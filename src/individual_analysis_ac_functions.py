@@ -14,7 +14,7 @@ from sklearn.model_selection import KFold
 import seaborn as sns
 
 
-def get_data(folder, dominant_hand):
+def get_data(folder, dominant_hand, using_axivity=False):
     # Load IMU data
     LW_data_filename = 'trimmed_LW_data.csv'
     chest_data_filename = 'trimmed_chest_data.csv'
@@ -25,7 +25,9 @@ def get_data(folder, dominant_hand):
     RW_data_path = os.path.join(folder, RW_data_filename)
 
     LW_data = pd.read_csv(LW_data_path)
-    chest_data = pd.read_csv(chest_data_path)
+    chest_data = None
+    if not using_axivity:
+        chest_data = pd.read_csv(chest_data_path)
     RW_data = pd.read_csv(RW_data_path)
 
     # Load Video GT data

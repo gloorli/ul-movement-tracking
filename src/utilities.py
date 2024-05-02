@@ -619,8 +619,8 @@ def window_data(data, original_sampling_frequency, window_length_seconds):
     return windowed_data
 
 
-def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_CT,
-                             metrics_ndh_OT, metrics_dh_OT, metrics_bilateral_OT):
+def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_CT=None,
+                             metrics_ndh_OT=None, metrics_dh_OT=None, metrics_bilateral_OT=None):
     """
     Creates a dictionary with metrics data organized by the combination of vertical and horizontal axes.
 
