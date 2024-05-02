@@ -6,8 +6,19 @@ Optimization of parameters (AC threshold & functional space) used in Gross Movem
 Duration of arm use based on functional vs. non-functional movements dichotomization. 
 Comparison of conventional and optimal approaches.
 
+## Prerequisites
+To use the provided code, please install the requirements given in ```requirements.txt``` with pip.
+```
+pip install -r requirements.txt
+```
+To prevent dependency issues, we recommend installing the packages in a conda or venv environment.
+
+
 If questions arise, don't hesitate to contact me: gloorli@ethz.ch.
 
 *Parts of the code in this branch were written with the aid of Google Bard.*
-
 The code is based on work from Pierre-Louis Gaultier (pierrelouis.gltr@gmail.com)
+
+## Relevant Publications
+
+Subash, T., David, A., ReetaJanetSurekha, S., Gayathri, S., Samuelkamaleshkumar, S., Magimairaj, H. P., Malesevic, N., Antfolk, C., Varadhan, S.K.M., Melendez-Calderon, A., & Balasubramanian, S. (2022). [**Comparing algorithms for assessing upper limb use with inertial measurement units**](https://www.biorxiv.org/content/10.1101/2022.02.24.481756v1.full). bioRxiv.
