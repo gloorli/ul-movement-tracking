@@ -466,7 +466,7 @@ def trim_data(df, start_duration, end_duration):
     return trimmed_df
 
 
-def save_integers_to_file(path, participant_id, int1, int2, int3):
+def save_integers_to_file(path, participant_id, int1, int2, int3, using_axivity=False, duration1_RW=None):
     # Create the output folder if it doesn't exist
     if not os.path.exists(path):
         os.makedirs(path)
@@ -480,11 +480,13 @@ def save_integers_to_file(path, participant_id, int1, int2, int3):
         file.write(f'Frame Start: {int1}\n')
         file.write(f'Frame End: {int2}\n')
         file.write(f'Duration: {int3}\n')
+        if using_axivity:
+            file.write(f'Duration1 RW: {duration1_RW}\n')
 
     print(f"The integers have been saved to the file: '{file_path}'")
 
 
-def save_data(path, participant_id, frame_start, frame_end, duration1, LW_trimmed_data, RW_trimmed_data, chest_trimmed_data):
+def save_data(path, participant_id, frame_start, frame_end, duration1, LW_trimmed_data, RW_trimmed_data, chest_trimmed_data, using_axivity=False, duration1_RW=None):
     """
     Save video parameters and trimmed data to CSV files.
 
@@ -502,7 +504,7 @@ def save_data(path, participant_id, frame_start, frame_end, duration1, LW_trimme
         None
     """
     # Save video parameters to a text file
-    save_integers_to_file(path, participant_id, frame_start, frame_end, duration1)
+    save_integers_to_file(path, participant_id, frame_start, frame_end, duration1, using_axivity, duration1_RW)
     print("Video parameters saved.")
 
     # Specify the output CSV file names
@@ -522,8 +524,9 @@ def save_data(path, participant_id, frame_start, frame_end, duration1, LW_trimme
     RW_trimmed_data.to_csv(rw_output_path, index=False)
     print("Trimmed data for RW saved to:", rw_output_path)
     
-    chest_trimmed_data.to_csv(chest_output_path, index=False)
-    print("Trimmed data for chest saved to:", chest_output_path)
+    if not using_axivity:
+        chest_trimmed_data.to_csv(chest_output_path, index=False)
+        print("Trimmed data for chest saved to:", chest_output_path)
 
 
 def plt_zoom(df, duration1):
