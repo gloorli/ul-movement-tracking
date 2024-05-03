@@ -12,6 +12,8 @@ __pycache__/
 data/ZMvsAxivity/
 #ignore smartwatch recrding
 data/Hxx1/
+#ignore test recordings
+data/CreateStudy/Hxx2/
 
 #ignore pickle files
 *.pkl

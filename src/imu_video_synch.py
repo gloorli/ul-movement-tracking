@@ -6,9 +6,7 @@ from datetime import *
 import math
 
 
-def get_participant_paths(participant_id):
-    # Specify the folder name
-    study_folder = '../CreateStudy'  # Go one step back to access the CreateStudy folder
+def get_participant_paths(participant_id, study_folder='../CreateStudy'):
 
     # Create the path to the corresponding data
     path = os.path.join(study_folder, participant_id)
