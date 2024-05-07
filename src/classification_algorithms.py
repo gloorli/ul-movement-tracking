@@ -191,7 +191,7 @@ def get_gm_scores(data):
     return gm
 
 
-def get_gm_modified(data):
+def get_GMAC(data):
     pitch = resample(data[['pitch']], 50, 1)
     counts = compute_vector_magnitude(data)
     gmac = pd.merge(pitch, counts, on='time')
@@ -509,8 +509,8 @@ def generate_hybrid_gmac_output(subject_type):
     left, right = read_data(subject_type)
     # modified GM score
     sys.stdout.write('Generating modified GM scores...')
-    gml = get_gm_modified(left).rename(columns={'pred': 'l'})
-    gmr = get_gm_modified(right).rename(columns={'pred': 'r'})
+    gml = get_GMAC(left).rename(columns={'pred': 'l'})
+    gmr = get_GMAC(right).rename(columns={'pred': 'r'})
 
     gm = pd.merge(gml, gmr, on='time').set_index('time')
     gm.to_csv(subject_type + '/classifier outputs/gmac.csv')
