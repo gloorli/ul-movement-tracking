@@ -11,7 +11,7 @@ import matplotlib.font_manager as fm
 from matplotlib.lines import Line2D
 import seaborn as sns
 from scipy.interpolate import CubicSpline
-from adjustText import adjust_text
+#from adjustText import adjust_text
 
 # Local Imports
 from activity_count_function import *
