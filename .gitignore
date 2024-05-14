@@ -14,6 +14,10 @@ data/ZMvsAxivity/
 data/Hxx1/
 #ignore test recordings
 data/CreateStudy/Hxx2/
+data/CreateStudy/Hxx3/
+
+#ignore all CreateStudy data (ethics only allows local and NAS storage)
+data/CreateStudy/
 
 #ignore pickle files
 *.pkl
