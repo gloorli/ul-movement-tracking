@@ -4,6 +4,8 @@ import pandas as pd
 import scipy.signal as signal
 from ahrs.filters import Madgwick
 from ahrs.common import orientation
+from gm_function import compute_euler_angles
+from imu_video_synch import get_datetime_timestamp_Axivity, create_timestamps
 
 def get_continuous_segments(df):
     # returns a list of continuous sections (as dataframes) from the original dataframe
@@ -66,6 +68,14 @@ def compute_vector_magnitude(df):
     op_df['counts'] = [np.round(x) for x in op_df['a_mag'].rolling(5).mean()]
     return op_df[['counts']]
 
+def add_datetime_index(df, fs=50):
+    IMU_start_timestamp, IMU_end_timestamp = get_datetime_timestamp_Axivity(df.index[0], df.index[-1])
+    # Get all timestamps
+    timestamps_array = create_timestamps(IMU_start_timestamp, IMU_end_timestamp, fs)
+    # Add timestamps to raw data (needed for trimming step)
+    df.reset_index(drop=True, inplace=True)
+    return pd.concat([timestamps_array, df], axis=1)
+
 def GMAC(IMU_data, count_threshold=0, functional_range=30):
     pitch = resample(IMU_data[['pitch']], 50, 1)
     counts = compute_vector_magnitude(IMU_data)
@@ -74,11 +84,18 @@ def GMAC(IMU_data, count_threshold=0, functional_range=30):
     return gmac.reset_index()
 
 def main():
-    filepath = '../data/CreateStudy/S001/S001_LW.csv' #TODO: change the path to the file
-    df = pd.read_csv(filepath)
-    #rename acc and gyr colums
-    #add pitch to df
-    GMAC(df)
+    filepath = 'data/CreateStudy/S001/S001_LW.csv' #TODO: change the path to the file
+    df_for_Subash = pd.read_csv(filepath)
+    df_for_Subash.columns = ['time', 'ax', 'ay', 'az', 'gx', 'gy', 'gz']
+    df_for_Subash.set_index('time', inplace=True)
+    _, pitch_mad, _ = compute_euler_angles(df_for_Subash[['ax', 'ay', 'az']], df_for_Subash[['gx', 'gy', 'gz']], fs=50)
+    df_for_Subash['pitch'] = pitch_mad
+
+    df_for_Subash = add_datetime_index(df_for_Subash, fs=50)
+    df_for_Subash.set_index('timestamp', inplace=True)
+
+    GMACdf = GMAC(df_for_Subash)
+    return GMACdf
 
 if __name__ == "__main__":
     main()
