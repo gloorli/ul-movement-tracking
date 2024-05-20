@@ -1,4 +1,5 @@
 #https://github.com/biorehab/upper-limb-use-assessment/tree/main
+import os
 import numpy as np
 import pandas as pd
 import scipy.signal as signal
@@ -84,8 +85,9 @@ def GMAC(IMU_data, count_threshold=0, functional_range=30):
     return gmac.reset_index()
 
 def main():
-    filepath = 'data/CreateStudy/S001/S001_LW.csv' #TODO: change the path to the file
-    df_for_Subash = pd.read_csv(filepath)
+    filepath = 'data/CreateStudy/S001' #TODO: change the path to the file
+    filename = 'S001_LW.csv' #TODO: change the filename
+    df_for_Subash = pd.read_csv(os.path.join(filepath, filename))
     df_for_Subash.columns = ['time', 'ax', 'ay', 'az', 'gx', 'gy', 'gz']
     df_for_Subash.set_index('time', inplace=True)
     _, pitch_mad, _ = compute_euler_angles(df_for_Subash[['ax', 'ay', 'az']], df_for_Subash[['gx', 'gy', 'gz']], fs=50)
@@ -95,6 +97,7 @@ def main():
     df_for_Subash.set_index('timestamp', inplace=True)
 
     GMACdf = GMAC(df_for_Subash)
+    GMACdf.to_csv(os.path.join(filepath, 'GMACdf.csv'))
     return GMACdf
 
 if __name__ == "__main__":
