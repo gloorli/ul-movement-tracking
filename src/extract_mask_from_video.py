@@ -261,6 +261,47 @@ def closest_label(array, numbers_of_interest):
 
     return modified_array
 
+def fill_mask(frame_array, label_array, mask_labels):
+
+    # Prepare a mask array of the size of the maximum value contained inside frame_array
+    mask_size = max(frame_array)
+    mask = [-5] * mask_size
+
+    # Place the correct value of label at the correct frame position
+    for frame, label in zip(frame_array, label_array):
+        mask[frame - 1] = label
+
+    # Fill the gaps between frames 
+    mask = closest_label(mask, mask_labels)
+    mask = np.array(mask)
+
+    return mask
+
+def get_label_mask(segmented_data): #replaces get_mask, parses JSON exported from labelbox
+    project_key = 'clw8u6yxb02dk07yd2jqg4vgk' #TODO
+    labeled_frames = segmented_data[0][0]['projects'][project_key]['labels'][0]['annotations']['frames']
+    #max_frame = max(labeled_frames.keys(), key=int) #get the maximum frame number maybe init lists here and fill at the exact frame position
+    #functional_NF_frame_array, functional_NF_label_array = [-5] * max_frame, [-5] * max_frame
+    #functional_primitive_frame_array, primitive_label_array = [-5] * max_frame, [-5] * max_frame
+    
+    functional_NF_frame_array, functional_NF_label_array = [], []
+    functional_primitive_frame_array, primitive_label_array = [], []
+
+    for key, value in labeled_frames.items():
+        for schema in value['classifications']:
+            if schema['name'] == 'functional movement primitive':
+                functional_primitive_frame_array.append(int(key)) #fill here
+                primitive_label_array.append(schema['radio_answer']['value'])
+            elif schema['name'] == 'functional / non-functional':
+                functional_NF_frame_array.append(int(key))
+                functional_NF_label_array.append(schema['radio_answer']['value'])
+    
+    functional_primitive_per_frame = fill_mask(functional_primitive_frame_array, primitive_label_array, ['reach', 'reposition', 'transport', 'gesture', 'idle', 'stabilization'])
+    #functional_NF_per_frame = fill_mask(functional_NF_frame_array, functional_NF_label_array, [1, 0])
+    functional_NF_per_frame = fill_mask(functional_NF_frame_array, functional_NF_label_array, ['functional_movement', 'non_functional_movement'])
+
+    return functional_primitive_per_frame, functional_NF_per_frame
+        
 
 def extract_mask_from_videos(videos_paths, export_json):
     mask_per_video = []
@@ -269,9 +310,10 @@ def extract_mask_from_videos(videos_paths, export_json):
     for video_path in videos_paths:
         # Call segment_data function
         segmented_data = segment_data(export_json, video_path)
-
+        
         # Extract the masks using the labeled frames
-        mask_video = get_mask(segmented_data)
+        #mask_video = get_mask(segmented_data)
+        _, mask_video = get_label_mask(segmented_data)
         mask_per_video.append(mask_video)
 
     # Merge all the mask_video together using np.concatenate
