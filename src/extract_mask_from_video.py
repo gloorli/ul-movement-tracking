@@ -4,13 +4,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import labelbox
-import ffmpeg
-import sys
-from pprint import pprint # for printing Python dictionaries in a human-readable way
-import datetime
 import numpy as np
 import os
-import subprocess
 
 
 def extract_json_data(api_key, project_id):
@@ -277,33 +272,37 @@ def fill_mask(frame_array, label_array, mask_labels):
 
     return mask
 
-def get_label_mask(segmented_data): #replaces get_mask, parses JSON exported from labelbox
-    project_key = 'clw8u6yxb02dk07yd2jqg4vgk' #TODO
+def get_label_mask(segmented_data, project_key='clw8u6yxb02dk07yd2jqg4vgk'): #replaces get_mask, parses JSON exported from labelbox
+
+    segmented_data = json.loads(segmented_data) #conver JSON string to Python dictionary/list
     labeled_frames = segmented_data[0][0]['projects'][project_key]['labels'][0]['annotations']['frames']
-    #max_frame = max(labeled_frames.keys(), key=int) #get the maximum frame number maybe init lists here and fill at the exact frame position
-    #functional_NF_frame_array, functional_NF_label_array = [-5] * max_frame, [-5] * max_frame
-    #functional_primitive_frame_array, primitive_label_array = [-5] * max_frame, [-5] * max_frame
     
     functional_NF_frame_array, functional_NF_label_array = [], []
-    functional_primitive_frame_array, primitive_label_array = [], []
+    functional_primitive_frame_array, functional_primitive_label_array = [], []
 
     for key, value in labeled_frames.items():
         for schema in value['classifications']:
-            if schema['name'] == 'functional movement primitive':
-                functional_primitive_frame_array.append(int(key)) #fill here
-                primitive_label_array.append(schema['radio_answer']['value'])
-            elif schema['name'] == 'functional / non-functional':
+            if schema['name'] == 'functional movement primitive' or schema['name'] == 'exclusion':
+                functional_primitive_frame_array.append(int(key))
+                functional_primitive_label_array.append(schema['radio_answer']['value'])
+            if schema['name'] == 'functional / non-functional' or schema['name'] == 'exclusion':
                 functional_NF_frame_array.append(int(key))
                 functional_NF_label_array.append(schema['radio_answer']['value'])
     
-    functional_primitive_per_frame = fill_mask(functional_primitive_frame_array, primitive_label_array, ['reach', 'reposition', 'transport', 'gesture', 'idle', 'stabilization'])
-    #functional_NF_per_frame = fill_mask(functional_NF_frame_array, functional_NF_label_array, [1, 0])
-    functional_NF_per_frame = fill_mask(functional_NF_frame_array, functional_NF_label_array, ['functional_movement', 'non_functional_movement'])
+    if len(functional_primitive_frame_array) != len(functional_primitive_label_array) or len(functional_NF_frame_array) != len(functional_NF_label_array):
+        raise ValueError("Frame and label arrays should have the same size.")
+
+    functional_primitive_per_frame = fill_mask(functional_primitive_frame_array, functional_primitive_label_array, ['reach', 'reposition', 'transport', 'gesture', 'idle', 'stabilization', 'arm_not_visible'])
+    functional_NF_per_frame = fill_mask(functional_NF_frame_array, functional_NF_label_array, ['functional_movement', 'non_functional_movement', 'arm_not_visible'])
 
     return functional_primitive_per_frame, functional_NF_per_frame
-        
 
-def extract_mask_from_videos(videos_paths, export_json):
+def convert_labels_to_int(label_array):
+    label_to_int = {'functional_movement': 1, 'non_functional_movement': 0, 'reach': 2, 'reposition': 3, 'transport': 4, 'gesture': 5, 'idle': 6, 'stabilization': 7, 'arm_not_visible': 999}
+    int_array = [label_to_int[label] for label in label_array]
+    return int_array
+
+def extract_mask_from_videos(videos_paths, export_json, project_key='clw8u6yxb02dk07yd2jqg4vgk'):
     mask_per_video = []
 
     # Loop over all the video_path in the videos_paths array
@@ -313,7 +312,8 @@ def extract_mask_from_videos(videos_paths, export_json):
         
         # Extract the masks using the labeled frames
         #mask_video = get_mask(segmented_data)
-        _, mask_video = get_label_mask(segmented_data)
+        _, mask_video = get_label_mask(segmented_data, project_key)
+        mask_video = convert_labels_to_int(mask_video)
         mask_per_video.append(mask_video)
 
     # Merge all the mask_video together using np.concatenate
@@ -352,10 +352,7 @@ def get_mask(segmented_data):
 
 
 
-
-
-
-def plot_movement_tendency(data):
+def plot_movement_tendency(data, frame_rate = 25):
     """
     Plot the movement tendency over time and display the percentage of occurrence.
 
@@ -376,8 +373,10 @@ def plot_movement_tendency(data):
     else:
         raise ValueError("Invalid input type. Input should be a DataFrame or a numpy array.")
 
+    # Delete entries in mask that are 999 (labeled exclusion)
+    mask_data = mask_data[mask_data != 999]
+    
     # Compute time based on the frame rate (FPS)
-    frame_rate = 25
     time = np.arange(len(mask_data)) / frame_rate
 
     # Create line plot
