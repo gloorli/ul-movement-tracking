@@ -102,31 +102,6 @@ def get_all_video_path_participant_labelbox(participant_id, number_videos):
     return videos_paths_LW, videos_paths_RW
 
 
-def save_masks_as_csv(GT_mask_LW, GT_mask_RW, folder):
-    """
-    Save masks as CSV files.
-
-    Args:
-        GT_mask_LW (DataFrame): DataFrame containing the left-hand masks.
-        GT_mask_RW (DataFrame): DataFrame containing the right-hand masks.
-        folder (str): Folder path to save the CSV files.
-
-    Returns:
-        None.
-    """
-    # Specify the output CSV file names
-    lw_output_filename = 'GT_mask_LW.csv'
-    rw_output_filename = 'GT_mask_RW.csv'
-
-    # Construct the full file paths for the output CSV files
-    lw_output_path = os.path.join(folder, lw_output_filename)
-    rw_output_path = os.path.join(folder, rw_output_filename)
-
-    # Save the trimmed data
-    GT_mask_LW.to_csv(lw_output_path, index=False)
-    GT_mask_RW.to_csv(rw_output_path, index=False)
-
-
 def get_folder_element_count(path):
     """
     Get the number of elements (files and subfolders) in a folder.
