@@ -368,9 +368,11 @@ def remove_extra_elements(array1, array2):
 
     if size1 > size2:
         trimmed_array1 = array1[:size2]
+        print(f"Array 1 has been trimmed to size {size2}.")
         return trimmed_array1, array2
     elif size2 > size1:
         trimmed_array2 = array2[:size1]
+        print(f"Array 2 has been trimmed to size {size1}.")
         return array1, trimmed_array2
     else:
         return array1, array2
@@ -424,6 +426,13 @@ def resample_mask(mask, original_frequency, desired_frequency):
         
     # Ravel the resampled_mask before returning
     return np.ravel(resampled_mask)
+
+def remove_excluded_frames(IMU_data, GT_50Hz, GT_25Hz, exclusion_label=999):
+    IMU_data = IMU_data[GT_50Hz != exclusion_label]
+    GT_25Hz = GT_25Hz[GT_25Hz != exclusion_label]
+    GT_50Hz = GT_50Hz[GT_50Hz != exclusion_label]
+    
+    return IMU_data, GT_50Hz, GT_25Hz
 
 
 def plot_resampled_arrays(original_mask, original_frequency, resampled_mask, desired_frequency):
