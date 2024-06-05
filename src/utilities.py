@@ -375,6 +375,7 @@ def remove_extra_elements(array1, array2):
         print(f"Array 2 has been trimmed to size {size1}.")
         return array1, trimmed_array2
     else:
+        print("Arrays already had same shape.")
         return array1, array2
 
 
@@ -427,12 +428,43 @@ def resample_mask(mask, original_frequency, desired_frequency):
     # Ravel the resampled_mask before returning
     return np.ravel(resampled_mask)
 
-def remove_excluded_frames(IMU_data, GT_50Hz, GT_25Hz, exclusion_label=999):
-    IMU_data = IMU_data[GT_50Hz != exclusion_label]
-    GT_25Hz = GT_25Hz[GT_25Hz != exclusion_label]
-    GT_50Hz = GT_50Hz[GT_50Hz != exclusion_label]
+import numpy as np
+
+def downsample_mask(ground_truth, original_rate=25, target_rate=1):
+    """
+    Downsample a 1D NumPy array from original_rate to target_rate.
+
+    Args:
+        ground_truth (np.array): The original 1D array with ground truth data.
+        original_rate (int): The original sampling rate (default is 25Hz).
+        target_rate (int): The target sampling rate (default is 1Hz).
+
+    Returns:
+        np.array: The downsampled 1D array.
+    """
+    if original_rate % target_rate != 0:
+        raise ValueError("Original frequency must be a multiple of the target frequency.")
     
-    return IMU_data, GT_50Hz, GT_25Hz
+    factor = original_rate // target_rate
+    ground_truth = np.concatenate((np.full(factor//2, 999), ground_truth)) #add elements (exclusion 999) to pick middle values during slicing
+    downsampled_array = ground_truth[::factor]
+    
+    return downsampled_array
+
+def remove_excluded_frames(counts, pitch, GT_1Hz, exclusion_label=999):
+    counts = counts[GT_1Hz != exclusion_label]
+    pitch = pitch[GT_1Hz != exclusion_label]
+    GT_1Hz = GT_1Hz[GT_1Hz != exclusion_label]
+    
+    return counts, pitch, GT_1Hz
+
+def remove_nan_frames(counts, pitch, GT_1Hz):
+    nan_indices = np.isnan(counts)
+    counts = counts[~nan_indices]
+    pitch = pitch[~nan_indices]
+    GT_1Hz = GT_1Hz[~nan_indices.ravel()]
+    
+    return counts, pitch, GT_1Hz
 
 
 def plot_resampled_arrays(original_mask, original_frequency, resampled_mask, desired_frequency):
