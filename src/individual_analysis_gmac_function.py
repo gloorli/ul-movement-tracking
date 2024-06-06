@@ -21,7 +21,8 @@ def get_prediction_gmac(counts, pitch, count_threshold=0, functional_space=30, d
     if decision_mode == 'Linus':
         pitch_dichotomization = np.where(pitch > -functional_space, 1, 0)# Compute the functional space dichotomization based on the Linus GMAC algorithm
 
-    return np.where(counts > count_threshold and pitch_dichotomization, 1, 0)
+    return np.where(np.logical_and(counts > count_threshold, pitch_dichotomization), 1, 0)
+    #return np.where(counts > count_threshold and pitch_dichotomization, 1, 0)
 
 
 def AUC_analisys(ground_truth, pred):
@@ -144,7 +145,7 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal=True):
         print(f"Optimal Pitch Threshold: {optimal_angle:.2f}")
 
         #Investigate the AUC
-        #AUC_analisys(y_train, X_train) #needs investigation
+        #AUC_analisys(y_train, X_train) #TODO needs investigation
 
 
     # Compute the average evaluation metrics across the splits 

@@ -660,8 +660,8 @@ def window_data(data, original_sampling_frequency, window_length_seconds):
     return windowed_data
 
 
-def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_CT=None,
-                             metrics_ndh_OT=None, metrics_dh_OT=None, metrics_bilateral_OT=None):
+def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT,
+                             metrics_ndh_OT=None, metrics_dh_OT=None, metrics_bilateral_CT=None, metrics_bilateral_OT=None):
     """
     Creates a dictionary with metrics data organized by the combination of vertical and horizontal axes.
 
@@ -675,38 +675,34 @@ def create_metrics_dictionary(metrics_ndh_CT, metrics_dh_CT, metrics_bilateral_C
         'OT_ndh_Sensitivity': metrics_ndh_OT['Sensitivity'],
         'OT_ndh_Specificity': metrics_ndh_OT['Specificity'],
         'OT_ndh_Accuracy': metrics_ndh_OT['Accuracy'],
-        'OT_ndh_PPV': metrics_ndh_OT['PPV'],
-        'OT_ndh_NPV': metrics_ndh_OT['NPV'],
+        'OT_ndh_YoudenIndex': metrics_ndh_OT['Youden_Index'],
 
         'OT_dh_Sensitivity': metrics_dh_OT['Sensitivity'],
         'OT_dh_Specificity': metrics_dh_OT['Specificity'],
         'OT_dh_Accuracy': metrics_dh_OT['Accuracy'],
-        'OT_dh_PPV': metrics_dh_OT['PPV'],
-        'OT_dh_NPV': metrics_dh_OT['NPV'],
+        'OT_dh_YoudenIndex': metrics_dh_OT['Youden_Index'],
 
-        'OT_bilateral_Sensitivity': metrics_bilateral_OT['Sensitivity'],
-        'OT_bilateral_Specificity': metrics_bilateral_OT['Specificity'],
-        'OT_bilateral_Accuracy': metrics_bilateral_OT['Accuracy'],
-        'OT_bilateral_PPV': metrics_bilateral_OT['PPV'],
-        'OT_bilateral_NPV': metrics_bilateral_OT['NPV'],
+        #'OT_bilateral_Sensitivity': metrics_bilateral_OT['Sensitivity'],
+        #'OT_bilateral_Specificity': metrics_bilateral_OT['Specificity'],
+        #'OT_bilateral_Accuracy': metrics_bilateral_OT['Accuracy'],
+        #'OT_bilateral_PPV': metrics_bilateral_OT['PPV'],
+        #'OT_bilateral_NPV': metrics_bilateral_OT['NPV'],
 
         'CT_ndh_Sensitivity': metrics_ndh_CT['Sensitivity'],
         'CT_ndh_Specificity': metrics_ndh_CT['Specificity'],
         'CT_ndh_Accuracy': metrics_ndh_CT['Accuracy'],
-        'CT_ndh_PPV': metrics_ndh_CT['PPV'],
-        'CT_ndh_NPV': metrics_ndh_CT['NPV'],
+        'CT_ndh_YoudenIndex': metrics_ndh_CT['Youden_Index'],
 
         'CT_dh_Sensitivity': metrics_dh_CT['Sensitivity'],
         'CT_dh_Specificity': metrics_dh_CT['Specificity'],
         'CT_dh_Accuracy': metrics_dh_CT['Accuracy'],
-        'CT_dh_PPV': metrics_dh_CT['PPV'],
-        'CT_dh_NPV': metrics_dh_CT['NPV'],
+        'CT_dh_YoudenIndex': metrics_dh_CT['Youden_Index'],
 
-        'CT_bilateral_Sensitivity': metrics_bilateral_CT['Sensitivity'],
-        'CT_bilateral_Specificity': metrics_bilateral_CT['Specificity'],
-        'CT_bilateral_Accuracy': metrics_bilateral_CT['Accuracy'],
-        'CT_bilateral_PPV': metrics_bilateral_CT['PPV'],
-        'CT_bilateral_NPV': metrics_bilateral_CT['NPV']
+        #'CT_bilateral_Sensitivity': metrics_bilateral_CT['Sensitivity'],
+        #'CT_bilateral_Specificity': metrics_bilateral_CT['Specificity'],
+        #'CT_bilateral_Accuracy': metrics_bilateral_CT['Accuracy'],
+        #'CT_bilateral_PPV': metrics_bilateral_CT['PPV'],
+        #'CT_bilateral_NPV': metrics_bilateral_CT['NPV']
     }
 
     return data
