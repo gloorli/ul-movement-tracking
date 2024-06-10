@@ -1,9 +1,10 @@
+import subprocess
 import numpy as np
 import pandas as pd
 from extract_mask_from_video import *
 import cv2
 from datetime import *
-import math
+import ffmpeg
 
 
 def get_participant_paths(participant_id, study_folder='../CreateStudy'):
