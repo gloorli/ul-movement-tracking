@@ -16,6 +16,9 @@ data/Hxx1/
 data/CreateStudy/Hxx2/
 data/CreateStudy/Hxx3/
 
+#ignore all data for pitch analysis
+data/pitch_analysis/
+
 #ignore all CreateStudy data (ethics only allows local and NAS storage)
 data/CreateStudy/
 
