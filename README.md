@@ -22,6 +22,6 @@ The code is based on work from Pierre-Louis Gaultier (pierrelouis.gltr@gmail.com
 ## Relevant Publications
 
 Subash, T., David, A., ReetaJanetSurekha, S., Gayathri, S., Samuelkamaleshkumar, S., Magimairaj, H. P., Malesevic, N., Antfolk, C., Varadhan, S.K.M., Melendez-Calderon, A., & Balasubramanian, S. (2022). [**Comparing algorithms for assessing upper limb use with inertial measurement units**](https://www.biorxiv.org/content/10.1101/2022.02.24.481756v1.full). bioRxiv.
-\
+
 Josse E. Optimizing digital health metrics to quantify functional upper limb
 movements with inertial measurement units; 2024.
