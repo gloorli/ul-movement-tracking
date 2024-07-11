@@ -28,6 +28,6 @@ movements with inertial measurement units**. BioRob 2024. (in review)
 
 The code is based on work from Pierre-Louis Gaultier (pierrelouis.gltr@gmail.com) and [Subash's repository](https://github.com/biorehab/upper-limb-use-assessment).
 
-*Parts of the code in this branch were written with the aid of Google Bard.* 
+*Parts of the code in this branch were written with the aid of LLMs.* 
 
 If questions arise, don't hesitate to contact me: gloorli@ethz.ch.
