@@ -39,14 +39,14 @@ class RegressionModel:
 
         # Distribution of x
         plt.subplot(1, 2, 1)
-        plt.hist(self.x, bins=20, edgecolor='k', alpha=0.7)
+        plt.hist(self.x, bins=self.x.shape[0], edgecolor='k', alpha=0.7)
         plt.title('Distribution of x')
         plt.xlabel('x')
         plt.ylabel('Frequency')
 
         # Distribution of y
         plt.subplot(1, 2, 2)
-        plt.hist(self.y, bins=20, edgecolor='k', alpha=0.7)
+        plt.hist(self.y, bins=66, edgecolor='k', alpha=0.7)
         plt.title('Distribution of y')
         plt.xlabel('y')
         plt.ylabel('Frequency')
