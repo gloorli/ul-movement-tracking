@@ -62,7 +62,7 @@ class RegressionModel:
         corr, _ = spearmanr(self.x.flatten(), self.y)
         return corr
 
-    def plot_regressions(self):
+    def plot_regressions(self, title='Regression Plots', xlabel='x', ylabel='y'):
         plt.scatter(self.x, self.y, color='blue', label='Data')
 
         # Plot linear regression
@@ -76,18 +76,14 @@ class RegressionModel:
             y_poly_pred = poly_model.predict(x_range)
             plt.plot(x_range, y_poly_pred, label=f'Polynomial Regression (degree {degree})')
 
-        plt.xlabel('x')
-        plt.ylabel('y')
-        plt.title('Regression Plots')
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
         plt.legend()
         plt.show()
 
-# Example usage:
-if __name__ == "__main__":
-    # Example data
-    x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    y = np.array([2, 3, 5, 7, 11, 13, 17, 19, 23, 29])
-
+def check_regression(x, y, x_label='x', y_label='y', title='Regression Analysis'):
+    # Create a regression model
     model = RegressionModel(x, y)
 
     # Check distribution of the data
@@ -108,7 +104,7 @@ if __name__ == "__main__":
     # Predict using polynomial regression
     predicted_poly = model.predict_polynomial([11, 12, 13], 2)
     print("Polynomial Predictions:", predicted_poly)
-    
+        
     # Calculate Pearson correlation
     pearson_corr = model.pearson_correlation()
     print("Pearson Correlation:", pearson_corr)
@@ -118,4 +114,13 @@ if __name__ == "__main__":
     print("Spearman Correlation:", spearman_corr)
 
     # Plot regressions
-    model.plot_regressions()
+    model.plot_regressions(xlabel=x_label, ylabel=y_label, title=title)
+    
+
+# Example usage:
+if __name__ == "__main__":
+    # Example data
+    x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    y = np.array([2, 3, 5, 7, 11, 13, 17, 19, 23, 29])
+
+    check_regression(x, y)
