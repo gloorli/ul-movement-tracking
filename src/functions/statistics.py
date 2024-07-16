@@ -22,6 +22,11 @@ class RegressionModel:
         poly_model.fit(self.x, self.y)
         self.poly_models[degree] = poly_model
 
+    def fit_logarithmic_regression(self):
+        x_log = np.log(self.x)
+        self.log_model = LinearRegression()
+        self.log_model.fit(x_log, self.y)
+
     def predict_linear(self, x):
         if self.linear_model is None:
             raise ValueError("Linear model is not fitted yet.")
@@ -33,6 +38,12 @@ class RegressionModel:
             raise ValueError(f"Polynomial model of degree {degree} is not fitted yet.")
         x = np.array(x).reshape(-1, 1)
         return self.poly_models[degree].predict(x)
+    
+    def predict_logarithmic(self, x):
+        if self.log_model is None:
+            raise ValueError("Logarithmic model is not fitted yet.")
+        x_log = np.log(np.array(x).reshape(-1, 1))
+        return self.log_model.predict(x_log)
     
     def check_distribution(self):
         plt.figure(figsize=(12, 5))
@@ -76,6 +87,12 @@ class RegressionModel:
             y_poly_pred = poly_model.predict(x_range)
             plt.plot(x_range, y_poly_pred, label=f'Polynomial Regression (degree {degree})')
 
+        # Plot logarithmic regression
+        if self.log_model is not None:
+            x_range_log = np.linspace(self.x.min(), self.x.max(), 500).reshape(-1, 1)
+            y_log_pred = self.log_model.predict(np.log(x_range_log))
+            plt.plot(x_range_log, y_log_pred, color='green', label='Logarithmic Regression')
+
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(title)
@@ -104,6 +121,13 @@ def check_regression(x, y, x_label='x', y_label='y', title='Regression Analysis'
     # Predict using polynomial regression
     predicted_poly = model.predict_polynomial([11, 12, 13], 2)
     print("Polynomial Predictions:", predicted_poly)
+
+    # Fit logarithmic regression
+    model.fit_logarithmic_regression()
+
+    # Predict using logarithmic regression
+    predicted_log = model.predict_logarithmic([11, 12, 13])
+    print("Logarithmic Predictions:", predicted_log)
         
     # Calculate Pearson correlation
     pearson_corr = model.pearson_correlation()
