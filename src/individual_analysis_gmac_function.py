@@ -17,7 +17,7 @@ def get_prediction_gmac(counts, pitch, count_threshold=0, functional_space=30, d
     Returns:
         Numpy array of predictions (0s and 1s).
     """
-    pitch_dichotomization = np.where(np.abs(pitch) > functional_space, 1, 0)# Compute the functional space dichotomization based on the original GMAC algorithm
+    pitch_dichotomization = np.where(np.abs(pitch) < functional_space, 1, 0)# Compute the functional space dichotomization based on the original GMAC algorithm
     if decision_mode == 'Linus':
         pitch_dichotomization = np.where(pitch > -functional_space, 1, 0)# Compute the functional space dichotomization based on the Linus GMAC algorithm
 
