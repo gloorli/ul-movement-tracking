@@ -279,6 +279,7 @@ def convert_labels_to_int(label_array):
 
 def extract_mask_from_videos(videos_paths, export_json, project_key='clw8u6yxb02dk07yd2jqg4vgk'):
     mask_per_video = []
+    primitives_per_video = []
 
     # Loop over all the video_path in the videos_paths array
     for video_path in videos_paths:
@@ -287,14 +288,17 @@ def extract_mask_from_videos(videos_paths, export_json, project_key='clw8u6yxb02
         
         # Extract the masks using the labeled frames
         #mask_video = get_mask(segmented_data)
-        _, mask_video = get_label_mask(segmented_data, project_key)
+        primitives_per_frame, mask_video = get_label_mask(segmented_data, project_key)
         mask_video = convert_labels_to_int(mask_video)
+        primitives_per_frame = convert_labels_to_int(primitives_per_frame)
         mask_per_video.append(mask_video)
+        primitives_per_video.append(primitives_per_frame)
 
     # Merge all the mask_video together using np.concatenate
     mask = np.concatenate(mask_per_video)
+    primitives = np.concatenate(primitives_per_video)
 
-    return mask
+    return primitives, mask
 
 
 def get_mask(segmented_data):
