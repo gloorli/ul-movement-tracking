@@ -34,6 +34,24 @@ def AUC_analisys(ground_truth, pred):
         print("AUC is clinically useful (≥0.75)")
     else:
         print("AUC is not clinically useful (<0.75)")
+
+def calculate_min_max_std(X):
+    """
+    Calculate the minimum, maximum and standard deviation of each feature in X.
+
+    Args:
+        X: np.array of features
+
+    Returns:
+        Numpy array of minimum, maximum and standard deviation of each feature in X.
+    """
+    min_max_std = {
+        'min': np.min(X, axis=0),
+        'max': np.max(X, axis=0),
+        'std': np.std(X, axis=0)
+    }
+
+    return min_max_std
     
 
 def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal=True):
@@ -166,4 +184,8 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal=True):
     avg_optimal_pitch_threshold = np.mean(results_test['Optimal_angle'])
     avg_optimal_thresholds = (round(avg_optimal_count_threshold, 2), round(avg_optimal_pitch_threshold, 2))
 
-    return avg_eval_metrics, avg_optimal_thresholds
+    count_min_max_std = calculate_min_max_std(results_test['Optimal_thres'])
+    pitch_min_max_std = calculate_min_max_std(results_test['Optimal_angle'])
+
+
+    return avg_eval_metrics, avg_optimal_thresholds, (count_min_max_std, pitch_min_max_std)
