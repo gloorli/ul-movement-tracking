@@ -12,7 +12,6 @@ class PrimitiveDistribution:
             primitives_LW.append(dict['primitive_mask_LW_25Hz'])
             primitives_RW.append(dict['primitive_mask_RW_25Hz'])
         primitives = {'primitive_mask_LW_25Hz': primitives_LW, 'primitive_mask_RW_25Hz': primitives_RW}
-        #primitives = extract_fields_from_json_files(s_json_files, ['primitive_mask_LW_25Hz', 'primitive_mask_RW_25Hz'])
 
         self.participantIDs = result['participant_id']
         self.affected_arms = result['affected_hand']
@@ -55,6 +54,7 @@ class PrimitiveDistribution:
         df = pd.DataFrame(data, columns=labels)
         df.plot(x='participantID', kind='bar', stacked=True, title='Primitives '+side, legend=True)
         plt.ylabel('Frames')
+        plt.tight_layout()
         plt.show()
 
 
