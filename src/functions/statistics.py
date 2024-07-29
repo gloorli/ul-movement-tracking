@@ -6,9 +6,10 @@ from sklearn.pipeline import make_pipeline
 from scipy.stats import pearsonr, spearmanr
 
 class RegressionModel:
-    def __init__(self, x, y):
+    def __init__(self, x, y, std):
         self.x = x.reshape(-1, 1)  # Reshape for scikit-learn compatibility
         self.y = y
+        self.threshold_std = std
         self.linear_model = None
         self.poly_models = {}
 
@@ -76,6 +77,8 @@ class RegressionModel:
     def plot_regressions(self, title='Regression Plots', xlabel='x', ylabel='y'):
         plt.scatter(self.x, self.y, color='blue', label='Data')
 
+        plt.errorbar(self.x, self.y, yerr=self.threshold_std, fmt="o")
+
         # Plot linear regression
         if self.linear_model is not None:
             x_range = np.linspace(self.x.min(), self.x.max(), 500).reshape(-1, 1)
@@ -97,11 +100,21 @@ class RegressionModel:
         plt.ylabel(ylabel)
         plt.title(title)
         plt.legend()
+        plt.tight_layout()
         plt.show()
 
-def check_regression(x, y, x_label='x', y_label='y', title='Regression Analysis'):
+
+def extract_std_from_min_max_std(min_max_std):
+    COUNT_min_max_std = min_max_std[:,0]
+    count_std = [item['std'] for item in COUNT_min_max_std]
+    PITCH_min_max_std = min_max_std[:,1]
+    pitch_std = [item['std'] for item in PITCH_min_max_std]
+
+    return count_std, pitch_std
+
+def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Analysis'):
     # Create a regression model
-    model = RegressionModel(x, y)
+    model = RegressionModel(x, y, std)
 
     # Check distribution of the data
     model.check_distribution()
@@ -147,4 +160,6 @@ if __name__ == "__main__":
     x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     y = np.array([2, 3, 5, 7, 11, 13, 17, 19, 23, 29])
 
-    check_regression(x, y)
+    std = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+    check_regression(x, y, std)
