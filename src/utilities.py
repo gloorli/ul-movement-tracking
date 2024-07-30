@@ -1332,9 +1332,26 @@ class ThesisStyle:
             'black_grey': '#404040',
             'black': '#000000'
         }
+        self.label_colours = {
+            'functional': '#77DD77',
+            'non-functional': '#CA75E0',
+            'reach': '#FFE599',
+            'transport': '#CDA31E',
+            'reposition': '#EE9C1B',
+            'gesture': '#FFD966',
+            'stabilization': '#F6A496',
+            'idle': '#C85454',
+            'exclusion': self.colours['black_grey']
+        }
 
     def get_thesis_colours(self):
         """
         Returns a dictionary of colours used in the thesis.
         """
         return self.colours
+    
+    def get_label_colours(self):
+        """
+        Returns a dictionary of colours for different labels.
+        """
+        return self.label_colours
