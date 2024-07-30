@@ -1315,3 +1315,26 @@ def interpret_correlation(correlation_coefficient):
         return "Strong negative monotonic relationship"
     else:
         return "Very strong negative monotonic relationship"
+    
+class ThesisStyle:
+    """
+    Class to define the visual style for the thesis.
+    """
+    def __init__(self):
+        self.colours =  {
+            'dark_blue': '#3D9BFF',
+            'light_blue': '#9FCDFF',
+            'yellow': '#FFCD00',
+            'orange': '#F68400',
+            'pink': '#F87FB5',
+            'turquoise': '#7CB7A4',
+            'grey': '#999999',
+            'black_grey': '#404040',
+            'black': '#000000'
+        }
+
+    def get_thesis_colours(self):
+        """
+        Returns a dictionary of colours used in the thesis.
+        """
+        return self.colours
