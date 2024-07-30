@@ -123,8 +123,11 @@ def plot_superposed_normalized_distribution(*angle_arrays):
     plt.show()
 
 class PitchPerPrimitive:
-    def __init__(self, initial_path = '../data/CreateStudy'):
+    def __init__(self, label_to_int, initial_path = '../data/CreateStudy'):
         
+        self.label_to_int = label_to_int.copy()
+        self.pitch_per_primitive = self.label_to_int.copy()
+
         s_json_files = get_json_paths(initial_path, 'S')
 
         result = extract_fields_from_json_files(s_json_files, ['participant_id', 'affected_hand', 'ARAT_score', 'FMA-UE_score'])
@@ -149,22 +152,65 @@ class PitchPerPrimitive:
         self.primitives = primitives
         self.pitch_data = pitch_data
 
+    def extract_all_values_with_label(self, array, label_array, label_of_interest):
+        extracted_array = array[label_array == label_of_interest]
+            
+        return extracted_array#, label_of_interest
 
     def get_pitch_per_primitive(self):
         """
-        Get the pitch data per primitive.
+        Get the average pitch per primitive.
         """
-        pitch_per_primitive = {}
-        for primitive in self.primitives:
-            start_time = primitive['start_time']
-            end_time = primitive['end_time']
-            pitch_per_primitive[primitive['name']] = self.pitch_data[(self.pitch_data['loggingTime(txt)'] >= start_time) & (self.pitch_data['loggingTime(txt)'] <= end_time)]
-        return pitch_per_primitive
+        pitch_ndh = self.pitch_data['pitch_NDH_25Hz']
+        pitch_dh = self.pitch_data['pitch_DH_25Hz']
+        primitives_ndh = []
+        primitives_dh = []
+        for i, affected_hand in enumerate(self.affected_hand):
+            if affected_hand == 'left':
+                primitives_ndh.append(self.primitives['primitive_mask_LW_25Hz'][i])
+                primitives_dh.append(self.primitives['primitive_mask_RW_25Hz'][i])
+            elif affected_hand == 'right':
+                primitives_ndh.append(self.primitives['primitive_mask_RW_25Hz'][i])
+                primitives_dh.append(self.primitives['primitive_mask_LW_25Hz'][i])
+            else:
+                raise ValueError("Invalid affected hand value. Must be 'right' or 'left'.")
+        
+        pitch_ndh = np.concatenate(pitch_ndh, axis=None)
+        pitch_dh = np.concatenate(pitch_dh, axis=None)
+        combined_pitch = np.concatenate((pitch_ndh, pitch_dh), axis=None)
+        
+        primitives_ndh = np.concatenate(primitives_ndh, axis=None)
+        primitives_dh = np.concatenate(primitives_dh, axis=None)
+        combined_primitives = np.concatenate((primitives_ndh, primitives_dh), axis=None)    
 
-    def plot_pitch_per_primitive(self):
+        for key, value in self.label_to_int.items():
+            mean_pitch = np.mean(self.extract_all_values_with_label(combined_pitch, combined_primitives, value))
+            self.pitch_per_primitive[key] = mean_pitch
+
+        return self.pitch_per_primitive
+    
+    def get_pitch_per_functional(self):
         """
-        Plot pitch data per primitive.
+        Average pitch for functional and non functional periods.
         """
-        pitch_per_primitive = self.get_pitch_per_primitive()
-        for primitive_name, pitch_data in pitch_per_primitive.items():
-            pitch_data.plot(x='loggingTime(txt)', y='motionPitch(deg)', title=f'Pitch data for {primitive_name}', figsize=(12, 6))
+        mean_pitch_functional = np.mean([self.pitch_per_primitive['reach'], self.pitch_per_primitive['reposition'], self.pitch_per_primitive['transport'], self.pitch_per_primitive['gesture']])
+        mean_pitch_non_functional = np.mean([self.pitch_per_primitive['idle'], self.pitch_per_primitive['stabilization']])
+
+        self.pitch_per_primitive['functional_movement'] = mean_pitch_functional
+        self.pitch_per_primitive['non_functional_movement'] = mean_pitch_non_functional
+
+        return self.pitch_per_primitive
+
+    def plot_pitch_per_label(self):
+        """
+        Plot the average pitch per primitive.
+        """
+        _ = self.get_pitch_per_primitive()
+        pitch_per_label = self.get_pitch_per_functional()
+        pitch_per_label = dict(sorted(pitch_per_label.items(), key=lambda item: item[1]))
+        plt.bar(pitch_per_label.keys(), pitch_per_label.values())
+        plt.xticks(rotation=45)
+        plt.ylabel('Average Pitch (degrees)')
+        plt.title('Average Pitch per Label')
+        plt.tight_layout(rect=[0, 0, 1.5, 1])
+        plt.show()
