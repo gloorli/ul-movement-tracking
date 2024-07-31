@@ -237,7 +237,7 @@ class PitchPerPrimitive:
         num_rows = 2
         num_cols = len(primitives)
         # Create a figure with subplots
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(16, 8))
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(24, 8))#, subplot_kw={'projection': 'polar'} wanted to make it polar but it didn't work
         # Iterate over the primitives
         for i, primitive in enumerate(primitives):
             # Get the pitch data for NDH and DH
@@ -253,18 +253,18 @@ class PitchPerPrimitive:
             bin_centers_dh = 0.5 * (bins_dh[:-1] + bins_dh[1:])
             # Plot the polar histogram for NDH
             ax = axes[0, i]
-            ax.plot(np.deg2rad(bin_centers_ndh), hist_ndh, color='blue')
+            ax.plot(bin_centers_ndh, hist_ndh, color=thesis_style.get_label_colours()[primitive])
             ax.set_title(f'{primitive} (NDH)')
-            ax.set_xticks(np.deg2rad([-90, -45, 0, 45, 90]))
+            ax.set_xticks([-90, -45, 0, 45, 90])
             ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
             ax.set_yticks([])
             ax.set_ylim([0, np.max(hist_ndh) * 1.1])
             #ax.spines['polar'].set_visible(False)
             # Plot the polar histogram for DH
             ax = axes[1, i]
-            ax.plot(np.deg2rad(bin_centers_dh), hist_dh, color='red')
+            ax.plot(bin_centers_dh, hist_dh, color=thesis_style.get_label_colours()[primitive])
             ax.set_title(f'{primitive} (DH)')
-            ax.set_xticks(np.deg2rad([-90, -45, 0, 45, 90]))
+            ax.set_xticks([-90, -45, 0, 45, 90])
             ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
             ax.set_yticks([])
             ax.set_ylim([0, np.max(hist_dh) * 1.1])
@@ -273,17 +273,17 @@ class PitchPerPrimitive:
         # Adjust the spacing between subplots
         fig.tight_layout(pad=3)
         # Show the plot
+        fig.suptitle('Pitch Histogram per Label', fontsize=16)
         plt.show()
 
     def plot_pitch_per_label(self):
         """
         Plot the average pitch per primitive.
         """
-        thesis_colours = ThesisStyle()
         _ = self.get_pitch_per_primitive()
         pitch_per_label = self.get_pitch_per_functional()
         pitch_per_label = dict(sorted(pitch_per_label.items(), key=lambda item: item[1]))
-        plt.bar(pitch_per_label.keys(), pitch_per_label.values(), color=thesis_colours.get_thesis_colours()['dark_blue'])
+        plt.bar(pitch_per_label.keys(), pitch_per_label.values(), color=thesis_style.get_thesis_colours()['dark_blue'])
         plt.xticks(rotation=45)
         plt.ylabel('Average Pitch (degrees)')
         plt.title('Average Pitch per Label')

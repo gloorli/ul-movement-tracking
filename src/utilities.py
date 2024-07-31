@@ -1364,15 +1364,15 @@ class ThesisStyle:
             'black': '#000000'
         }
         self.label_colours = {
-            'functional': '#77DD77',
-            'non-functional': '#CA75E0',
+            'functional_movement': '#77DD77',
+            'non_functional_movement': '#CA75E0',
             'reach': '#FFE599',
             'transport': '#CDA31E',
             'reposition': '#EE9C1B',
             'gesture': '#FFD966',
             'stabilization': '#F6A496',
             'idle': '#C85454',
-            'exclusion': self.colours['black_grey']
+            'arm_not_visible': self.colours['black_grey']
         }
 
     def get_thesis_colours(self):
