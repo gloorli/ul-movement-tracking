@@ -1315,7 +1315,38 @@ def interpret_correlation(correlation_coefficient):
         return "Strong negative monotonic relationship"
     else:
         return "Very strong negative monotonic relationship"
+
+def from_LWRW_to_NDHDH(affected_hand, primitives):
+    """
+    Converts the list of LW/RW primitives to NDH and DH primitive list.
+
+    Args:
+        affected_hand (ndarray): The affected hand, either 'left' or 'right'.
+        primitives (dict): A dictionary containing the primitive masks for both hands of all participants.
+
+    Returns:
+        tuple: A tuple containing two lists - `primitives_ndh` and `primitives_dh`.
+            `primitives_ndh` (list): A list of primitive masks for the non-dominant hand.
+            `primitives_dh` (list): A list of primitive masks for the dominant hand.
+
+    Raises:
+        ValueError: If the `affected_hand` value is neither 'right' nor 'left'.
+
+    """
+    primitives_ndh = []
+    primitives_dh = []
+    for i, affected_hand in enumerate(affected_hand):
+        if affected_hand == 'left':
+            primitives_ndh.append(primitives['primitive_mask_LW_25Hz'][i])
+            primitives_dh.append(primitives['primitive_mask_RW_25Hz'][i])
+        elif affected_hand == 'right':
+            primitives_ndh.append(primitives['primitive_mask_RW_25Hz'][i])
+            primitives_dh.append(primitives['primitive_mask_LW_25Hz'][i])
+        else:
+            raise ValueError("Invalid affected hand value. Must be 'right' or 'left'.")
     
+    return primitives_ndh, primitives_dh
+
 class ThesisStyle:
     """
     Class to define the visual style for the thesis.

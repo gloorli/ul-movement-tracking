@@ -21,26 +21,35 @@ class PrimitiveDistribution:
         self.primitive_RWs = primitives['primitive_mask_RW_25Hz']
         self.label_to_int = {'functional_movement': 1, 'non_functional_movement': 0, 'reach': 2, 'reposition': 3, 'transport': 4, 'gesture': 5, 'idle': 6, 'stabilization': 7, 'arm_not_visible': 999}
 
-    def count_primitives(self):
+    def count_primitives_per_participant(self, primitives):
+        unique_values, amount = np.unique(primitives, return_counts=True)
+        return dict(zip(unique_values, amount))
+    
+    def fill_participant_primitive_list(self, dict, i):
+        amount_full = [None]*len(self.label_to_int)
+        for key, value in dict.items():
+            amount_full[list(self.label_to_int.values()).index(key)] = value
+        amount_full.insert(0, self.participantIDs[i])
+        return amount_full
+
+    def count_primitives_NDHDH(self):
+        self.primitive_amount_NDH = []
+        self.primitive_amount_DH = []
+        self.primitives_NDHs, self.primitive_DHs = from_LWRW_to_NDHDH(self.affected_arms, {'primitive_mask_LW_25Hz': self.primitive_LWs, 'primitive_mask_RW_25Hz': self.primitive_RWs})
+        for i in range(len(self.participantIDs)):
+            NDH_dict = self.count_primitives_per_participant(self.primitives_NDHs[i])
+            DH_dict = self.count_primitives_per_participant(self.primitive_DHs[i])
+            self.primitive_amount_NDH.append(self.fill_participant_primitive_list(NDH_dict, i))
+            self.primitive_amount_DH.append(self.fill_participant_primitive_list(DH_dict, i))
+
+    def count_primitives_LWRW(self):
         self.primitive_amount_LW = []
         self.primitive_amount_RW = []
         for i in range(len(self.participantIDs)):
-            unique_values_LW, amount_LW = np.unique(self.primitive_LWs[i], return_counts=True)
-            LW_dict = dict(zip(unique_values_LW, amount_LW))
-            unique_values_RW, amount_RW = np.unique(self.primitive_RWs[i], return_counts=True)
-            RW_dict = dict(zip(unique_values_RW, amount_RW))
-        
-            amount_LW_full = [None]*len(self.label_to_int)
-            for key, value in LW_dict.items():
-                amount_LW_full[list(self.label_to_int.values()).index(key)] = value
-            amount_LW_full.insert(0, self.participantIDs[i])
-            self.primitive_amount_LW.append(amount_LW_full)
-
-            amount_RW_full = [None]*len(self.label_to_int)
-            for key, value in RW_dict.items():
-                amount_RW_full[list(self.label_to_int.values()).index(key)] = value
-            amount_RW_full.insert(0, self.participantIDs[i])
-            self.primitive_amount_RW.append(amount_RW_full)
+            LW_dict = self.count_primitives_per_participant(self.primitive_LWs[i])
+            RW_dict = self.count_primitives_per_participant(self.primitive_RWs[i])
+            self.primitive_amount_LW.append(self.fill_participant_primitive_list(LW_dict, i))
+            self.primitive_amount_RW.append(self.fill_participant_primitive_list(RW_dict, i))
 
     def plot_primitive_distribution(self, side='LW'):
         labels = list(self.label_to_int.keys())
@@ -49,10 +58,14 @@ class PrimitiveDistribution:
             data = self.primitive_amount_LW
         elif side == 'RW':
             data = self.primitive_amount_RW
+        elif side == 'NDH':
+            data = self.primitive_amount_NDH
+        elif side == 'DH':
+            data = self.primitive_amount_DH
         else:
-            raise ValueError('side must be either "LW" or "RW"')
+            raise ValueError('side must be either "NDH", "DH", "LW" or "RW"')
         df = pd.DataFrame(data, columns=labels)
-        df.plot(x='participantID', kind='bar', stacked=True, title='Primitives '+side, legend=True)
+        df.plot(x='participantID', kind='bar', stacked=True, title='Primitives '+side, legend=True, )
         plt.ylabel('Frames')
         plt.tight_layout()
         plt.show()
