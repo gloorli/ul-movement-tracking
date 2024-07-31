@@ -1386,3 +1386,5 @@ class ThesisStyle:
         Returns a dictionary of colours for different labels.
         """
         return self.label_colours
+    
+thesis_style = ThesisStyle()
