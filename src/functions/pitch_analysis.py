@@ -126,7 +126,9 @@ class PitchPerPrimitive:
     def __init__(self, label_to_int, initial_path = '../data/CreateStudy'):
         
         self.label_to_int = label_to_int.copy()
-        self.pitch_per_primitive = self.label_to_int.copy()
+        self.pitch_per_primitive_ndh = self.label_to_int.copy()
+        self.pitch_per_primitive_dh = self.label_to_int.copy()
+        self.mean_pitch_per_primitive = self.label_to_int.copy()
 
         s_json_files = get_json_paths(initial_path, 'S')
 
@@ -140,16 +142,22 @@ class PitchPerPrimitive:
         primitives_RW = []
         pitch_NDH_25Hz = []
         pitch_DH_25Hz = []
+        GT_NDH_25Hz = []
+        GT_DH_25Hz = []
         for path in s_json_files:
-            primitive_dict = extract_fields_from_json_files([path], ['primitive_mask_LW_25Hz', 'primitive_mask_RW_25Hz'])
+            gt_dict = extract_fields_from_json_files([path], ['primitive_mask_LW_25Hz', 'primitive_mask_RW_25Hz', 'GT_mask_NDH_25Hz', 'GT_mask_DH_25Hz'])
             pitch_dict_50Hz = extract_fields_from_json_files([path], ['pitch_NDH', 'pitch_DH'])
-            primitives_LW.append(primitive_dict['primitive_mask_LW_25Hz'])
-            primitives_RW.append(primitive_dict['primitive_mask_RW_25Hz'])
+            primitives_LW.append(gt_dict['primitive_mask_LW_25Hz'])
+            primitives_RW.append(gt_dict['primitive_mask_RW_25Hz'])
+            GT_NDH_25Hz.append(gt_dict['GT_mask_NDH_25Hz'])
+            GT_DH_25Hz.append(gt_dict['GT_mask_DH_25Hz'])
             pitch_NDH_25Hz.append(np.average(pitch_dict_50Hz['pitch_NDH'].reshape(-1, 2), axis=1))
             pitch_DH_25Hz.append(np.average(pitch_dict_50Hz['pitch_DH'].reshape(-1, 2), axis=1))
         primitives = {'primitive_mask_LW_25Hz': primitives_LW, 'primitive_mask_RW_25Hz': primitives_RW}
+        gt_functional = {'GT_mask_NDH_25Hz': GT_NDH_25Hz, 'GT_mask_DH_25Hz': GT_DH_25Hz}
         pitch_data = {'pitch_NDH_25Hz': pitch_NDH_25Hz, 'pitch_DH_25Hz': pitch_DH_25Hz}
         self.primitives = primitives
+        self.gt_functional = gt_functional
         self.pitch_data = pitch_data
 
     def extract_all_values_with_label(self, array, label_array, label_of_interest):
@@ -163,18 +171,8 @@ class PitchPerPrimitive:
         """
         pitch_ndh = self.pitch_data['pitch_NDH_25Hz']
         pitch_dh = self.pitch_data['pitch_DH_25Hz']
-        primitives_ndh = []
-        primitives_dh = []
-        for i, affected_hand in enumerate(self.affected_hand):
-            if affected_hand == 'left':
-                primitives_ndh.append(self.primitives['primitive_mask_LW_25Hz'][i])
-                primitives_dh.append(self.primitives['primitive_mask_RW_25Hz'][i])
-            elif affected_hand == 'right':
-                primitives_ndh.append(self.primitives['primitive_mask_RW_25Hz'][i])
-                primitives_dh.append(self.primitives['primitive_mask_LW_25Hz'][i])
-            else:
-                raise ValueError("Invalid affected hand value. Must be 'right' or 'left'.")
-        
+        primitives_ndh, primitives_dh = from_LWRW_to_NDHDH(self.affected_hand, self.primitives)
+
         pitch_ndh = np.concatenate(pitch_ndh, axis=None)
         pitch_dh = np.concatenate(pitch_dh, axis=None)
         combined_pitch = np.concatenate((pitch_ndh, pitch_dh), axis=None)
@@ -185,30 +183,107 @@ class PitchPerPrimitive:
 
         for key, value in self.label_to_int.items():
             mean_pitch = np.mean(self.extract_all_values_with_label(combined_pitch, combined_primitives, value))
-            self.pitch_per_primitive[key] = mean_pitch
+            self.mean_pitch_per_primitive[key] = mean_pitch
 
-        return self.pitch_per_primitive
+        return self.mean_pitch_per_primitive
     
     def get_pitch_per_functional(self):
         """
         Average pitch for functional and non functional periods.
         """
-        mean_pitch_functional = np.mean([self.pitch_per_primitive['reach'], self.pitch_per_primitive['reposition'], self.pitch_per_primitive['transport'], self.pitch_per_primitive['gesture']])
-        mean_pitch_non_functional = np.mean([self.pitch_per_primitive['idle'], self.pitch_per_primitive['stabilization']])
+        mean_pitch_functional = np.mean([self.mean_pitch_per_primitive['reach'], self.mean_pitch_per_primitive['reposition'], self.mean_pitch_per_primitive['transport'], self.mean_pitch_per_primitive['gesture']])
+        mean_pitch_non_functional = np.mean([self.mean_pitch_per_primitive['idle'], self.mean_pitch_per_primitive['stabilization']])
 
-        self.pitch_per_primitive['functional_movement'] = mean_pitch_functional
-        self.pitch_per_primitive['non_functional_movement'] = mean_pitch_non_functional
+        self.mean_pitch_per_primitive['functional_movement'] = mean_pitch_functional
+        self.mean_pitch_per_primitive['non_functional_movement'] = mean_pitch_non_functional
 
-        return self.pitch_per_primitive
+        return self.mean_pitch_per_primitive
+    
+    def get_pitch_per_primitive_over_all_participants(self):
+        #TODO clean up (remove duplicate code in function get_pitch_per_primitive(self))
+        pitch_ndh = self.pitch_data['pitch_NDH_25Hz']
+        pitch_dh = self.pitch_data['pitch_DH_25Hz']
+        primitives_ndh, primitives_dh = from_LWRW_to_NDHDH(self.affected_hand, self.primitives)
+        gt_functional_ndh = self.gt_functional['GT_mask_NDH_25Hz']
+        gt_functional_dh = self.gt_functional['GT_mask_DH_25Hz']
+
+        pitch_ndh = np.concatenate(pitch_ndh, axis=None)
+        pitch_dh = np.concatenate(pitch_dh, axis=None)
+        
+        primitives_ndh = np.concatenate(primitives_ndh, axis=None)
+        primitives_dh = np.concatenate(primitives_dh, axis=None)
+
+        gt_functional_ndh = np.concatenate(gt_functional_ndh, axis=None)
+        gt_functional_dh = np.concatenate(gt_functional_dh, axis=None)
+
+        for key, value in self.label_to_int.items():
+            if key == 'functional_movement' or key == 'non_functional_movement':
+                pitches_ndh = self.extract_all_values_with_label(pitch_ndh, gt_functional_ndh, value)
+                pitches_nd = self.extract_all_values_with_label(pitch_dh, gt_functional_dh, value)
+                self.pitch_per_primitive_ndh[key], self.pitch_per_primitive_dh[key] = pitches_ndh, pitches_nd
+                continue
+            pitches_ndh = self.extract_all_values_with_label(pitch_ndh, primitives_ndh, value)
+            pitches_nd = self.extract_all_values_with_label(pitch_dh, primitives_dh, value)
+            self.pitch_per_primitive_ndh[key], self.pitch_per_primitive_dh[key] = pitches_ndh, pitches_nd
+    
+    def plot_polar_histogram(self):
+        """
+        Plot a half circle polar histogram of the self.pitch_per_primitive_ndh and self.pitch_per_primitive_dh
+        with subplots for each primitive.
+        """
+        # Get the list of primitives
+        primitives = list(self.pitch_per_primitive_ndh.keys())
+        # Set the number of rows and columns for the subplots
+        num_rows = 2
+        num_cols = len(primitives)
+        # Create a figure with subplots
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(16, 8))
+        # Iterate over the primitives
+        for i, primitive in enumerate(primitives):
+            # Get the pitch data for NDH and DH
+            pitch_ndh = self.pitch_per_primitive_ndh[primitive]
+            pitch_dh = self.pitch_per_primitive_dh[primitive]
+            # Compute the histogram of pitch values for NDH
+            hist_ndh, bins_ndh = np.histogram(pitch_ndh, bins=180, range=(-90, 90), density=True)
+            # Compute the histogram of pitch values for DH
+            hist_dh, bins_dh = np.histogram(pitch_dh, bins=180, range=(-90, 90), density=True)
+            # Compute the bin centers for NDH
+            bin_centers_ndh = 0.5 * (bins_ndh[:-1] + bins_ndh[1:])
+            # Compute the bin centers for DH
+            bin_centers_dh = 0.5 * (bins_dh[:-1] + bins_dh[1:])
+            # Plot the polar histogram for NDH
+            ax = axes[0, i]
+            ax.plot(np.deg2rad(bin_centers_ndh), hist_ndh, color='blue')
+            ax.set_title(f'{primitive} (NDH)')
+            ax.set_xticks(np.deg2rad([-90, -45, 0, 45, 90]))
+            ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
+            ax.set_yticks([])
+            ax.set_ylim([0, np.max(hist_ndh) * 1.1])
+            #ax.spines['polar'].set_visible(False)
+            # Plot the polar histogram for DH
+            ax = axes[1, i]
+            ax.plot(np.deg2rad(bin_centers_dh), hist_dh, color='red')
+            ax.set_title(f'{primitive} (DH)')
+            ax.set_xticks(np.deg2rad([-90, -45, 0, 45, 90]))
+            ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
+            ax.set_yticks([])
+            ax.set_ylim([0, np.max(hist_dh) * 1.1])
+            #ax.spines['polar'].set_visible(False)
+        
+        # Adjust the spacing between subplots
+        fig.tight_layout(pad=3)
+        # Show the plot
+        plt.show()
 
     def plot_pitch_per_label(self):
         """
         Plot the average pitch per primitive.
         """
+        thesis_colours = ThesisStyle()
         _ = self.get_pitch_per_primitive()
         pitch_per_label = self.get_pitch_per_functional()
         pitch_per_label = dict(sorted(pitch_per_label.items(), key=lambda item: item[1]))
-        plt.bar(pitch_per_label.keys(), pitch_per_label.values())
+        plt.bar(pitch_per_label.keys(), pitch_per_label.values(), color=thesis_colours.get_thesis_colours()['dark_blue'])
         plt.xticks(rotation=45)
         plt.ylabel('Average Pitch (degrees)')
         plt.title('Average Pitch per Label')
