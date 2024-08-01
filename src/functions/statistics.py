@@ -5,6 +5,8 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 from scipy.stats import pearsonr, spearmanr
 
+from utilities import thesis_style
+
 class RegressionModel:
     def __init__(self, x, y, std):
         self.x = x.reshape(-1, 1)  # Reshape for scikit-learn compatibility
@@ -75,9 +77,10 @@ class RegressionModel:
         return corr
 
     def plot_regressions(self, title='Regression Plots', xlabel='x', ylabel='y'):
-        plt.scatter(self.x, self.y, color='blue', label='Data')
+        colors = thesis_style.get_thesis_colours()
+        #plt.scatter(self.x, self.y, color=colors['dark_blue'], label='Data')
 
-        plt.errorbar(self.x, self.y, yerr=self.threshold_std, fmt="o")
+        plt.errorbar(self.x, self.y, yerr=self.threshold_std, fmt="x", color=colors['dark_blue'], label='Optimized thresholds (std over k-folds)')
 
         # Plot linear regression
         if self.linear_model is not None:
@@ -88,7 +91,7 @@ class RegressionModel:
         # Plot polynomial regressions
         for degree, poly_model in self.poly_models.items():
             y_poly_pred = poly_model.predict(x_range)
-            plt.plot(x_range, y_poly_pred, label=f'Polynomial Regression (degree {degree})')
+            plt.plot(x_range, y_poly_pred, label=f'Polynomial Regression (degree {degree})', color=colors['light_blue'])
 
         # Plot logarithmic regression
         if self.log_model is not None:
