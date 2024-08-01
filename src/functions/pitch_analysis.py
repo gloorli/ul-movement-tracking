@@ -233,6 +233,7 @@ class PitchPerPrimitive:
         """
         # Get the list of primitives
         primitives = list(self.pitch_per_primitive_ndh.keys())
+        print("Not plotting "+primitives.pop()+" as it is not a primitive")
         # Set the number of rows and columns for the subplots
         num_rows = 2
         num_cols = len(primitives)
@@ -272,8 +273,8 @@ class PitchPerPrimitive:
         
         # Adjust the spacing between subplots
         fig.tight_layout(pad=3)
-        # Show the plot
-        fig.suptitle('Pitch Histogram per Label', fontsize=16)
+        fig.suptitle('Pitch Histogram per Label', fontsize=24)# Add more space below the title
+        fig.subplots_adjust(top=0.9)
         plt.show()
 
     def plot_pitch_per_label(self):
@@ -282,8 +283,8 @@ class PitchPerPrimitive:
         """
         _ = self.get_pitch_per_primitive()
         pitch_per_label = self.get_pitch_per_functional()
-        pitch_per_label = dict(sorted(pitch_per_label.items(), key=lambda item: item[1]))
-        plt.bar(pitch_per_label.keys(), pitch_per_label.values(), color=thesis_style.get_thesis_colours()['dark_blue'])
+        del pitch_per_label["arm_not_visible"]
+        plt.bar(pitch_per_label.keys(), pitch_per_label.values(), color=[thesis_style.get_label_colours()[key] for key in pitch_per_label.keys()])
         plt.xticks(rotation=45)
         plt.ylabel('Average Pitch (degrees)')
         plt.title('Average Pitch per Label')
