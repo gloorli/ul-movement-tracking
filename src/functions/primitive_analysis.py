@@ -53,6 +53,7 @@ class PrimitiveDistribution:
 
     def plot_primitive_distribution(self, side='LW'):
         labels = list(self.label_to_int.keys())
+        label_for_colors = labels[2:]
         labels.insert(0, 'participantID')
         if side == 'LW':
             data = self.primitive_amount_LW
@@ -65,9 +66,14 @@ class PrimitiveDistribution:
         else:
             raise ValueError('side must be either "NDH", "DH", "LW" or "RW"')
         df = pd.DataFrame(data, columns=labels)
-        df.plot(x='participantID', kind='bar', stacked=True, title='Primitives '+side, legend=True, )
+        df.drop(columns=['functional_movement', 'non_functional_movement', 'arm_not_visible'], inplace=True)
+        df.plot(x='participantID', kind='bar', stacked=True, title='Primitive Distribution '+side, legend=True,
+                color=[thesis_style.get_label_colours()[key] for key in label_for_colors])
         plt.ylabel('Frames')
+        plt.xlabel('')
+        plt.xticks(range(len(self.participantIDs)), [f"{id}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(self.participantIDs, self.FMA_UEs, self.ARATs)], rotation=0, fontsize=8)
         plt.tight_layout()
+        plt.legend(loc='center right', bbox_to_anchor=(1.3, 0.5))
         plt.show()
 
 
