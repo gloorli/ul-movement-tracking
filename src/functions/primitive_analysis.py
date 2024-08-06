@@ -51,6 +51,37 @@ class PrimitiveDistribution:
             self.primitive_amount_LW.append(self.fill_participant_primitive_list(LW_dict, i))
             self.primitive_amount_RW.append(self.fill_participant_primitive_list(RW_dict, i))
 
+    def primitivecounts_to_percentage(self, df_percentage):
+        '''
+        Converts the counts of primitives to percentages of primitives.
+        Parameters:
+        - df_percentage (DataFrame): A DataFrame containing the counts of primitives for each participant.
+        Returns:
+        - df_percentage (DataFrame): A DataFrame containing the percentages of primitives for each participant.
+        '''
+        df_percentage.set_index('participantID', inplace=True)
+        total_frames = df_percentage.sum(axis=1)
+        df_percentage = df_percentage.div(total_frames, axis=0) * 100
+        df_percentage.reset_index(inplace=True)
+        return df_percentage
+    
+    def order_df_by_FMA(self, df):
+        """
+        Orders the given DataFrame by the 'FMA_UE' column and returns the sorted DataFrame along with the 'participantID',
+        'FMA_UE', and 'ARAT' columns as separate variables.
+        Parameters:
+            df (pandas.DataFrame): The DataFrame to be sorted.
+        Returns:
+            tuple: A tuple containing the sorted DataFrame, 'participantID' labels, 'FMA_UE' labels, and 'ARAT' labels.
+        """
+        df['FMA_UE'] = self.FMA_UEs
+        df['ARAT'] = self.ARATs
+        df.sort_values('FMA_UE', inplace=True)
+        ID_labels = df['participantID']
+        FMA_labels = df.pop('FMA_UE')
+        ARAT_labels = df.pop('ARAT')
+        return df, ID_labels, FMA_labels, ARAT_labels
+
     def plot_primitive_distribution(self, side='LW'):
         labels = list(self.label_to_int.keys())
         label_for_colors = labels[2:]
@@ -67,13 +98,16 @@ class PrimitiveDistribution:
             raise ValueError('side must be either "NDH", "DH", "LW" or "RW"')
         df = pd.DataFrame(data, columns=labels)
         df.drop(columns=['functional_movement', 'non_functional_movement', 'arm_not_visible'], inplace=True)
-        df.plot(x='participantID', kind='bar', stacked=True, title='Primitive Distribution '+side, legend=True,
+        df_percentage = self.primitivecounts_to_percentage(df.copy())
+        df_percentage_ordered, ID_label, FMA_label, ARAT_label = self.order_df_by_FMA(df_percentage.copy())
+        df_percentage_ordered.plot(x='participantID', kind='bar', stacked=True, title='Primitive Distribution '+side, legend=True,
                 color=[thesis_style.get_label_colours()[key] for key in label_for_colors])
-        plt.ylabel('Frames')
+        plt.ylabel('Primitive Portions')
         plt.xlabel('')
-        plt.xticks(range(len(self.participantIDs)), [f"{id}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(self.participantIDs, self.FMA_UEs, self.ARATs)], rotation=0, fontsize=8)
+        plt.xticks(range(len(self.participantIDs)), [f"{id}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)], rotation=0, fontsize=8)
+        plt.yticks(range(0, 101, 25), [f"{i}%" for i in range(0, 101, 25)])
         plt.tight_layout()
-        plt.legend(loc='center right', bbox_to_anchor=(1.3, 0.5))
+        plt.legend(loc='center right', bbox_to_anchor=(1.3, 0.5), reverse=True)
         plt.show()
 
 
