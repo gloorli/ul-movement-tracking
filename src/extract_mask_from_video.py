@@ -234,7 +234,7 @@ def closest_label(array, numbers_of_interest):
 def fill_mask(frame_array, label_array, mask_labels):
 
     # Prepare a mask array of the size of the maximum value contained inside frame_array
-    mask_size = max(frame_array)
+    mask_size = max(frame_array, default=0)
     mask = [-5] * mask_size
 
     # Place the correct value of label at the correct frame position
@@ -254,6 +254,7 @@ def get_label_mask(segmented_data, project_key='clw8u6yxb02dk07yd2jqg4vgk'): #re
     
     functional_NF_frame_array, functional_NF_label_array = [], []
     functional_primitive_frame_array, functional_primitive_label_array = [], []
+    task_frame_array, task_label_array = [], []
 
     for key, value in labeled_frames.items():
         for schema in value['classifications']:
@@ -263,14 +264,18 @@ def get_label_mask(segmented_data, project_key='clw8u6yxb02dk07yd2jqg4vgk'): #re
             if schema['name'] == 'functional / non-functional' or schema['name'] == 'exclusion':
                 functional_NF_frame_array.append(int(key))
                 functional_NF_label_array.append(schema['radio_answer']['value'])
+            if schema['name'] == 'task':
+                task_frame_array.append(int(key))
+                task_label_array.append(schema['radio_answer']['value'])
     
-    if len(functional_primitive_frame_array) != len(functional_primitive_label_array) or len(functional_NF_frame_array) != len(functional_NF_label_array):
+    if len(functional_primitive_frame_array) != len(functional_primitive_label_array) or len(functional_NF_frame_array) != len(functional_NF_label_array) or len(task_frame_array) != len(task_label_array):
         raise ValueError("Frame and label arrays should have the same size.")
 
     functional_primitive_per_frame = fill_mask(functional_primitive_frame_array, functional_primitive_label_array, ['reach', 'reposition', 'transport', 'gesture', 'idle', 'stabilization', 'arm_not_visible'])
     functional_NF_per_frame = fill_mask(functional_NF_frame_array, functional_NF_label_array, ['functional_movement', 'non_functional_movement', 'arm_not_visible'])
+    task_per_frame = fill_mask(task_frame_array, task_label_array, ['open_bottle_and_pour_glass', 'drink', 'fold_rags_towels', 'sort_documents', 'brooming', 'putting_on_and_off_coat', 'keyboard_typing', 'stapling', 'walking', 'open_and_close_door', 'resting', 'other', 'wipe_table', 'light_switch'])
 
-    return functional_primitive_per_frame, functional_NF_per_frame
+    return functional_primitive_per_frame, functional_NF_per_frame, task_per_frame
 
 def convert_labels_to_int(label_array):
     label_to_int = {'functional_movement': 1, 'non_functional_movement': 0, 'reach': 2, 'reposition': 3, 'transport': 4, 'gesture': 5, 'idle': 6, 'stabilization': 7, 'arm_not_visible': 999}
@@ -280,6 +285,7 @@ def convert_labels_to_int(label_array):
 def extract_mask_from_videos(videos_paths, export_json, project_key='clw8u6yxb02dk07yd2jqg4vgk'):
     mask_per_video = []
     primitives_per_video = []
+    tasks_per_video = []
 
     # Loop over all the video_path in the videos_paths array
     for video_path in videos_paths:
@@ -288,17 +294,19 @@ def extract_mask_from_videos(videos_paths, export_json, project_key='clw8u6yxb02
         
         # Extract the masks using the labeled frames
         #mask_video = get_mask(segmented_data)
-        primitives_per_frame, mask_video = get_label_mask(segmented_data, project_key)
+        primitives_per_frame, mask_video, tasks_per_frame = get_label_mask(segmented_data, project_key)
         mask_video = convert_labels_to_int(mask_video)
         primitives_per_frame = convert_labels_to_int(primitives_per_frame)
         mask_per_video.append(mask_video)
         primitives_per_video.append(primitives_per_frame)
+        tasks_per_video.append(tasks_per_frame)
 
     # Merge all the mask_video together using np.concatenate
     mask = np.concatenate(mask_per_video)
     primitives = np.concatenate(primitives_per_video)
+    tasks = np.concatenate(tasks_per_video)
 
-    return primitives, mask
+    return primitives, mask, tasks
 
 
 def get_mask(segmented_data):
