@@ -22,7 +22,6 @@ def get_prediction_gmac(counts, pitch, count_threshold=0, functional_space=30, d
         pitch_dichotomization = np.where(pitch > -functional_space, 1, 0)# Compute the functional space dichotomization based on the Linus GMAC algorithm
 
     return np.where(np.logical_and(counts > count_threshold, pitch_dichotomization), 1, 0)
-    #return np.where(counts > count_threshold and pitch_dichotomization, 1, 0)
 
 
 def AUC_analisys(ground_truth, pred):
