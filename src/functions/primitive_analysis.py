@@ -110,6 +110,9 @@ class PrimitiveDistribution:
         plt.legend(loc='center right', bbox_to_anchor=(1.3, 0.5), reverse=True)
         plt.show()
 
+    def plot_primitive_distribution_per_group(self):
+        # FMA-UE cut-off scores: mild (43–66), moderate (29–42), and severe (0–18) (Woytowicz et al., 2017).
+        pass
 
 
 import matplotlib.pyplot as plt

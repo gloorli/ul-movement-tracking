@@ -85,7 +85,7 @@ def compute_vector_magnitude(df):
         q[i] = mg.updateIMU(q[i - 1], gyr[i], acc[i])
         r = orientation.q2R(q[i])
         ae[i] = np.matmul(r, acc[i]) - g
-
+    #TODO check if gravitation compensation is correct
     op_df['ax'] = bandpass(np.nan_to_num(ae[:, 0]), fs=30)
     op_df['ay'] = bandpass(np.nan_to_num(ae[:, 1]), fs=30)
     op_df['az'] = bandpass(np.nan_to_num(ae[:, 2]), fs=30)
