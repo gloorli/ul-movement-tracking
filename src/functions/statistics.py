@@ -8,7 +8,7 @@ from scipy.stats import pearsonr, spearmanr
 from utilities import thesis_style
 
 class RegressionModel:
-    def __init__(self, x, y, std):
+    def __init__(self, x, y, std=None):
         self.x = x.reshape(-1, 1)  # Reshape for scikit-learn compatibility
         self.y = y
         self.threshold_std = std
@@ -127,23 +127,11 @@ def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Anal
     print("Linear model coefficients:", model.linear_model.coef_)
     print("Linear model intercept:", model.linear_model.intercept_)
 
-    # Predict using linear regression
-    predicted_linear = model.predict_linear([11, 12, 13])
-    print("Linear Predictions:", predicted_linear)
-
     # Fit polynomial regression of degree 2
     model.fit_polynomial_regression(2)
 
-    # Predict using polynomial regression
-    predicted_poly = model.predict_polynomial([11, 12, 13], 2)
-    print("Polynomial Predictions:", predicted_poly)
-
     # Fit logarithmic regression
     model.fit_logarithmic_regression()
-
-    # Predict using logarithmic regression
-    predicted_log = model.predict_logarithmic([11, 12, 13])
-    print("Logarithmic Predictions:", predicted_log)
         
     # Calculate Pearson correlation
     pearson_corr = model.pearson_correlation()

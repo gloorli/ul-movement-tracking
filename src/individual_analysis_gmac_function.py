@@ -30,9 +30,17 @@ def AUC_analisys(ground_truth, pred):
     print(f"AUC: {auc}")
     # Check if AUC is clinically useful
     if auc >= 0.75:
-        print("AUC is clinically useful (≥0.75)")
+        print("AUC is clinically useful (≥0.75) according to [Fan et al., 2006]")
     else:
-        print("AUC is not clinically useful (<0.75)")
+        print("AUC is not clinically useful (<0.75) according to [Fan et al., 2006]")
+
+def accuracy_analisys(accuracy: float):
+    # Check if accuracy is clinically useful
+    print(f"Accuracy: {accuracy*100}%")
+    if accuracy >= 0.9:
+        print("Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]")
+    else:
+        print("Accuracy is not clinically useful (<90%) according to [Lang et al., 2020]")
 
 def calculate_min_max_std(X):
     """
