@@ -31,17 +31,17 @@ class LOOCV_performance:
         counts_DH_1Hz = []
         GT_NDH_1Hz = []
         GT_DH_1Hz = []
-        task_mask_25Hz = []
+        task_mask_ndh_1Hz = []
         for path in json_files:
-            dict_1Hz = extract_fields_from_json_files([path], ['GT_mask_NDH_1Hz', 'GT_mask_DH_1Hz', 'counts_for_GMAC_ndh_1Hz', 'counts_for_GMAC_dh_1Hz', 'task_mask_25Hz', 'pitch_for_GMAC_ndh_1Hz', 'pitch_for_GMAC_dh_1Hz'])
-            task_mask_25Hz.append(dict_1Hz['task_mask_25Hz'])
+            dict_1Hz = extract_fields_from_json_files([path], ['GT_mask_NDH_1Hz', 'GT_mask_DH_1Hz', 'counts_for_GMAC_ndh_1Hz', 'counts_for_GMAC_dh_1Hz', 'task_mask_for_GMAC_NDH_1Hz', 'pitch_for_GMAC_ndh_1Hz', 'pitch_for_GMAC_dh_1Hz'])
+            task_mask_ndh_1Hz.append(dict_1Hz['task_mask_for_GMAC_NDH_1Hz'])
             GT_NDH_1Hz.append(dict_1Hz['GT_mask_NDH_1Hz'])
             GT_DH_1Hz.append(dict_1Hz['GT_mask_DH_1Hz'])
             counts_NDH_1Hz.append(dict_1Hz['counts_for_GMAC_ndh_1Hz'])
             counts_DH_1Hz.append(dict_1Hz['counts_for_GMAC_dh_1Hz'])
             elevation_NDH_1Hz.append(dict_1Hz['pitch_for_GMAC_ndh_1Hz'])
             elevation_DH_1Hz.append(dict_1Hz['pitch_for_GMAC_dh_1Hz'])
-        task_mask = {'task_mask_25Hz': task_mask_25Hz}
+        task_mask = {'task_mask_ndh_1Hz': task_mask_ndh_1Hz}
         gt_functional = {'GT_mask_NDH_1Hz': GT_NDH_1Hz, 'GT_mask_DH_1Hz': GT_DH_1Hz}
         count_data = {'counts_NDH_1Hz': counts_NDH_1Hz, 'counts_DH_1Hz': counts_DH_1Hz}
         pitch_data = {'elevation_NDH_1Hz': elevation_NDH_1Hz, 'elevation_DH_1Hz': elevation_DH_1Hz}
@@ -65,7 +65,8 @@ class LOOCV_performance:
 
 
     def retreive_personalized_thresholds(self, X_test, count_threshold_model, elevation_threshold_model):
-        FMA = [participant['FMA_UE'] for participant in X_test]
+        assert len(X_test) == 1, "X_test should contain only one participant"
+        FMA = X_test[0]['FMA_UE']
         count_predict = count_threshold_model.predict_polynomial(FMA, 2)
         elevation_predict = elevation_threshold_model.predict_polynomial(FMA, 2)
 
@@ -96,8 +97,31 @@ class LOOCV_performance:
         accuracy_analisys(accuracy)
 
         return youden_index, accuracy
+    
+    def calculate_GMAC_classification_performance_perTask(self, task_dict, personalized_count_threshold, personalized_elevation_threshold):
+        YI_per_task = {} #doesn't make sense if only one label is present the gt (functional)
+        accuracy_per_task = {}
+        for task_of_interest, task_data in task_dict.items():
+            count_for_task = np.array(task_data['count'])
+            pitch_for_task = np.array(task_data['elevation'])
+            gt_for_task = task_data['gt'].flatten()
 
-    def LOOCV_complete(self):
+            gmac_prediction = get_prediction_gmac(count_for_task, pitch_for_task, count_threshold=personalized_count_threshold, functional_space=personalized_elevation_threshold, decision_mode='Subash')
+            gmac_prediction = gmac_prediction.astype(int)
+
+            tn, fp, fn, tp = confusion_matrix(gt_for_task, gmac_prediction, labels=[1, 0]).ravel()
+            accuracy = (tp + tn) / (tp + tn + fp + fn)
+            #sensitivity = tp / (tp + fn)
+            #specificity = tn / (tn + fp)
+            #youden_index = sensitivity + specificity - 1
+
+            #YI_per_task[task_of_interest] = youden_index
+            accuracy_per_task[task_of_interest] = accuracy
+
+        return YI_per_task, accuracy_per_task
+
+
+    def LOOCV_complete(self, perTask=True):
 
         participant_dicts = []
         for i, participant_id in enumerate(self.PARTICIPANT_ID):
@@ -109,6 +133,7 @@ class LOOCV_performance:
                 'PITCH_THRESHOLD_NDH': self.PITCH_THRESHOLD_NDH[i],
                 'counts_NDH_1Hz': self.count_data['counts_NDH_1Hz'][i],
                 'elevation_NDH_1Hz': self.pitch_data['elevation_NDH_1Hz'][i],
+                'task_mask_ndh_1Hz': self.task_mask['task_mask_ndh_1Hz'][i]
             }
             participant_dicts.append(participant_dict)
 
@@ -122,9 +147,12 @@ class LOOCV_performance:
         self.optimal_accuracy_list = []
         self.conventioanl_accuracy_list = []
 
+        self.optimal_accuracy_perTask = {}
+        self.conventional_accuracy_perTask = {}
+
         for train_index, test_index in looCV.split(X, y, groups=group_IDs):
             
-            X_train, y_train = [X[i] for i in train_index], [y[i] for i in train_index]
+            X_train, _ = [X[i] for i in train_index], [y[i] for i in train_index]
             X_test, y_test = [X[i] for i in test_index], [y[i] for i in test_index]
 
             regression_model_count_ndh, regression_model_elevation_ndh = self.get_threshold_model(X_train)
@@ -142,19 +170,117 @@ class LOOCV_performance:
             self.optimal_accuracy_list.append(accuracy_optimized)
             self.conventioanl_accuracy_list.append(accuracy_conventional)
 
-    def LOOCV_perTask(self):
-        pass
+            if perTask:
+                self.LOOCV_perTask(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
+
+    def LOOCV_perTask(self, X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh):
+        protocol_tasks = ['open_bottle_and_pour_glass', 'drink', 'fold_rags_towels', 'sort_documents', 'brooming', 'putting_on_and_off_coat', 'keyboard_typing', 'stapling', 'walking', 
+                          'open_and_close_door', 'resting', 'other', 'wipe_table','light_switch']
+        task_dict = {}
+        for task_of_interest in protocol_tasks:
+            count_for_task = extract_all_values_with_label(X_test[0]['counts_NDH_1Hz'], X_test[0]['task_mask_ndh_1Hz'], task_of_interest)
+            pitch_for_task = extract_all_values_with_label(X_test[0]['elevation_NDH_1Hz'], X_test[0]['task_mask_ndh_1Hz'], task_of_interest)
+            gt_for_task = extract_all_values_with_label(y_test[0], X_test[0]['task_mask_ndh_1Hz'], task_of_interest)
+            task_dict[task_of_interest] = {'count': count_for_task, 'elevation': pitch_for_task, 'gt': gt_for_task}
+
+        _, accuracy_per_task_optimized = self.calculate_GMAC_classification_performance_perTask(task_dict, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
+        _, accuracy_per_task_conventional = self.calculate_GMAC_classification_performance_perTask(task_dict, 0, 30)
+
+        for task, accuracy in accuracy_per_task_optimized.items():
+            if task in self.optimal_accuracy_perTask:
+                self.optimal_accuracy_perTask[task].append(accuracy)
+            else:
+                self.optimal_accuracy_perTask[task] = [accuracy]
+        for task, accuracy in accuracy_per_task_conventional.items():
+            if task in self.conventional_accuracy_perTask:
+                self.conventional_accuracy_perTask[task].append(accuracy)
+            else:
+                self.conventional_accuracy_perTask[task] = [accuracy]
+        
 
     def plot_LOOCV_YoudenIndex(self):
-        plt.boxplot([self.optimal_YI_list, self.conventioanl_YI_list], showmeans=True)
+        # Set colors for the boxplots
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue']]
+        mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
+        meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
+
+        fig, ax = plt.subplots()
+
+        box_optimal = ax.boxplot(self.optimal_YI_list, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_YI_list, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+
+        for box in box_optimal['boxes']:
+            box.set(facecolor=colors[0])
+        for box in box_conventional['boxes']:
+            box.set(facecolor=colors[1])
+
+        ax.set_xticks([1, 2])
+        ax.set_xticklabels(['Personalized', 'Conventional'])
+
         plt.ylabel('Youden Index')
         plt.title('Leave one Participant out Cross Validation')
-        plt.xticks([1, 2], ['Personalized', 'Conventional'])
         plt.show()
 
     def plot_LOOCV_Accuracy(self):
-        plt.boxplot([self.optimal_accuracy_list, self.conventioanl_accuracy_list], showmeans=True)
+        # Set colors for the boxplots
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue']]
+        mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
+        meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
+
+        fig, ax = plt.subplots()
+
+        box_optimal = ax.boxplot(self.optimal_accuracy_list, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_accuracy_list, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+
+        for box in box_optimal['boxes']:
+            box.set(facecolor=colors[0])
+        for box in box_conventional['boxes']:
+            box.set(facecolor=colors[1])
+
+        ax.set_xticks([1, 2])
+        ax.set_xticklabels(['Personalized', 'Conventional'])        
+        
         plt.ylabel('Accuracy')
         plt.title('Leave one Participant out Cross Validation')
-        plt.xticks([1, 2], ['Personalized', 'Conventional'])
+        plt.show()
+
+    def plot_LOOCV_Accuracy_perTask(self):
+        plt.rcParams.update({'font.size': 16})
+        fig, ax = plt.subplots(figsize=(24, 8))
+
+        # Number of tasks
+        num_tasks = len(self.optimal_accuracy_perTask)
+        
+        # Prepare the positions for the boxplots
+        positions_optimal = np.arange(1, num_tasks * 2, 2)
+        positions_conventional = positions_optimal + 0.8
+
+        # Set colors for the boxplots
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue']]
+        mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
+        meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
+        
+        # Plot the boxplots for optimal and conventional accuracies with patch_artist=True to allow color filling
+        box_optimal = ax.boxplot(self.optimal_accuracy_perTask.values(), positions=positions_optimal, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventional_accuracy_perTask.values(), positions=positions_conventional, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        for box in box_optimal['boxes']:
+            box.set(facecolor=colors[0])
+        for box in box_conventional['boxes']:
+            box.set(facecolor=colors[1])
+        
+        # Adjust x-tick labels to be in between the grouped boxplots
+        mid_positions = (positions_optimal + positions_conventional) / 2
+        ax.set_xticks(mid_positions)
+        ax.set_xticklabels(self.optimal_accuracy_perTask.keys())
+        plt.xticks(rotation=45, ha='right')
+        
+        plt.ylabel('Accuracy')
+        plt.title('Leave one Participant out Cross Validation per Task')
+        
+        # Add a legend manually
+        plt.legend([plt.Line2D([0], [0], color=colors[0], lw=10),
+                    plt.Line2D([0], [0], color=colors[1], lw=10)],
+                ['Personalized', 'Conventional'], loc='lower left')
+
+        plt.tight_layout()
         plt.show()

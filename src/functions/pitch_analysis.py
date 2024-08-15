@@ -160,11 +160,6 @@ class PitchPerPrimitive:
         self.gt_functional = gt_functional
         self.pitch_data = pitch_data
 
-    def extract_all_values_with_label(self, array, label_array, label_of_interest):
-        extracted_array = array[label_array == label_of_interest]
-            
-        return extracted_array#, label_of_interest
-
     def get_pitch_per_primitive(self):
         """
         Get the average pitch per primitive.
@@ -182,7 +177,7 @@ class PitchPerPrimitive:
         combined_primitives = np.concatenate((primitives_ndh, primitives_dh), axis=None)    
 
         for key, value in self.label_to_int.items():
-            mean_pitch = np.mean(self.extract_all_values_with_label(combined_pitch, combined_primitives, value))
+            mean_pitch = np.mean(extract_all_values_with_label(combined_pitch, combined_primitives, value))
             self.mean_pitch_per_primitive[key] = mean_pitch
 
         return self.mean_pitch_per_primitive
@@ -218,12 +213,12 @@ class PitchPerPrimitive:
 
         for key, value in self.label_to_int.items():
             if key == 'functional_movement' or key == 'non_functional_movement':
-                pitches_ndh = self.extract_all_values_with_label(pitch_ndh, gt_functional_ndh, value)
-                pitches_nd = self.extract_all_values_with_label(pitch_dh, gt_functional_dh, value)
+                pitches_ndh = extract_all_values_with_label(pitch_ndh, gt_functional_ndh, value)
+                pitches_nd = extract_all_values_with_label(pitch_dh, gt_functional_dh, value)
                 self.pitch_per_primitive_ndh[key], self.pitch_per_primitive_dh[key] = pitches_ndh, pitches_nd
                 continue
-            pitches_ndh = self.extract_all_values_with_label(pitch_ndh, primitives_ndh, value)
-            pitches_nd = self.extract_all_values_with_label(pitch_dh, primitives_dh, value)
+            pitches_ndh = extract_all_values_with_label(pitch_ndh, primitives_ndh, value)
+            pitches_nd = extract_all_values_with_label(pitch_dh, primitives_dh, value)
             self.pitch_per_primitive_ndh[key], self.pitch_per_primitive_dh[key] = pitches_ndh, pitches_nd
     
     def plot_polar_histogram(self):
