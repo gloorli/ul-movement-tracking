@@ -451,20 +451,27 @@ def downsample_mask(ground_truth, original_rate=25, target_rate=1):
     
     return downsampled_array
 
-def remove_excluded_frames(counts, pitch, GT_1Hz, exclusion_label=999):
+def remove_excluded_frames(counts, pitch, task, GT_1Hz, exclusion_label=999):
     counts = counts[GT_1Hz != exclusion_label]
     pitch = pitch[GT_1Hz != exclusion_label]
+    task = task[GT_1Hz != exclusion_label]
     GT_1Hz = GT_1Hz[GT_1Hz != exclusion_label]
     
-    return counts, pitch, GT_1Hz
+    return counts, pitch, task, GT_1Hz
 
-def remove_nan_frames(counts, pitch, GT_1Hz):
+def remove_nan_frames(counts, pitch, task, GT_1Hz):
     nan_indices = np.isnan(counts)
     counts = counts[~nan_indices]
     pitch = pitch[~nan_indices]
+    task = task[~nan_indices.ravel()]
     GT_1Hz = GT_1Hz[~nan_indices.ravel()]
     
-    return counts, pitch, GT_1Hz
+    return counts, pitch, task, GT_1Hz
+
+def extract_all_values_with_label(array, label_array, label_of_interest):
+    extracted_array = array[label_array == label_of_interest]
+            
+    return extracted_array#, label_of_interest
 
 
 def plot_resampled_arrays(original_mask, original_frequency, resampled_mask, desired_frequency):
