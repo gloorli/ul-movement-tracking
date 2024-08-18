@@ -93,10 +93,10 @@ class LOOCV_performance:
         specificity = tn / (tn + fp)
         youden_index = sensitivity + specificity - 1
 
-        AUC_analisys(test_gt, gmac_prediction.flatten())
+        auc = AUC_analisys(test_gt, gmac_prediction.flatten())
         accuracy_analisys(accuracy)
 
-        return youden_index, accuracy
+        return youden_index, accuracy, auc
     
     def calculate_GMAC_classification_performance_perTask(self, task_dict, personalized_count_threshold, personalized_elevation_threshold):
         YI_per_task = {} #doesn't make sense if only one label is present the gt (functional)
@@ -146,6 +146,8 @@ class LOOCV_performance:
         self.conventioanl_YI_list = []
         self.optimal_accuracy_list = []
         self.conventioanl_accuracy_list = []
+        self.optimal_AUC_list = []
+        self.conventioanl_AUC_list = []
 
         self.optimal_accuracy_perTask = {}
         self.conventional_accuracy_perTask = {}
@@ -161,14 +163,16 @@ class LOOCV_performance:
             personalized_count_threshold_ndh, personalized_elevation_threshold_ndh = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh, regression_model_elevation_ndh)
             #personalized_thresholds_dh = self.retreive_personalized_thresholds(threshold_model_dh)
 
-            youden_index_optimized, accuracy_optimized = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
-            youden_index_conventional, accuracy_conventional = self.calculate_GMAC_classification_performance(X_test, y_test, 0, 30)
+            youden_index_optimized, accuracy_optimized, auc_optimized = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
+            youden_index_conventional, accuracy_conventional, auc_conventional = self.calculate_GMAC_classification_performance(X_test, y_test, 0, 30)
             #dh_performance = self.calculate_GMAC_classification_performance(personalized_thresholds_dh)
 
             self.optimal_YI_list.append(youden_index_optimized)
             self.conventioanl_YI_list.append(youden_index_conventional)
             self.optimal_accuracy_list.append(accuracy_optimized)
             self.conventioanl_accuracy_list.append(accuracy_conventional)
+            self.optimal_AUC_list.append(auc_optimized)
+            self.conventioanl_AUC_list.append(auc_conventional)
 
             if perTask:
                 self.LOOCV_perTask(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
@@ -221,9 +225,40 @@ class LOOCV_performance:
         plt.title('Leave one Participant out Cross Validation')
         plt.show()
 
+    def plot_LOOCV_AUC(self):
+        # Set colors for the boxplots
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange']]
+        mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
+        meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
+
+        fig, ax = plt.subplots()
+
+        box_optimal = ax.boxplot(self.optimal_AUC_list, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_AUC_list, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+
+        for box in box_optimal['boxes']:
+            box.set(facecolor=colors[0])
+        for box in box_conventional['boxes']:
+            box.set(facecolor=colors[1])
+
+        # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
+        ax.axhline(y=0.75, color=colors[2], linestyle='--')
+
+        # Add a legend manually
+        plt.legend([plt.Line2D([0], [0], color=colors[2], linestyle='--')],
+                   ['Clinically required performance'],
+                   loc='lower left')
+
+        ax.set_xticks([1, 2])
+        ax.set_xticklabels(['Personalized', 'Conventional'])
+
+        plt.ylabel('Area Under the Receiver Operating Characteristic Curve \n(ROC AUC)')
+        plt.title('Leave one Participant out Cross Validation')
+        plt.show()
+
     def plot_LOOCV_Accuracy(self):
         # Set colors for the boxplots
-        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue']]
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
@@ -237,6 +272,14 @@ class LOOCV_performance:
         for box in box_conventional['boxes']:
             box.set(facecolor=colors[1])
 
+        # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
+        ax.axhline(y=0.9, color=colors[2], linestyle='--')
+
+        # Add a legend manually
+        plt.legend([plt.Line2D([0], [0], color=colors[2], linestyle='--')],
+                   ['Clinically required performance'],
+                   loc='lower left')
+        
         ax.set_xticks([1, 2])
         ax.set_xticklabels(['Personalized', 'Conventional'])        
         
@@ -256,7 +299,7 @@ class LOOCV_performance:
         positions_conventional = positions_optimal + 0.8
 
         # Set colors for the boxplots
-        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue']]
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
         
@@ -267,6 +310,9 @@ class LOOCV_performance:
             box.set(facecolor=colors[0])
         for box in box_conventional['boxes']:
             box.set(facecolor=colors[1])
+
+        # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
+        ax.axhline(y=0.9, color=colors[2], linestyle='--')
         
         # Adjust x-tick labels to be in between the grouped boxplots
         mid_positions = (positions_optimal + positions_conventional) / 2
@@ -279,8 +325,9 @@ class LOOCV_performance:
         
         # Add a legend manually
         plt.legend([plt.Line2D([0], [0], color=colors[0], lw=10),
-                    plt.Line2D([0], [0], color=colors[1], lw=10)],
-                ['Personalized', 'Conventional'], loc='lower left')
+                    plt.Line2D([0], [0], color=colors[1], lw=10),
+                    plt.Line2D([0], [0], color=colors[2], linestyle='--')],
+                ['Personalized', 'Conventional', 'Clinically required performance'], loc='lower left')
 
         plt.tight_layout()
         plt.show()
