@@ -33,6 +33,7 @@ def AUC_analisys(ground_truth, pred):
         print("AUC is clinically useful (≥0.75) according to [Fan et al., 2006]")
     else:
         print("AUC is not clinically useful (<0.75) according to [Fan et al., 2006]")
+    return auc
 
 def accuracy_analisys(accuracy: float):
     # Check if accuracy is clinically useful
