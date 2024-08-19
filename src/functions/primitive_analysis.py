@@ -68,7 +68,7 @@ class PrimitiveDistribution:
     def order_df_by_FMA(self, df):
         """
         Orders the given DataFrame by the 'FMA_UE' column and returns the sorted DataFrame along with the 'participantID',
-        'FMA_UE', and 'ARAT' columns as separate variables.
+        'FMA_UE', and 'ARAT' columns as separate variables. If the 'FMA_UE' column contains the same values for multiple rows, the rows are sorted by the 'ARAT' column.
         Parameters:
             df (pandas.DataFrame): The DataFrame to be sorted.
         Returns:
@@ -76,7 +76,7 @@ class PrimitiveDistribution:
         """
         df['FMA_UE'] = self.FMA_UEs
         df['ARAT'] = self.ARATs
-        df.sort_values('FMA_UE', inplace=True)
+        df.sort_values(['FMA_UE', 'ARAT'], inplace=True)
         ID_labels = df['participantID']
         FMA_labels = df.pop('FMA_UE')
         ARAT_labels = df.pop('ARAT')
@@ -102,7 +102,7 @@ class PrimitiveDistribution:
         df_percentage_ordered, ID_label, FMA_label, ARAT_label = self.order_df_by_FMA(df_percentage.copy())
         df_percentage_ordered.plot(x='participantID', kind='bar', stacked=True, title='Primitive Distribution '+side, legend=True,
                 color=[thesis_style.get_label_colours()[key] for key in label_for_colors])
-        plt.ylabel('Primitive Portions')
+        plt.ylabel('percentage of protocol time')
         plt.xlabel('')
         plt.xticks(range(len(self.participantIDs)), [f"{id}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)], rotation=0, fontsize=8)
         plt.yticks(range(0, 101, 25), [f"{i}%" for i in range(0, 101, 25)])
