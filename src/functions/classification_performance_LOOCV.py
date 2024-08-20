@@ -71,8 +71,8 @@ class LOOCV_performance:
         elevation_predict = elevation_threshold_model.predict_polynomial(FMA, 2)
 
         print("Validation on participant ", X_test[0]['participant_id'])
-        print("Polynomial Predictions of personal COUNT threshold: ", count_predict)
-        print("Polynomial Predictions of personal ELEVATION threshold: ", elevation_predict)
+        print("Polynomial Predictions of personal COUNT threshold: ", count_predict, ". Ground truth individual optimal threshold NDH: ", X_test[0]['COUNT_THRESHOLD_NDH'])
+        print("Polynomial Predictions of personal ELEVATION threshold: ", elevation_predict, ". Ground truth individual optimal threshold NDH: ", X_test[0]['PITCH_THRESHOLD_NDH'])
 
         return count_predict, elevation_predict
 
@@ -173,6 +173,7 @@ class LOOCV_performance:
             self.conventioanl_accuracy_list.append(accuracy_conventional)
             self.optimal_AUC_list.append(auc_optimized)
             self.conventioanl_AUC_list.append(auc_conventional)
+            #TODO plot predicted and ground truth personalized count threshold and elevation threshold
 
             if perTask:
                 self.LOOCV_perTask(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
