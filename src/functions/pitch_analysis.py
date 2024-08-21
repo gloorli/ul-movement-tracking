@@ -146,13 +146,13 @@ class PitchPerPrimitive:
         GT_DH_25Hz = []
         for path in s_json_files:
             gt_dict = extract_fields_from_json_files([path], ['primitive_mask_LW_25Hz', 'primitive_mask_RW_25Hz', 'GT_mask_NDH_25Hz', 'GT_mask_DH_25Hz'])
-            pitch_dict_50Hz = extract_fields_from_json_files([path], ['pitch_NDH', 'pitch_DH'])
+            pitch_dict_50Hz = extract_fields_from_json_files([path], ['elevation_NDH_50Hz', 'elevation_DH_50Hz'])
             primitives_LW.append(gt_dict['primitive_mask_LW_25Hz'])
             primitives_RW.append(gt_dict['primitive_mask_RW_25Hz'])
             GT_NDH_25Hz.append(gt_dict['GT_mask_NDH_25Hz'])
             GT_DH_25Hz.append(gt_dict['GT_mask_DH_25Hz'])
-            pitch_NDH_25Hz.append(np.average(pitch_dict_50Hz['pitch_NDH'].reshape(-1, 2), axis=1))
-            pitch_DH_25Hz.append(np.average(pitch_dict_50Hz['pitch_DH'].reshape(-1, 2), axis=1))
+            pitch_NDH_25Hz.append(np.average(pitch_dict_50Hz['elevation_NDH_50Hz'].reshape(-1, 2), axis=1))
+            pitch_DH_25Hz.append(np.average(pitch_dict_50Hz['elevation_DH_50Hz'].reshape(-1, 2), axis=1))
         primitives = {'primitive_mask_LW_25Hz': primitives_LW, 'primitive_mask_RW_25Hz': primitives_RW}
         gt_functional = {'GT_mask_NDH_25Hz': GT_NDH_25Hz, 'GT_mask_DH_25Hz': GT_DH_25Hz}
         pitch_data = {'pitch_NDH_25Hz': pitch_NDH_25Hz, 'pitch_DH_25Hz': pitch_DH_25Hz}
