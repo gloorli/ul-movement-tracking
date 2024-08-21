@@ -92,22 +92,25 @@ class PrimitiveDistribution:
             data = self.primitive_amount_RW
         elif side == 'NDH':
             data = self.primitive_amount_NDH
+            title_side = 'Affected Arm'#attention: this is only true for stroke subjects
         elif side == 'DH':
             data = self.primitive_amount_DH
+            title_side = 'Healthy Arm'#attention: this is only true for stroke subjects
         else:
             raise ValueError('side must be either "NDH", "DH", "LW" or "RW"')
         df = pd.DataFrame(data, columns=labels)
         df.drop(columns=['functional_movement', 'non_functional_movement', 'arm_not_visible'], inplace=True)
         df_percentage = self.primitivecounts_to_percentage(df.copy())
         df_percentage_ordered, ID_label, FMA_label, ARAT_label = self.order_df_by_FMA(df_percentage.copy())
-        df_percentage_ordered.plot(x='participantID', kind='bar', stacked=True, title='Primitive Distribution '+side, legend=True,
+        df_percentage_ordered.plot(x='participantID', kind='bar', stacked=True, legend=True,
                 color=[thesis_style.get_label_colours()[key] for key in label_for_colors])
         plt.ylabel('percentage of protocol time')
         plt.xlabel('')
         plt.xticks(range(len(self.participantIDs)), [f"{id}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)], rotation=0, fontsize=8)
         plt.yticks(range(0, 101, 25), [f"{i}%" for i in range(0, 101, 25)])
         plt.tight_layout()
-        plt.legend(loc='center right', bbox_to_anchor=(1.3, 0.5), reverse=True)
+        plt.legend(loc='center right', bbox_to_anchor=(1.3, 0.5), reverse=True, frameon=False)
+        plt.title('Primitive Distribution '+title_side)
         plt.show()
 
     def plot_primitive_distribution_per_group(self):
