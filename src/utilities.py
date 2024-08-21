@@ -2,8 +2,6 @@
 import os
 import csv
 import json
-import math
-import signal
 import inspect
 from datetime import datetime
 import re
@@ -15,19 +13,17 @@ import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
 import subprocess
+from collections import Counter
 
 # Scientific computing
 from scipy.signal import (butter, filtfilt, find_peaks, resample,
                           savgol_filter, freqz, lfilter)
-from scipy.stats import spearmanr, circmean
-from scipy.spatial.transform import Rotation
+from scipy.stats import spearmanr
 from scipy.interpolate import CubicSpline, interp1d
 from scipy.ndimage import zoom
 
 # Visualization
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
-from mpl_toolkits.mplot3d import Axes3D
 
 # Progress bar
 from tqdm import tqdm
@@ -300,49 +296,6 @@ def get_array_name(arr):
     
     return None
 
-
-def resample_data_cubic_spline(raw_data, fs, fdesired):
-    """
-    Resamples the given data to the desired frequency using cubic spline interpolation.
-
-    Parameters:
-    raw_data (ndarray): The raw data to resample. Should have shape (num_samples, num_channels).
-    fs (float): The sampling frequency of the raw data.
-    fdesired (float): The desired resampling frequency.
-
-    Returns:
-    ndarray: The resampled data with shape (num_resampled_samples, num_channels).
-    """
-
-    raw_data = np.array(raw_data)
-
-    # Reshape the input array if it has shape (n_samples,)
-    if raw_data.ndim == 1:
-        raw_data = raw_data.reshape(-1, 1)
-
-    # Calculate the resampling factor
-    resampling_factor = fs / fdesired
-
-    # Define the time points for the original signal
-    time_points = np.arange(raw_data.shape[0]) / fs
-
-    # Define the time points for the resampled signal
-    resampled_time_points = np.arange(0, time_points[-1], 1 / fdesired)
-
-    # Initialize an empty array for the resampled data
-    resampled_data = np.zeros((len(resampled_time_points), raw_data.shape[1]))
-
-    # Loop over each column of the data and resample using cubic spline interpolation
-    for i in range(raw_data.shape[1]):
-        # Create a cubic spline interpolator object for this column
-        interpolator = interpolate.interp1d(time_points, raw_data[:, i], kind='cubic')
-
-        # Evaluate the interpolator at the resampled time points
-        resampled_data[:, i] = interpolator(resampled_time_points)
-
-    return resampled_data
-
-
 def combine_dicts_to_dataframe(*dicts):
     """
     Combines multiple dictionaries into a single DataFrame.
@@ -428,28 +381,31 @@ def resample_mask(mask, original_frequency, desired_frequency):
     # Ravel the resampled_mask before returning
     return np.ravel(resampled_mask)
 
-import numpy as np
-
 def downsample_mask(ground_truth, original_rate=25, target_rate=1):
     """
-    Downsample a 1D NumPy array from original_rate to target_rate.
+    Downsample a 1D array from original_rate to target_rate by taking the most frequent value in each segment.
 
     Args:
-        ground_truth (np.array): The original 1D array with ground truth data.
+        ground_truth (array-like): The original 1D array with ground truth data. Can contain numbers or strings.
         original_rate (int): The original sampling rate (default is 25Hz).
         target_rate (int): The target sampling rate (default is 1Hz).
 
     Returns:
-        np.array: The downsampled 1D array.
+        np.array: The downsampled 1D array, where each element is the most frequent value of the corresponding segment.
     """
     if original_rate % target_rate != 0:
         raise ValueError("Original frequency must be a multiple of the target frequency.")
     
     factor = original_rate // target_rate
-    ground_truth = np.concatenate((np.full(factor//2, 999), ground_truth)) #add elements (exclusion 999) to pick middle values during slicing
-    downsampled_array = ground_truth[::factor]
+    downsampled_array = []
+
+    for i in range(0, len(ground_truth), factor):
+        segment = ground_truth[i:i+factor]
+        # Calculate the most frequent value
+        most_frequent_value = Counter(segment).most_common(1)[0][0]
+        downsampled_array.append(most_frequent_value)
     
-    return downsampled_array
+    return np.array(downsampled_array)
 
 def remove_excluded_frames(counts, pitch, task, GT_1Hz, exclusion_label=999):
     counts = counts[GT_1Hz != exclusion_label]
@@ -478,11 +434,11 @@ def plot_resampled_arrays(original_mask, original_frequency, resampled_mask, des
     time_original = np.arange(len(original_mask)) / original_frequency
     time_resampled = np.arange(len(resampled_mask)) / desired_frequency
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(26, 6))
 
     plt.plot(time_original, original_mask, label=f'Original ({original_frequency}Hz)')
     plt.plot(time_resampled, resampled_mask, label=f'Resampled ({desired_frequency}Hz)', linestyle='--')
-
+    plt.ylim(0, 1.1)
     plt.xlabel('Time (seconds)')
     plt.ylabel('Mask Value (0 or 1)')
     plt.title('Original and Resampled Mask')
@@ -1110,44 +1066,6 @@ def plot_bar_chart(conventional_metrics, optimal_metrics, metric, scenario, grou
     if show_plot:
         plt.tight_layout()
         plt.show()  # Show the plot if show_plot is True
-        
-        
-def plot_multiple_radar_plot(eval_metrics, figures_path, metric, group, show_plot=False):
-    """
-    Plot multiple radar charts and bar charts based on evaluation metrics.
-
-    Args:
-        eval_metrics (dict): Dictionary containing evaluation metrics for different scenarios.
-        metric (str): Name of the metric being plotted.
-        figures_path (str or None): Path where the figures should be saved, or None to not save.
-        show_plot (bool): Whether to display the plot in the notebook.
-
-    Returns:
-        None.
-    """
-
-    def build_save_path(base_path, scenario, plot_type):
-        if base_path is not None:
-            return os.path.join(base_path, f"{metric}_{plot_type}_{scenario}.png")
-        return None
-
-    base_path = figures_path  # The base_path is simply the figures_path or None.
-    
-    if base_path and not os.path.exists(base_path):
-        os.makedirs(base_path)  # Create directory if it doesn't exist
-
-    # Loop through scenarios and types of plots
-    for scenario in ['ndh', 'dh', 'bil']:
-        for plot_type in ['bar']:
-            save_path = build_save_path(base_path, scenario, plot_type)
-            
-            if plot_type == 'radar':
-                plot_radar_chart(eval_metrics[scenario]['conv'], eval_metrics[scenario]['opt'], metric, scenario,
-                                 save_filename=save_path, show_plot=show_plot)
-            else:
-                plot_bar_chart(eval_metrics[scenario]['conv'], eval_metrics[scenario]['opt'], metric, scenario, group,
-                               save_filename=save_path, show_plot=show_plot)
-
 
 def side_by_side_box_plot_age(data1, data2, labels=None, x_axis_labels=None, save_path=None):
     """
