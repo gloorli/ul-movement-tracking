@@ -8,12 +8,13 @@ from scipy.stats import pearsonr, spearmanr
 from utilities import thesis_style
 
 class RegressionModel:
-    def __init__(self, x, y, std=None):
+    def __init__(self, x, y, std=None, dominant_impared=None):
         self.x = x.reshape(-1, 1)  # Reshape for scikit-learn compatibility
         self.y = y
         self.threshold_std = std
         self.linear_model = None
         self.poly_models = {}
+        self.dominant_impared = dominant_impared
 
     def fit_linear_regression(self):
         self.linear_model = LinearRegression()
@@ -78,9 +79,19 @@ class RegressionModel:
 
     def plot_regressions(self, title='Regression Plots', xlabel='x', ylabel='y'):
         colors = thesis_style.get_thesis_colours()
-        #plt.scatter(self.x, self.y, color=colors['dark_blue'], label='Data')
-
-        plt.errorbar(self.x, self.y, yerr=self.threshold_std, fmt="x", color=colors['dark_blue'], label='Optimized thresholds (std over k-folds)')
+        
+        if self.dominant_impared is not None:
+            dominant_legend_plotted = False
+            non_dominant_legend_plotted = False
+            for i, (x, y, err, is_dom_impaired) in enumerate(zip(self.x, self.y, self.threshold_std, self.dominant_impared)):
+                if is_dom_impaired:
+                    plt.errorbar(x, y, yerr=err, fmt="+", color=colors['dark_blue'], label='Individual optimized thresholds \n(std over k-folds, dominant arm)' if not dominant_legend_plotted else "")
+                    dominant_legend_plotted = True
+                else:
+                    plt.errorbar(x, y, yerr=err, fmt="x", color=colors['light_blue'], label='Individual optimized thresholds \n(std over k-folds, non-dominant arm)' if not non_dominant_legend_plotted else "")
+                    non_dominant_legend_plotted = True
+        else:
+            plt.errorbar(self.x, self.y, yerr=self.threshold_std, fmt="x", color=colors['dark_blue'], label='Optimized thresholds (std over k-folds)')
 
         # Plot linear regression
         if self.linear_model is not None:
@@ -102,7 +113,7 @@ class RegressionModel:
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(title)
-        plt.legend()
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False)
         plt.tight_layout()
         plt.show()
 
@@ -115,9 +126,9 @@ def extract_std_from_min_max_std(min_max_std):
 
     return count_std, pitch_std
 
-def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Analysis'):
+def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Analysis', dominant_impared=None):
     # Create a regression model
-    model = RegressionModel(x, y, std)
+    model = RegressionModel(x, y, std, dominant_impared)
 
     # Check distribution of the data
     model.check_distribution()
