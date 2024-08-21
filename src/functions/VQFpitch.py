@@ -65,3 +65,12 @@ class IMUPitchCalculator:
         
         # Plot pitch data
         pitch_data.plot(x='loggingTime(txt)', y='motionPitch(deg)', title='Pitch data', figsize=(12, 6))
+
+def vqf_gravitation_compensation(acc, gyr):
+    vqf_compensation = IMUPitchCalculator(acc, gyr, 50)
+    vqf_compensation_quaternions = vqf_compensation.calculate_vqf_quaternions()
+    r = R.from_quat(vqf_compensation_quaternions)
+    rotation_matrix = r.as_matrix()
+    g = np.array([0, 0, 1], dtype=float)
+    rotated_acc = np.array([rotation_matrix_i @ acc_i.T for rotation_matrix_i, acc_i in zip(rotation_matrix, acc)])
+    return rotated_acc - g

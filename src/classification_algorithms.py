@@ -65,31 +65,42 @@ def resample(df, current_fs, new_fs):
     return df
 
 
-def compute_vector_magnitude(df):
+def compute_vector_magnitude(df, gravitation_compensation='Subash'):
     df = resample(df, 50, 30)
     op_df = pd.DataFrame(index=df.index)
+
+    #df_plot = df[['ax', 'ay', 'az']]
+    #df_plot.plot(figsize=(18, 6))
 
     gyr = np.array(df[['gx', 'gy', 'gz']])
     acc = np.array(df[['ax', 'ay', 'az']])
 
-    g = np.array([0, 0, 1])
     ae = np.empty([len(acc), 3])
+    if gravitation_compensation == 'Subash':
+        g = np.array([0, 0, 1])
 
-    mg = Madgwick(frequency=30, beta=0.5)
-    q = np.tile([1., 0., 0., 0.], (len(acc), 1))
+        mg = Madgwick(frequency=30, beta=0.5)
+        q = np.tile([1., 0., 0., 0.], (len(acc), 1))
 
-    r = orientation.q2R(mg.updateIMU(q[0], gyr[0], acc[0]))
-    ae[0] = np.matmul(r, acc[0]) - g
+        r = orientation.q2R(mg.updateIMU(q[0], gyr[0], acc[0]))
+        ae[0] = np.matmul(r, acc[0]) - g
 
-    for i in range(1, len(acc)):
-        q[i] = mg.updateIMU(q[i - 1], gyr[i], acc[i])
-        r = orientation.q2R(q[i])
-        ae[i] = np.matmul(r, acc[i]) - g
-    #TODO check if gravitation compensation is correct
+        for i in range(1, len(acc)):
+            q[i] = mg.updateIMU(q[i - 1], gyr[i], acc[i])
+            r = orientation.q2R(q[i])
+            ae[i] = np.matmul(r, acc[i]) - g
+    elif gravitation_compensation == 'VQF':
+        from functions.VQFpitch import vqf_gravitation_compensation
+        ae = vqf_gravitation_compensation(acc, gyr)
+    else:
+        raise ValueError(f"Invalid parameter: {gravitation_compensation}. Use 'Subash' or 'VQF' instead.")
+
     op_df['ax'] = bandpass(np.nan_to_num(ae[:, 0]), fs=30)
     op_df['ay'] = bandpass(np.nan_to_num(ae[:, 1]), fs=30)
     op_df['az'] = bandpass(np.nan_to_num(ae[:, 2]), fs=30)
     op_df = resample(op_df, 30, 10)
+
+    #op_df.plot(figsize=(18, 6), alpha=0.5)
 
     op_df['ax'] = np.where(np.absolute(op_df['ax'].values) < 0.068, 0, op_df['ax'].values) / 0.01664
     op_df['ay'] = np.where(np.absolute(op_df['ay'].values) < 0.068, 0, op_df['ay'].values) / 0.01664
