@@ -142,6 +142,8 @@ class LOOCV_performance:
         y = self.gt_functional['GT_mask_NDH_1Hz']
         group_IDs = self.PARTICIPANT_ID
 
+        self.evaluation_FMA = []
+
         self.optimal_YI_list = []
         self.conventioanl_YI_list = []
         self.optimal_accuracy_list = []
@@ -167,6 +169,7 @@ class LOOCV_performance:
             youden_index_conventional, accuracy_conventional, auc_conventional = self.calculate_GMAC_classification_performance(X_test, y_test, 0, 30)
             #dh_performance = self.calculate_GMAC_classification_performance(personalized_thresholds_dh)
 
+            self.evaluation_FMA.append(X_test[0]['FMA_UE'])
             self.optimal_YI_list.append(youden_index_optimized)
             self.conventioanl_YI_list.append(youden_index_conventional)
             self.optimal_accuracy_list.append(accuracy_optimized)
@@ -253,6 +256,7 @@ class LOOCV_performance:
         ax.set_xticks([1, 2])
         ax.set_xticklabels(['Personalized', 'Conventional'])
 
+        plt.rcParams.update({'font.size': 12})
         plt.ylabel('Area Under the Receiver Operating Characteristic Curve \n(ROC AUC)')
         plt.title('Leave one Participant out Cross Validation')
         plt.show()
@@ -331,4 +335,27 @@ class LOOCV_performance:
                 ['Personalized', 'Conventional', 'Clinically required performance'], loc='lower left')
 
         plt.tight_layout()
+        plt.show()
+
+    def plot_FMA_scatter(self):
+        plt.rcParams.update({'font.size': 16})
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        optimal_YI_std = np.std(self.optimal_YI_list)
+        conv_YI_std = np.std(self.conventioanl_YI_list)
+        ax.scatter(self.evaluation_FMA, self.optimal_YI_list, label=f'Personalized YI (std: {optimal_YI_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='x')
+        ax.scatter(self.evaluation_FMA, self.conventioanl_YI_list, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
+        optimal_AUC_std = np.std(self.optimal_AUC_list)
+        conv_AUC_std = np.std(self.conventioanl_AUC_list)
+        ax.scatter(self.evaluation_FMA, self.optimal_AUC_list, label=f'Personalized AUV (std: {optimal_AUC_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='o')
+        ax.scatter(self.evaluation_FMA, self.conventioanl_AUC_list, label=f'Conventional AUV (std: {conv_AUC_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='o')
+        optimal_accuracy_std = np.std(self.optimal_accuracy_list)
+        conv_accuracy_std = np.std(self.conventioanl_accuracy_list)
+        ax.scatter(self.evaluation_FMA, self.optimal_accuracy_list, label=f'Personalized Accuracy (std: {optimal_accuracy_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='s')
+        ax.scatter(self.evaluation_FMA, self.conventioanl_accuracy_list, label=f'Conventional Accuracy (std: {conv_accuracy_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='s')
+
+        plt.ylabel('Classification Performance')
+        plt.xlabel('Fugl-Meyer Assessment Upper Extremity Score')
+        plt.title('Classification Performance accross Fugl-Meyer Upper Extremity Score')
+        plt.legend()
         plt.show()
