@@ -79,6 +79,8 @@ class RegressionModel:
 
     def plot_regressions(self, title='Regression Plots', xlabel='x', ylabel='y'):
         colors = thesis_style.get_thesis_colours()
+
+        fig, ax = plt.subplots(1,1)
         
         if self.dominant_impared is not None:
             dominant_legend_plotted = False
@@ -110,6 +112,15 @@ class RegressionModel:
             y_log_pred = self.log_model.predict(np.log(x_range_log))
             plt.plot(x_range_log, y_log_pred, color='green', label='Logarithmic Regression')
 
+        if ylabel == 'Count Threshold':
+            plt.axhline(y=0.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
+        elif ylabel == 'Pitch Threshold':
+            plt.axhline(y=30.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
+            ax.set_yticks([30, 35, 40, 45, 50, 55, 60, 65])
+            ax.set_yticklabels(['30°', '35°', '40°', '45°', '50°', '55°', '60°', '65°'])
+        else:
+            raise ValueError(f"Invalid ylabel: {ylabel}")
+
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(title)
@@ -131,7 +142,7 @@ def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Anal
     model = RegressionModel(x, y, std, dominant_impared)
 
     # Check distribution of the data
-    model.check_distribution()
+    #model.check_distribution()
 
     # Fit linear regression
     model.fit_linear_regression()
@@ -155,13 +166,42 @@ def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Anal
     # Plot regressions
     model.plot_regressions(xlabel=x_label, ylabel=y_label, title=title)
     
+def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_threshold_ndh, elevation_threshold_dh):
+        mean_count_threshold_ndh = np.mean(count_threshold_ndh)
+        mean_count_threshold_dh = np.mean(count_threshold_dh)
+        mean_elevation_threshold_ndh = np.mean(elevation_threshold_ndh)
+        mean_elevation_threshold_dh = np.mean(elevation_threshold_dh)
+        print(f"Mean count threshold (affected): {mean_count_threshold_ndh}, Mean count threshold (healthy): {mean_count_threshold_dh}")
+        print(f"Mean elevation threshold (affected): {mean_elevation_threshold_ndh}, Mean elevation threshold (healthy): {mean_elevation_threshold_dh}")
 
-# Example usage:
-if __name__ == "__main__":
-    # Example data
-    x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    y = np.array([2, 3, 5, 7, 11, 13, 17, 19, 23, 29])
+        plt.figure(figsize=(12, 5))
 
-    std = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+        # Subplot for count threshold
+        plt.subplot(1, 2, 1)
+        plt.boxplot([count_threshold_ndh, count_threshold_dh], showmeans=True)
+        plt.title('Count Threshold Distribution')
+        plt.xlabel('')
+        plt.ylabel('Counts')
+        plt.xticks([1, 2], ['Affected', 'Healthy'])
+        # Show all data points
+        plt.plot(np.ones_like(count_threshold_ndh), count_threshold_ndh, 'ro', label='Affected')
+        plt.plot(2 * np.ones_like(count_threshold_dh), count_threshold_dh, 'go', label='Healthy')
+        # Plot horizontal line at conventional threshold
+        plt.axhline(y=0.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional threshold')
+        plt.legend()
 
-    check_regression(x, y, std)
+        # Subplot for elevation threshold
+        plt.subplot(1, 2, 2)
+        plt.boxplot([elevation_threshold_ndh, elevation_threshold_dh], showmeans=True)
+        plt.title('Elevation Threshold Distribution')
+        plt.xlabel('')
+        plt.ylabel('Elevation (degrees)')
+        plt.xticks([1, 2], ['Affected', 'Healthy'])
+        # Show all data points
+        plt.plot(np.ones_like(elevation_threshold_ndh), elevation_threshold_ndh, 'ro')
+        plt.plot(2 * np.ones_like(elevation_threshold_dh), elevation_threshold_dh, 'go')
+        # Plot horizontal line at conventional threshold
+        plt.axhline(y=30.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional threshold')
+
+        plt.tight_layout()
+        plt.show()
