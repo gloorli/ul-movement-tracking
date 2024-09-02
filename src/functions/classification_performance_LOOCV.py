@@ -75,6 +75,12 @@ class LOOCV_performance:
         print("Polynomial Predictions of personal ELEVATION threshold: ", elevation_predict, ". Ground truth individual optimal threshold NDH: ", X_test[0]['PITCH_THRESHOLD_NDH'])
 
         return count_predict, elevation_predict
+    
+    def retreive_mean_thresholds(self, X_train):
+        count_threshold_array = np.array([participant['COUNT_THRESHOLD_NDH'] for participant in X_train])
+        elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_NDH'] for participant in X_train])
+
+        return np.mean(count_threshold_array), np.mean(elevation_threshold_array)
 
     def calculate_GMAC_classification_performance(self, X_test, y_test, personalized_count_threshold, personalized_elevation_threshold):
         assert len(X_test) == 1, "X_test should contain only one participant"
@@ -146,10 +152,13 @@ class LOOCV_performance:
 
         self.optimal_YI_list = []
         self.conventioanl_YI_list = []
+        self.mean_YI_list = []
         self.optimal_accuracy_list = []
         self.conventioanl_accuracy_list = []
+        self.mean_accuracy_list = []
         self.optimal_AUC_list = []
         self.conventioanl_AUC_list = []
+        self.mean_AUC_list = []
 
         self.optimal_accuracy_perTask = {}
         self.conventional_accuracy_perTask = {}
@@ -161,21 +170,25 @@ class LOOCV_performance:
 
             regression_model_count_ndh, regression_model_elevation_ndh = self.get_threshold_model(X_train)
             #threshold_model_dh = self.get_threshold_model()
-
             personalized_count_threshold_ndh, personalized_elevation_threshold_ndh = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh, regression_model_elevation_ndh)
             #personalized_thresholds_dh = self.retreive_personalized_thresholds(threshold_model_dh)
-
             youden_index_optimized, accuracy_optimized, auc_optimized = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
             youden_index_conventional, accuracy_conventional, auc_conventional = self.calculate_GMAC_classification_performance(X_test, y_test, 0, 30)
             #dh_performance = self.calculate_GMAC_classification_performance(personalized_thresholds_dh)
 
+            loocv_mean_count_ndh, loocv_mean_elevation_ndh = self.retreive_mean_thresholds(X_train)
+            youden_index_mean, accuracy_mean, auc_mean = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh, loocv_mean_elevation_ndh)
+
             self.evaluation_FMA.append(X_test[0]['FMA_UE'])
             self.optimal_YI_list.append(youden_index_optimized)
             self.conventioanl_YI_list.append(youden_index_conventional)
+            self.mean_YI_list.append(youden_index_mean)
             self.optimal_accuracy_list.append(accuracy_optimized)
             self.conventioanl_accuracy_list.append(accuracy_conventional)
+            self.mean_accuracy_list.append(accuracy_mean)
             self.optimal_AUC_list.append(auc_optimized)
             self.conventioanl_AUC_list.append(auc_conventional)
+            self.mean_AUC_list.append(auc_mean)
             #TODO plot predicted and ground truth personalized count threshold and elevation threshold
 
             if perTask:
@@ -208,7 +221,7 @@ class LOOCV_performance:
 
     def plot_LOOCV_YoudenIndex(self):
         # Set colors for the boxplots
-        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue']]
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['turquoise']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
@@ -216,14 +229,17 @@ class LOOCV_performance:
 
         box_optimal = ax.boxplot(self.optimal_YI_list, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         box_conventional = ax.boxplot(self.conventioanl_YI_list, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean = ax.boxplot(self.mean_YI_list, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
         for box in box_optimal['boxes']:
             box.set(facecolor=colors[0])
         for box in box_conventional['boxes']:
             box.set(facecolor=colors[1])
+        for box in box_mean['boxes']:
+            box.set(facecolor=colors[2])
 
-        ax.set_xticks([1, 2])
-        ax.set_xticklabels(['Personalized', 'Conventional'])
+        ax.set_xticks([1, 2, 3])
+        ax.set_xticklabels(['Personalized', 'Conventional', 'Mean optimal'])
 
         plt.ylabel('Youden Index')
         plt.title('Leave one Participant out Cross Validation')
@@ -231,7 +247,7 @@ class LOOCV_performance:
 
     def plot_LOOCV_AUC(self):
         # Set colors for the boxplots
-        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange']]
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange'], thesis_style.get_thesis_colours()['turquoise']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
@@ -239,11 +255,14 @@ class LOOCV_performance:
 
         box_optimal = ax.boxplot(self.optimal_AUC_list, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         box_conventional = ax.boxplot(self.conventioanl_AUC_list, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean = ax.boxplot(self.mean_AUC_list, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
         for box in box_optimal['boxes']:
             box.set(facecolor=colors[0])
         for box in box_conventional['boxes']:
             box.set(facecolor=colors[1])
+        for box in box_mean['boxes']:
+            box.set(facecolor=colors[3])
 
         # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
         ax.axhline(y=0.75, color=colors[2], linestyle='--')
@@ -253,8 +272,8 @@ class LOOCV_performance:
                    ['Clinically required performance'],
                    loc='lower left')
 
-        ax.set_xticks([1, 2])
-        ax.set_xticklabels(['Personalized', 'Conventional'])
+        ax.set_xticks([1, 2, 3])
+        ax.set_xticklabels(['Personalized', 'Conventional', 'Mean optimal'])
 
         plt.rcParams.update({'font.size': 12})
         plt.ylabel('Area Under the Receiver Operating Characteristic Curve \n(ROC AUC)')
@@ -263,7 +282,7 @@ class LOOCV_performance:
 
     def plot_LOOCV_Accuracy(self):
         # Set colors for the boxplots
-        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange']]
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange'], thesis_style.get_thesis_colours()['turquoise']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
@@ -271,11 +290,14 @@ class LOOCV_performance:
 
         box_optimal = ax.boxplot(self.optimal_accuracy_list, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         box_conventional = ax.boxplot(self.conventioanl_accuracy_list, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean = ax.boxplot(self.mean_accuracy_list, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
         for box in box_optimal['boxes']:
             box.set(facecolor=colors[0])
         for box in box_conventional['boxes']:
             box.set(facecolor=colors[1])
+        for box in box_mean['boxes']:
+            box.set(facecolor=colors[3])
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
         ax.axhline(y=0.9, color=colors[2], linestyle='--')
@@ -285,8 +307,8 @@ class LOOCV_performance:
                    ['Clinically required performance'],
                    loc='lower left')
         
-        ax.set_xticks([1, 2])
-        ax.set_xticklabels(['Personalized', 'Conventional'])        
+        ax.set_xticks([1, 2, 3])
+        ax.set_xticklabels(['Personalized', 'Conventional', 'Mean optimal'])        
         
         plt.ylabel('Accuracy')
         plt.title('Leave one Participant out Cross Validation')
@@ -343,16 +365,22 @@ class LOOCV_performance:
         
         optimal_YI_std = np.std(self.optimal_YI_list)
         conv_YI_std = np.std(self.conventioanl_YI_list)
+        mean_YI_std = np.std(self.mean_YI_list)
         ax.scatter(self.evaluation_FMA, self.optimal_YI_list, label=f'Personalized YI (std: {optimal_YI_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='x')
         ax.scatter(self.evaluation_FMA, self.conventioanl_YI_list, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
+        ax.scatter(self.evaluation_FMA, self.mean_YI_list, label=f'Mean optimal YI (std: {mean_YI_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='x')
         optimal_AUC_std = np.std(self.optimal_AUC_list)
         conv_AUC_std = np.std(self.conventioanl_AUC_list)
+        mean_AUC_std = np.std(self.mean_AUC_list)
         ax.scatter(self.evaluation_FMA, self.optimal_AUC_list, label=f'Personalized AUV (std: {optimal_AUC_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='o')
         ax.scatter(self.evaluation_FMA, self.conventioanl_AUC_list, label=f'Conventional AUV (std: {conv_AUC_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='o')
+        ax.scatter(self.evaluation_FMA, self.mean_AUC_list, label=f'Mean optimal AUV (std: {mean_AUC_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='o')
         optimal_accuracy_std = np.std(self.optimal_accuracy_list)
         conv_accuracy_std = np.std(self.conventioanl_accuracy_list)
+        mean_accuracy_std = np.std(self.mean_accuracy_list)
         ax.scatter(self.evaluation_FMA, self.optimal_accuracy_list, label=f'Personalized Accuracy (std: {optimal_accuracy_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='s')
         ax.scatter(self.evaluation_FMA, self.conventioanl_accuracy_list, label=f'Conventional Accuracy (std: {conv_accuracy_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='s')
+        ax.scatter(self.evaluation_FMA, self.mean_accuracy_list, label=f'Mean optimal Accuracy (std: {mean_accuracy_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='s')
 
         plt.ylabel('Classification Performance')
         plt.xlabel('Fugl-Meyer Assessment Upper Extremity Score')
