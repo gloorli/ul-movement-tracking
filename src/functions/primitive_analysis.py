@@ -4,7 +4,7 @@ class PrimitiveDistribution:
     def __init__(self, initial_path = '../data/CreateStudy'):
         
         s_json_files = get_json_paths(initial_path, 'S')
-        result = extract_fields_from_json_files(s_json_files, ['participant_id', 'affected_hand', 'ARAT_score', 'FMA-UE_score'])
+        result = extract_fields_from_json_files(s_json_files, ['participant_id', 'affected_hand', 'ARAT_score', 'FMA-UE_score', 'dominant_arm_affected'])
         primitives_LW = []
         primitives_RW = []
         for path in s_json_files:
@@ -17,6 +17,7 @@ class PrimitiveDistribution:
         self.affected_arms = result['affected_hand']
         self.ARATs = result['ARAT_score']
         self.FMA_UEs = result['FMA-UE_score']
+        self.dominant_arm_affected = result['dominant_arm_affected']
         self.primitive_LWs = primitives['primitive_mask_LW_25Hz']
         self.primitive_RWs = primitives['primitive_mask_RW_25Hz']
         self.label_to_int = {'functional_movement': 1, 'non_functional_movement': 0, 'reach': 2, 'reposition': 3, 'transport': 4, 'gesture': 5, 'idle': 6, 'stabilization': 7, 'arm_not_visible': 999}
@@ -86,41 +87,59 @@ class PrimitiveDistribution:
         labels = list(self.label_to_int.keys())
         label_for_colors = labels[2:]
         labels.insert(0, 'participantID')
+
         if side == 'LW':
             data = self.primitive_amount_LW
         elif side == 'RW':
             data = self.primitive_amount_RW
         elif side == 'NDH':
             data = self.primitive_amount_NDH
-            title_side = 'Affected Arm'#attention: this is only true for stroke subjects
+            title_side = 'Affected Arm'  # attention: this is only true for stroke subjects
         elif side == 'DH':
             data = self.primitive_amount_DH
-            title_side = 'Healthy Arm'#attention: this is only true for stroke subjects
+            title_side = 'Healthy Arm'  # attention: this is only true for stroke subjects
         else:
             raise ValueError('side must be either "NDH", "DH", "LW" or "RW"')
+
         df = pd.DataFrame(data, columns=labels)
         df.drop(columns=['functional_movement', 'non_functional_movement', 'arm_not_visible'], inplace=True)
         df_percentage = self.primitivecounts_to_percentage(df.copy())
         df_percentage_ordered, ID_label, FMA_label, ARAT_label = self.order_df_by_FMA(df_percentage.copy())
-        df_percentage_ordered.plot(x='participantID', kind='bar', stacked=True, legend=True,
-                color=[thesis_style.get_label_colours()[key] for key in label_for_colors])
-        plt.ylabel('percentage of protocol time')
+
+        ax = df_percentage_ordered.plot(x='participantID', kind='bar', stacked=True, legend=True,
+                                        color=[thesis_style.get_label_colours()[key] for key in label_for_colors])
+
+        plt.ylabel('Percentage of total Protocol Time')
         plt.xlabel('')
-        plt.xticks(range(len(self.participantIDs)), [f"{id}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)], rotation=0, fontsize=8)
+        plt.xticks(range(len(self.participantIDs)),
+                [f"{id}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)],
+                rotation=0, fontsize=8)
         plt.yticks(range(0, 101, 25), [f"{i}%" for i in range(0, 101, 25)])
-        plt.tight_layout()
-        plt.legend(loc='center right', bbox_to_anchor=(1.3, 0.5), reverse=True, frameon=False)
-        plt.title('Primitive Distribution '+title_side)
+        plt.tight_layout(rect=[0, 0, 1.3, 1])
+
+        # Adding stars if the dominant hand is affected
+        for i, dominant_affected in enumerate(self.dominant_arm_affected):
+            if dominant_affected:
+                plt.scatter(i, 102, color=thesis_style.get_thesis_colours()['black_grey'], marker='2', s=100, label='dominant \narm affected' if i == 0 else "")
+
+        # Adding brackets and labels for FMA-UE categories (Woytowicz et al., 2017)
+        # attention: bracket possitions are hardcoded
+        ax.annotate('', xy=(0.299, -0.14), xytext=(0, -0.14), xycoords='axes fraction', textcoords='axes fraction',
+                    arrowprops=dict(arrowstyle='-', lw=1.0, color='black'))
+        ax.annotate('severe impairment', xy=(0.15, -0.18), xycoords='axes fraction', ha='center', fontsize=8)
+
+        ax.annotate('', xy=(0.499, -0.14), xytext=(0.301, -0.14), xycoords='axes fraction', textcoords='axes fraction',
+                    arrowprops=dict(arrowstyle='-', lw=1.0, color='black'))
+        ax.annotate('moderate impairment', xy=(0.4, -0.18), xycoords='axes fraction', ha='center', fontsize=8)
+
+        ax.annotate('', xy=(1.0, -0.14), xytext=(0.501, -0.14), xycoords='axes fraction', textcoords='axes fraction',
+                    arrowprops=dict(arrowstyle='-', lw=1.0, color='black'))
+        ax.annotate('mild impairment', xy=(0.75, -0.18), xycoords='axes fraction', ha='center', fontsize=8)
+
+        plt.legend(loc='center right', bbox_to_anchor=(1.2, 0.5), reverse=True, frameon=False)
+        plt.title('Primitive Distribution ' + title_side)
         plt.show()
 
-    def plot_primitive_distribution_per_group(self):
-        # FMA-UE cut-off scores: mild (43–66), moderate (29–42), and severe (0–18) (Woytowicz et al., 2017).
-        pass
-
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 
 def plot_primitive_mask(primitive_mask, participantID, int_to_label):
     unique_values, amount = np.unique(primitive_mask, return_counts=True)
