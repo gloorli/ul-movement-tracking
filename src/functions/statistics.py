@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
-from scipy.stats import pearsonr, spearmanr
+from scipy.stats import pearsonr, spearmanr, wilcoxon, ttest_rel, normaltest
 
 from utilities import thesis_style
 
@@ -116,6 +116,8 @@ def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Anal
 
     # Fit polynomial regression of degree 2
     model.fit_polynomial_regression(2)
+    print("Polynomial model coefficients (degree 2):", model.poly_models[2].steps[1][1].coef_)
+    print("Polynomial model intercept (degree 2):", model.poly_models[2].steps[1][1].intercept_)
         
     # Calculate Pearson correlation
     pearson_corr, pearson_pvalue = model.pearson_correlation()
@@ -129,41 +131,106 @@ def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Anal
     model.plot_regressions(xlabel=x_label, ylabel=y_label, title=title)
     
 def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_threshold_ndh, elevation_threshold_dh):
-        mean_count_threshold_ndh = np.mean(count_threshold_ndh)
-        mean_count_threshold_dh = np.mean(count_threshold_dh)
-        mean_elevation_threshold_ndh = np.mean(elevation_threshold_ndh)
-        mean_elevation_threshold_dh = np.mean(elevation_threshold_dh)
-        print(f"Mean count threshold (affected): {mean_count_threshold_ndh}, Mean count threshold (healthy): {mean_count_threshold_dh}")
-        print(f"Mean elevation threshold (affected): {mean_elevation_threshold_ndh}, Mean elevation threshold (healthy): {mean_elevation_threshold_dh}")
+    # Check normality of count threshold data
+    count_threshold_ndh_normality = normaltest(count_threshold_ndh)
+    count_threshold_dh_normality = normaltest(count_threshold_dh)
+    print("Count Threshold Normality (Affected):", count_threshold_ndh_normality)
+    print("Count Threshold Normality (Healthy):", count_threshold_dh_normality)
+    # Check normality of elevation threshold data
+    elevation_threshold_ndh_normality = normaltest(elevation_threshold_ndh)
+    elevation_threshold_dh_normality = normaltest(elevation_threshold_dh)
+    print("Elevation Threshold Normality (Affected):", elevation_threshold_ndh_normality)
+    print("Elevation Threshold Normality (Healthy):", elevation_threshold_dh_normality)
+    # calculate mean optimal thresholds
+    mean_count_threshold_ndh = np.mean(count_threshold_ndh)
+    mean_count_threshold_dh = np.mean(count_threshold_dh)
+    mean_elevation_threshold_ndh = np.mean(elevation_threshold_ndh)
+    mean_elevation_threshold_dh = np.mean(elevation_threshold_dh)
+    print(f"Mean count threshold (affected): {mean_count_threshold_ndh}, Mean count threshold (healthy): {mean_count_threshold_dh}")
+    #check significance of difference between affected and healthy side
+    _, wilcoxon_pvalue_count = wilcoxon(count_threshold_ndh, count_threshold_dh) # Wilcoxon Signed-Rank Test
+    print("Wilcoxon Signed-Rank Test Count:")
+    print("p-value:", wilcoxon_pvalue_count)
+    _, ttest_pvalue_count = ttest_rel(count_threshold_ndh, count_threshold_dh) # Paired Samples T-Test
+    print("Paired Samples T-Test Count:")
+    print("p-value:", ttest_pvalue_count)
 
-        plt.figure(figsize=(12, 5))
+    print(f"Mean elevation threshold (affected): {mean_elevation_threshold_ndh}, Mean elevation threshold (healthy): {mean_elevation_threshold_dh}")
+    #check significance of difference between affected and healthy side
+    _, wilcoxon_pvalue_elevation = wilcoxon(elevation_threshold_ndh, elevation_threshold_dh) # Wilcoxon Signed-Rank Test
+    print("Wilcoxon Signed-Rank Test Elevation:")
+    print("p-value:", wilcoxon_pvalue_elevation)
+    _, ttest_pvalue_elevation = ttest_rel(elevation_threshold_ndh, elevation_threshold_dh) # Paired Samples T-Test for elevation threshold
+    print("Paired Samples T-Test Elevation:")
+    print("p-value:", ttest_pvalue_elevation)
 
-        # Subplot for count threshold
-        plt.subplot(1, 2, 1)
-        plt.boxplot([count_threshold_ndh, count_threshold_dh], showmeans=True)
-        plt.title('Count Threshold Distribution')
-        plt.xlabel('')
-        plt.ylabel('Counts')
-        plt.xticks([1, 2], ['Affected', 'Healthy'])
-        # Show all data points
-        plt.plot(np.ones_like(count_threshold_ndh), count_threshold_ndh, 'ro', label='Affected')
-        plt.plot(2 * np.ones_like(count_threshold_dh), count_threshold_dh, 'go', label='Healthy')
-        # Plot horizontal line at conventional threshold
-        plt.axhline(y=0.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional threshold')
-        plt.legend()
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Optimzed individual thresholds', fontsize=16)
 
-        # Subplot for elevation threshold
-        plt.subplot(1, 2, 2)
-        plt.boxplot([elevation_threshold_ndh, elevation_threshold_dh], showmeans=True)
-        plt.title('Elevation Threshold Distribution')
-        plt.xlabel('')
-        plt.ylabel('Elevation (degrees)')
-        plt.xticks([1, 2], ['Affected', 'Healthy'])
-        # Show all data points
-        plt.plot(np.ones_like(elevation_threshold_ndh), elevation_threshold_ndh, 'ro')
-        plt.plot(2 * np.ones_like(elevation_threshold_dh), elevation_threshold_dh, 'go')
-        # Plot horizontal line at conventional threshold
-        plt.axhline(y=30.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional threshold')
+    # Color configuration
+    affected_color = thesis_style.get_thesis_colours()['affected']
+    healthy_color = thesis_style.get_thesis_colours()['healthy']
+    line_color_affected = thesis_style.get_thesis_colours()['black']
+    line_color_healthy = thesis_style.get_thesis_colours()['black']
+    # Subplot for count threshold
+    plt.subplot(1, 2, 1)
+    box1 = plt.boxplot(count_threshold_ndh, positions=[1], widths=0.6, patch_artist=True, 
+                       boxprops=dict(facecolor=affected_color, color=line_color_affected, alpha=0.5),
+                       capprops=dict(color=line_color_affected),
+                       whiskerprops=dict(color=line_color_affected),
+                       flierprops=dict(markerfacecolor=line_color_affected, marker='o', markersize=5, linestyle='none'),
+                       medianprops=dict(color=line_color_affected))
+    
+    box2 = plt.boxplot(count_threshold_dh, positions=[2], widths=0.6, patch_artist=True, 
+                       boxprops=dict(facecolor=healthy_color, color=line_color_healthy, alpha=0.5),
+                       capprops=dict(color=line_color_healthy),
+                       whiskerprops=dict(color=line_color_healthy),
+                       flierprops=dict(markerfacecolor=line_color_healthy, marker='o', markersize=5, linestyle='none'),
+                       medianprops=dict(color=line_color_healthy))
+    #TODO maybe add dominant hand boxplot to c that impairment has bigger effect
+    plt.title('Count')
+    plt.xlabel('')
+    plt.ylabel('Counts per second')
+    plt.xticks([1, 2], ['Affected side', 'Healthy side'])
+    # Show all data points
+    plt.plot(np.ones_like(count_threshold_ndh), count_threshold_ndh, 'ro', color=affected_color)
+    plt.plot(2 * np.ones_like(count_threshold_dh), count_threshold_dh, 'go', color=healthy_color)
+    # Plot horizontal line at conventional threshold
+    plt.axhline(y=0.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional GMAC threshold')
+    # Add p-values between healthy and affected
+    plt.annotate(f"Significant difference between healthy and affected \nWilcoxon p-value: {wilcoxon_pvalue_count:.4f}", xy=(0.5, -0.2), xycoords='axes fraction', ha='center', fontsize=8)
+    plt.annotate(f"T-Test p-value: {ttest_pvalue_count:.4f}", xy=(0.5, -0.25), xycoords='axes fraction', ha='center', fontsize=8)
 
-        plt.tight_layout()
-        plt.show()
+    plt.legend()
+
+    # Subplot for elevation threshold
+    plt.subplot(1, 2, 2)
+    box3 = plt.boxplot(elevation_threshold_ndh, positions=[1], widths=0.6, patch_artist=True, 
+                       boxprops=dict(facecolor=affected_color, color=line_color_affected, alpha=0.5),
+                       capprops=dict(color=line_color_affected),
+                       whiskerprops=dict(color=line_color_affected),
+                       flierprops=dict(markerfacecolor=line_color_affected, marker='o', markersize=5, linestyle='none'),
+                       medianprops=dict(color=line_color_affected))
+    
+    box4 = plt.boxplot(elevation_threshold_dh, positions=[2], widths=0.6, patch_artist=True, 
+                       boxprops=dict(facecolor=healthy_color, color=line_color_healthy, alpha=0.5),
+                       capprops=dict(color=line_color_healthy),
+                       whiskerprops=dict(color=line_color_healthy),
+                       flierprops=dict(markerfacecolor=line_color_healthy, marker='o', markersize=5, linestyle='none'),
+                       medianprops=dict(color=line_color_healthy))
+
+    plt.title('Functional space')
+    plt.xlabel('')
+    plt.ylabel('Elevation (degrees)')
+    plt.xticks([1, 2], ['Affected side', 'Healthy side'])
+    # Show all data points
+    plt.plot(np.ones_like(elevation_threshold_ndh), elevation_threshold_ndh, 'ro', color=affected_color)
+    plt.plot(2 * np.ones_like(elevation_threshold_dh), elevation_threshold_dh, 'go', color=healthy_color)
+    # Plot horizontal line at conventional threshold
+    plt.axhline(y=30.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional GMAC threshold')
+    # Add p-values between healthy and affected
+    plt.annotate(f"Significant difference between healthy and affected \nWilcoxon p-value: {wilcoxon_pvalue_elevation:.4f}", xy=(0.5, -0.2), xycoords='axes fraction', ha='center', fontsize=8)
+    plt.annotate(f"T-Test p-value: {ttest_pvalue_elevation:.4f}", xy=(0.5, -0.25), xycoords='axes fraction', ha='center', fontsize=8)
+
+    plt.tight_layout()
+    plt.show()
