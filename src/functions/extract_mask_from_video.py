@@ -1,5 +1,4 @@
 import json
-import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -159,58 +158,6 @@ def segment_data(data, external_id):
     return segmented_data
 
 
-def find_labels(json_string):
-    segmented_data = json.loads(json_string)
-    terms = ['NF', 'Functional', 'Whole-body Movement']
-    found_terms_array = []
-
-    for term in terms:
-        found_positions = []
-        for match in re.finditer(r'\b{}\b'.format(re.escape(term)), json_string):
-            found_positions.append((term, match.start()))
-
-        if found_positions:
-            found_terms_array.extend(found_positions)
-
-    # Sort the array based on the positions (lower index first)
-    found_terms_array.sort(key=lambda x: x[1])
-    
-    # keep only the terms in the correct order, remove the index part
-    # Keep only the terms in the correct order, remove the index part
-    found_terms = [term for term, _ in found_terms_array]
-    
-    # Convert the found terms to their corresponding integer values
-    term_to_int = {'Functional': 1, 'NF': 0, 'Whole-body Movement': -1}
-    found_terms = [term_to_int[term] for term in found_terms]
-    
-    return found_terms
-
-
-def get_frames(segmented_data): 
-    # Convert segmented_data to a JSON string
-    json_string = json.dumps(segmented_data)
-
-    # Find the index of the keyword "frames"
-    index = json_string.find("key_frame_feature_map")
-
-    # Extract the substring that comes after the keyword
-    result = json_string[index + len('key_frame_feature_map": {'):]
-    result_str = str(result)
-
-    # Use regex to extract the frame numbers from the substring
-    matches = re.search(r'\[(.*?)\]', result_str)
-
-    frames = []  # Initialize frames as an empty list
-
-    if matches:
-        # Extract the content inside the brackets and convert to integers
-        content_inside_brackets = matches.group(1)
-        frames = [int(num) for num in content_inside_brackets.split(',')]
-        #frames.sort()  # Sort the frames in ascending order 
-        
-    return frames
-
-
 def closest_label(array, numbers_of_interest):
     modified_array = array.copy()
 
@@ -231,6 +178,7 @@ def closest_label(array, numbers_of_interest):
 
     return modified_array
 
+
 def fill_mask(frame_array, label_array, mask_labels):
 
     # Prepare a mask array of the size of the maximum value contained inside frame_array
@@ -246,6 +194,7 @@ def fill_mask(frame_array, label_array, mask_labels):
     mask = np.array(mask)
 
     return mask
+
 
 def get_label_mask(segmented_data, project_key='clw8u6yxb02dk07yd2jqg4vgk'): #replaces get_mask, parses JSON exported from labelbox
 
@@ -277,10 +226,12 @@ def get_label_mask(segmented_data, project_key='clw8u6yxb02dk07yd2jqg4vgk'): #re
 
     return functional_primitive_per_frame, functional_NF_per_frame, task_per_frame
 
+
 def convert_labels_to_int(label_array):
     label_to_int = {'functional_movement': 1, 'non_functional_movement': 0, 'reach': 2, 'reposition': 3, 'transport': 4, 'gesture': 5, 'idle': 6, 'stabilization': 7, 'arm_not_visible': 999}
     int_array = [label_to_int[label] for label in label_array]
     return int_array
+
 
 def extract_mask_from_videos(videos_paths, export_json, project_key='clw8u6yxb02dk07yd2jqg4vgk'):
     mask_per_video = []
@@ -309,36 +260,6 @@ def extract_mask_from_videos(videos_paths, export_json, project_key='clw8u6yxb02
     return primitives, mask, tasks
 
 
-def get_mask(segmented_data):
-    labels = ['NF', 'Functional', 'Whole-body Movement']
-    mask_labels = [1, 0, -1]
-
-    # Get the frames at which a label is given
-    frame_array = get_frames(segmented_data)
-
-    # Get the labels in the correct order: 1, 0, or -1 associated with the correct frame number from frame_array
-    label_array = find_labels(json.dumps(segmented_data))
-    
-    # Ensure they have the same size otherwise raise an error
-    if len(frame_array) != len(label_array):
-        raise ValueError("Frame and label arrays should have the same size.")
-
-    # Prepare a mask array of the size of the maximum value contained inside frame_array
-    mask_size = max(frame_array)
-    mask = [-5] * mask_size
-
-    # Place the correct value of label at the correct frame position
-    for frame, label in zip(frame_array, label_array):
-        mask[frame - 1] = label
-
-    # Fill the gaps between frames 
-    mask = closest_label(mask, mask_labels)
-    mask = np.array(mask)
-    
-    return mask
-
-
-
 def plot_movement_tendency(data, frame_rate = 25):
     """
     Plot the movement tendency over time and display the percentage of occurrence.
@@ -365,16 +286,6 @@ def plot_movement_tendency(data, frame_rate = 25):
     
     # Compute time based on the frame rate (FPS)
     time = np.arange(len(mask_data)) / frame_rate
-
-    # Create line plot
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(time, mask_data)
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Movement')
-    ax.set_ylim([-1.1, 1.1])  # Adjust the y-axis limits to include -1, 0, and 1 only
-    ax.set_yticks([-1, 0, 1])  # Set y-axis ticks to -1, 0, and 1 only
-    ax.legend()
-    plt.show()
 
     # Calculate the percentage of occurrence for each element in the mask data
     unique_elements, counts = np.unique(mask_data, return_counts=True)

@@ -1,7 +1,7 @@
 import subprocess
 import numpy as np
 import pandas as pd
-from extract_mask_from_video import *
+from functions.extract_mask_from_video import *
 import cv2
 from datetime import *
 import ffmpeg
