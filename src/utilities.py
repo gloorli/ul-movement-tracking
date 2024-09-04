@@ -18,7 +18,6 @@ from collections import Counter
 # Scientific computing
 from scipy.signal import (butter, filtfilt, find_peaks, resample,
                           savgol_filter, freqz, lfilter)
-from scipy.stats import spearmanr
 from scipy.interpolate import CubicSpline, interp1d
 from scipy.ndimage import zoom
 
@@ -847,42 +846,6 @@ def extract_data_screening_participant(csv_file_path):
     return data
 
 
-def plot_correlation(x_array, threshold_values, x_value='X'):
-    # Calculate Spearman correlation coefficient and p-value
-    correlation_coef, p_value = spearmanr(x_array, threshold_values)
-
-    # Create scatter plot
-    plt.figure(figsize=(10, 6))
-    plt.scatter(x_array, threshold_values, color='blue', label='Data Points')
-    
-    # Fit a linear regression line
-    fit = np.polyfit(x_array, threshold_values, deg=1)
-    plt.plot(x_array, np.polyval(fit, x_array), color='red', label='Linear Fit')
-    
-    plt.title('Correlation Plot')
-    plt.xlabel(x_value)
-    plt.ylabel('Threshold Values')
-    plt.legend()
-    plt.grid(True)
-    
-    # Display correlation coefficient and significance level
-    plt.text(0.05, 0.9, f'Spearman Correlation Coefficient: {correlation_coef:.2f}\nSignificance Level (p-value): {p_value:.3f}', transform=plt.gca().transAxes, fontsize=12, verticalalignment='top')
-    
-    # Determine and print correlation strength
-    if p_value < 0.05:
-        if correlation_coef > 0.7 or correlation_coef < -0.7:
-            correlation_strength = "Strong"
-        elif abs(correlation_coef) > 0.3:
-            correlation_strength = "Moderate"
-        else:
-            correlation_strength = "Weak"
-        print(f"Correlation Strength: {correlation_strength}")
-    else:
-        print("Correlation is not statistically significant (p >= 0.05)")
-    
-    plt.show()
-
-
 def run_notebooks_for_group(notebook_paths, screening_results, group):
     """
     Runs multiple notebooks for a given participant group.
@@ -1067,71 +1030,6 @@ def plot_bar_chart(conventional_metrics, optimal_metrics, metric, scenario, grou
         plt.tight_layout()
         plt.show()  # Show the plot if show_plot is True
 
-def side_by_side_box_plot_age(data1, data2, labels=None, x_axis_labels=None, save_path=None):
-    """
-    Plots two arrays as side-by-side vertical box plots on the same plot using Seaborn.
-    Also prints out key statistics for each group.
-    
-    Args:
-        data1 (numpy.ndarray): First array of data.
-        data2 (numpy.ndarray): Second array of data.
-        labels (list, optional): Labels for the two box plots.
-        x_axis_labels (list, optional): Labels for the x-axis.
-        
-    Returns:
-        None
-    """
-    
-    # Combine the data into a DataFrame for easier plotting with Seaborn
-    df1 = pd.DataFrame({'Age': data1, 'Group': np.repeat(labels[0], len(data1))})
-    df2 = pd.DataFrame({'Age': data2, 'Group': np.repeat(labels[1], len(data2))})
-    df = pd.concat([df1, df2])
-    
-    # Compute and print key statistics for each group
-    for label, group_data in [(labels[0], data1), (labels[1], data2)]:
-        print(f"Statistics for {label} group:")
-        print(f"  Mean: {np.mean(group_data):.2f}")
-        print(f"  Median: {np.median(group_data):.2f}")
-        print(f"  Standard Deviation: {np.std(group_data):.2f}")
-        print(f"  IQR: {np.percentile(group_data, 75) - np.percentile(group_data, 25):.2f}")
-        print("-" * 40)
-    
-    # Customize Seaborn style
-    sns.set(style="whitegrid")
-    sns.set_palette("pastel")
-    
-    # Create the Seaborn plot
-    plt.figure(figsize=(10, 6))
-    ax = sns.boxplot(x='Group', y='Age', data=df, width=0.3)
-    
-    # Adjust box properties for a more compact look
-    for patch in ax.artists:
-        r, g, b, a = patch.get_facecolor()
-        patch.set_facecolor((r, g, b, .6))
-    
-    # Add titles and labels
-    plt.ylabel("Age", fontsize=14)
-    plt.xlabel("Group", fontsize=14)  # Add this line to change the x-label size to 14
-    plt.title("Age Distribution Comparison between Healthy and Stroke Groups", fontsize=14)
-
-    # Change tick label sizes
-    plt.xticks(ticks=range(len(x_axis_labels)), labels=x_axis_labels, fontsize=14)  # Add fontsize=14
-    plt.yticks(fontsize=14)  # Add this line to change y tick label sizes to 14
-
-    
-    if x_axis_labels:
-        plt.xticks(ticks=range(len(x_axis_labels)), labels=x_axis_labels)
-    
-    if save_path is not None:
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
-        filename = f'boxplot_age_distribution.png'
-        full_path = f"{save_path}/{filename}"
-        plt.savefig(full_path)
-        print(f"Figure saved at {full_path}")
-    
-    plt.show()
-
 
 def extract_fields_from_json_files(file_paths, fields):
     """
@@ -1174,72 +1072,6 @@ def extract_fields_from_json_files(file_paths, fields):
 
     return results
 
-
-def plot_spearman_correlation(array1, array2, title, path_to_save=None, alpha=0.05):
-    """
-    Plots a scatter plot of two arrays along with a fitted linear regression line.
-    """
-    # Calculate the Spearman correlation coefficient and p-value
-    correlation_coefficient, p_value = spearmanr(array1, array2)
-
-    # Create a larger figure and axis
-    plt.figure(figsize=(10, 6))
-
-    # Create a scatter plot with flashy blue color, larger size, and different marker
-    plt.scatter(array1, array2, color='blue', s=50, marker='o', label=f"Spearman coefficient ρ = {correlation_coefficient:.2f}\n p-value = {p_value:.4f}")
-
-    # Add a linear regression line
-    coefs = np.polyfit(array1, array2, 1)
-    line_fit = np.polyval(coefs, array1)
-    plt.plot(array1, line_fit, color='red', label='Linear Fit')
-
-    # Add labels and a legend
-    plt.xlabel("ARAT Score")
-    plt.ylabel("Optimal parameter value")
-    plt.title(title)
-    plt.legend(loc='upper right')
-
-    # Save or show the plot
-    if path_to_save:
-        plt.savefig(f"{path_to_save}/{title}.png")
-        print(f"Plot saved at: {path_to_save}/{title}.png")
-    else:
-        plt.show()
-
-    # Interpret the significance of the correlation
-    if p_value < alpha:
-        significance = "Statistically significant"
-    else:
-        significance = "Not statistically significant"
-        
-    print(f"The Spearman correlation coefficient is {correlation_coefficient:.2f}.")
-    print(f"The p-value is {p_value:.4f}.")
-    print(f"Interpretation: {interpret_correlation(correlation_coefficient)}.")
-    print(f"Significance: {significance} at alpha = {alpha}.")
-
-
-def interpret_correlation(correlation_coefficient):
-    """
-    Returns the interpretation of the Spearman correlation coefficient.
-    """
-    if correlation_coefficient >= 0.8:
-        return "Very strong positive monotonic relationship"
-    elif correlation_coefficient >= 0.6:
-        return "Strong positive monotonic relationship"
-    elif correlation_coefficient >= 0.4:
-        return "Moderate positive monotonic relationship"
-    elif correlation_coefficient >= 0.2:
-        return "Weak positive monotonic relationship"
-    elif correlation_coefficient > -0.2:
-        return "Very weak or no monotonic relationship"
-    elif correlation_coefficient > -0.4:
-        return "Weak negative monotonic relationship"
-    elif correlation_coefficient > -0.6:
-        return "Moderate negative monotonic relationship"
-    elif correlation_coefficient > -0.8:
-        return "Strong negative monotonic relationship"
-    else:
-        return "Very strong negative monotonic relationship"
 
 def from_LWRW_to_NDHDH(affected_hand, primitives):
     """

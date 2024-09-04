@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
+from scipy.stats import spearmanr
 
 from utilities import *
 from individual_analysis_gmac_function import get_prediction_gmac, AUC_analisys, accuracy_analisys
