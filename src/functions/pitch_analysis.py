@@ -30,33 +30,6 @@ def estimate_pitch(accl: np.array, farm_inx: int, nwin: int) -> np.array:
     acclfn = acclf / np.linalg.norm(acclf, axis=1, keepdims=True)
     return -np.rad2deg(np.arccos(acclfn[:, farm_inx])) + 90
 
-def plot_angles_over_time(angles):
-    """
-    Plots angles over time.
-
-    Args:
-        angles (np.ndarray): Array of angles in degrees.
-        sampling_freq (int): Sampling frequency in Hz.
-
-    Returns:
-        None.
-    """
-    
-    sampling_freq = 50 #Hz 
-    
-    # Increase figure size
-    plt.figure(figsize=(18, 9))
-    
-    # Calculate time array based on the length and sampling frequency
-    time = np.arange(len(angles)) / sampling_freq
-
-    # Plot angles over time
-    plt.plot(time, angles)
-    plt.xlabel('Time (seconds)')
-    plt.ylabel('Angle (degrees)')
-    plt.title('Angles over Time')
-    plt.grid(True)
-    plt.show()
 
 def plot_normalized_distribution(angles):
     # Compute the histogram of angles

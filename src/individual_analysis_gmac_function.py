@@ -2,26 +2,7 @@ from utilities import *
 from sklearn.model_selection import KFold
 from sklearn.metrics import confusion_matrix, roc_auc_score
 
-
-def get_prediction_gmac(counts, pitch, count_threshold=0, functional_space=30, decision_mode='Subash'):
-    """
-    Computes the prediction array of 0s and 1s based on a a count threshold and the functional space.
-
-    Args:
-        counts: Numpy array of counts 1Hz
-        pitch: Numpy array of pitch 1Hz
-        count_threshold: seconds with counts above threshold are considered functional (dichotomization)
-        functional_space: seconds within functional space are considered functional (dichotomization)
-        decision_mode: 'Subash' or 'Linus'
-
-    Returns:
-        Numpy array of predictions (0s and 1s).
-    """
-    pitch_dichotomization = np.where(np.abs(pitch) < functional_space, 1, 0)# Compute the functional space dichotomization based on the original GMAC algorithm
-    if decision_mode == 'Linus':
-        pitch_dichotomization = np.where(pitch > -functional_space, 1, 0)# Compute the functional space dichotomization based on the Linus GMAC algorithm
-
-    return np.where(np.logical_and(counts > count_threshold, pitch_dichotomization), 1, 0)
+from GMAC import get_prediction_gmac
 
 
 def AUC_analisys(ground_truth, pred):
