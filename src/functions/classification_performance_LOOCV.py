@@ -50,16 +50,26 @@ class LOOCV_performance:
         self.count_data = count_data
         self.pitch_data = pitch_data
 
-    def get_threshold_model(self, X_train):
+    def get_threshold_model(self, X_train, count_threshold_model='linear', elevation_threshold_model='polynomial'):
         FMA_array = np.array([participant['FMA_UE'] for participant in X_train])
         count_threshold_array = np.array([participant['COUNT_THRESHOLD_NDH'] for participant in X_train])
         elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_NDH'] for participant in X_train])
 
         regression_model_count = RegressionModel(FMA_array, count_threshold_array)
-        regression_model_count.fit_polynomial_regression(2)
+        if count_threshold_model == 'linear':
+            regression_model_count.fit_linear_regression()
+        elif count_threshold_model == 'polynomial':
+            regression_model_count.fit_polynomial_regression(2)
+        else:
+            raise ValueError(f"Invalid count_threshold_model: {count_threshold_model}")
 
         regression_model_elevation = RegressionModel(FMA_array, elevation_threshold_array)
-        regression_model_elevation.fit_polynomial_regression(2)
+        if elevation_threshold_model == 'linear':
+            regression_model_elevation.fit_linear_regression()
+        elif elevation_threshold_model == 'polynomial':
+            regression_model_elevation.fit_polynomial_regression(2)
+        else:
+            raise ValueError(f"Invalid elevation_threshold_model: {elevation_threshold_model}")
 
         return regression_model_count, regression_model_elevation
 
@@ -67,11 +77,11 @@ class LOOCV_performance:
     def retreive_personalized_thresholds(self, X_test, count_threshold_model, elevation_threshold_model):
         assert len(X_test) == 1, "X_test should contain only one participant"
         FMA = X_test[0]['FMA_UE']
-        count_predict = count_threshold_model.predict_polynomial(FMA, 2)
+        count_predict = count_threshold_model.predict_linear(FMA)
         elevation_predict = elevation_threshold_model.predict_polynomial(FMA, 2)
 
         print("Validation on participant ", X_test[0]['participant_id'])
-        print("Polynomial Predictions of personal COUNT threshold: ", count_predict, ". Ground truth individual optimal threshold NDH: ", X_test[0]['COUNT_THRESHOLD_NDH'])
+        print("Linear Predictions of personal COUNT threshold: ", count_predict, ". Ground truth individual optimal threshold NDH: ", X_test[0]['COUNT_THRESHOLD_NDH'])
         print("Polynomial Predictions of personal ELEVATION threshold: ", elevation_predict, ". Ground truth individual optimal threshold NDH: ", X_test[0]['PITCH_THRESHOLD_NDH'])
 
         return count_predict, elevation_predict
@@ -151,12 +161,15 @@ class LOOCV_performance:
         self.evaluation_FMA = []
 
         self.optimal_YI_list = []
+        self.optimal_YI_LinReg_list = []#TODO compare all accuracies of linear and polynomial regression combination
         self.conventioanl_YI_list = []
         self.mean_YI_list = []
         self.optimal_accuracy_list = []
+        self.optimal_accuracy_LinReg_list = []
         self.conventioanl_accuracy_list = []
         self.mean_accuracy_list = []
         self.optimal_AUC_list = []
+        self.optimal_AUC_LinReg_list = []
         self.conventioanl_AUC_list = []
         self.mean_AUC_list = []
 
@@ -358,6 +371,16 @@ class LOOCV_performance:
 
         plt.tight_layout()
         plt.show()
+
+    def spearman_correlation_classification_impairment(self):
+        # Calculate the Spearman correlation
+        spearman_correlation_dict = {
+            'optimal_YI': spearmanr(self.evaluation_FMA, self.optimal_YI_list),
+            'conventional_YI': spearmanr(self.evaluation_FMA, self.conventioanl_YI_list),
+            'optimal_accuracy': spearmanr(self.evaluation_FMA, self.optimal_accuracy_list),
+            'conventional_accuracy': spearmanr(self.evaluation_FMA, self.conventioanl_accuracy_list)
+        }
+        print(spearman_correlation_dict)
 
     def plot_FMA_scatter(self):
         plt.rcParams.update({'font.size': 16})
