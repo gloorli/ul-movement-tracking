@@ -938,31 +938,6 @@ def resample_angle_data(angle_data, original_frequency, desired_frequency):
     return resampled_data
 
 
-def get_GT_dict(testing_dataset):
-    """
-    Constructs a dictionary containing ground truth masks for NDH, DH, and BIL at 50Hz.
-
-    Args:
-        testing_dataset (dict): Participant dataset containing GT_mask_DH_50Hz and GT_mask_NDH_50Hz.
-
-    Returns:
-        dict: Dictionary containing ground truth masks for NDH, DH, and BIL at 50Hz.
-    """
-    
-    # Initialize dictionary to store ground truth masks
-    testing_dict_GT_mask_50Hz = {}
-    
-    # Initialize sub-dictionaries for each limb condition to store the ground truth mask for 'GT'
-    testing_dict_GT_mask_50Hz['NDH'] = {'GT': testing_dataset['GT_mask_NDH_50Hz']}
-    testing_dict_GT_mask_50Hz['DH'] = {'GT': testing_dataset['GT_mask_DH_50Hz']}
-    
-    # Compute the ground truth mask for bilateral (BIL) condition
-    bil_gt_mask = get_mask_bilateral(testing_dataset['GT_mask_NDH_50Hz'], testing_dataset['GT_mask_DH_50Hz'])
-    testing_dict_GT_mask_50Hz['BIL'] = {'GT': bil_gt_mask}
-
-    return testing_dict_GT_mask_50Hz
-
-
 def plot_bar_chart(conventional_metrics, optimal_metrics, metric, scenario, group, save_filename=None, show_plot=True):
     
     sns.set(style="whitegrid")  # Use seaborn for a more modern look
@@ -1073,6 +1048,115 @@ def extract_fields_from_json_files(file_paths, fields):
     return results
 
 
+def get_data(folder, dominant_hand, using_axivity=False):
+    # Load IMU data
+    LW_data_filename = 'trimmed_LW_data.csv'
+    chest_data_filename = 'trimmed_chest_data.csv'
+    RW_data_filename = 'trimmed_RW_data.csv'
+
+    LW_data_path = os.path.join(folder, LW_data_filename)
+    chest_data_path = os.path.join(folder, chest_data_filename)
+    RW_data_path = os.path.join(folder, RW_data_filename)
+
+    LW_data = pd.read_csv(LW_data_path)
+    chest_data = None
+    if not using_axivity:
+        chest_data = pd.read_csv(chest_data_path)
+    RW_data = pd.read_csv(RW_data_path)
+
+    # Load Video GT data
+    GT_mask_LW_filename = 'GT_mask_LW.csv'
+    GT_mask_RW_filename = 'GT_mask_RW.csv'
+
+    GT_mask_LW_path = os.path.join(folder, GT_mask_LW_filename)
+    GT_mask_RW_path = os.path.join(folder, GT_mask_RW_filename)
+
+    GT_mask_LW = pd.read_csv(GT_mask_LW_path)
+    GT_mask_RW = pd.read_csv(GT_mask_RW_path)
+
+    # important: make the condition case-insensitive
+    # for stroke: dh = non-affected hand 
+    if dominant_hand.lower() == 'right': 
+        dh_data = RW_data
+        GT_mask_dh = np.array(GT_mask_RW)
+        ndh_data = LW_data
+        GT_mask_ndh = np.array(GT_mask_LW)
+    else: 
+        dh_data = LW_data
+        GT_mask_dh = np.array(GT_mask_LW)
+        ndh_data = RW_data
+        GT_mask_ndh = np.array(GT_mask_RW)
+
+    # Return the loaded dataframes
+    return ndh_data, chest_data, dh_data, GT_mask_ndh, GT_mask_dh
+
+
+def plot_superposition(array1, array2):
+    """
+    Plot two arrays over time using different colors with increased plot size.
+
+    Parameters:
+    array1 (ndarray): First array to be plotted.
+    array2 (ndarray): Second array to be plotted.
+
+    Raises:
+    ValueError: If the sizes of the arrays are different.
+
+    Returns:
+    None
+    """
+    if len(array1) != len(array2):
+        raise ValueError("Arrays must have the same size.")
+
+    time = np.arange(len(array1))  # Time array assuming 1Hz sampling frequency
+
+    plt.figure(figsize=(18, 9))  # Increased plot size
+
+    plt.plot(time, array1, color='blue', label='Array 1')
+    plt.plot(time, array2, color='red', label='Array 2')
+
+    plt.xlabel('Time')
+    plt.ylabel('Value')
+    plt.title('Arrays Over Time')
+    plt.legend()
+
+    plt.show()
+
+
+def replace_wbm_with_nf(mask):
+    # Replace WBM mask by NF mask 
+    mask = np.where(mask == -1, 0, mask)    
+    return mask
+
+def plot_angles_over_time(angles):
+    """
+    Plots angles over time.
+
+    Args:
+        angles (np.ndarray): Array of angles in degrees.
+        sampling_freq (int): Sampling frequency in Hz.
+
+    Returns:
+        None.
+    """
+    
+    sampling_freq = 50 #Hz 
+    
+    # Increase figure size
+    plt.figure(figsize=(18, 9))
+    
+    # Calculate time array based on the length and sampling frequency
+    time = np.arange(len(angles)) / sampling_freq
+
+    # Plot angles over time
+    plt.plot(time, angles)
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Angle (degrees)')
+    plt.title('Angles over Time')
+    plt.grid(True)
+    plt.show()
+
+    
 def from_LWRW_to_NDHDH(affected_hand, primitives):
     """
     Converts the list of LW/RW primitives to NDH and DH primitive list.
