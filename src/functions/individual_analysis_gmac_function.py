@@ -41,9 +41,46 @@ def calculate_min_max_std(X):
     }
 
     return min_max_std
-    
 
-def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal=True):
+def get_threshold_range(counts, elevations):
+    """
+    Calculates the threshold and angle ranges based on the given maximum counts and elevations.
+
+    Parameters:
+    counts (array-like): An array-like object containing the counts.
+    elevations (array-like): An array-like object containing the elevations.
+
+    Returns:
+    tuple: A tuple containing the threshold range and angle range.
+
+    """
+    thres_range = np.arange(0, int(np.max(counts)) + 1)
+    angle_range = np.arange(0, int(np.max(np.abs(elevations))) + 1)
+    return thres_range, angle_range
+
+def get_classification_metrics(y_true, y_pred):
+    """
+    Calculate classification metrics based on the true labels and predicted labels.
+
+    Parameters:
+    - y_true (array-like): True labels.
+    - y_pred (array-like): Predicted labels.
+
+    Returns:
+    - accuracy (float): Accuracy of the classification.
+    - sensitivity (float): Sensitivity (True Positive Rate) of the classification.
+    - specificity (float): Specificity (True Negative Rate) of the classification.
+    - youden_index (float): Youden's Index of the classification.
+
+    """
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    accuracy = (tp + tn) / (tp + tn + fp + fn)
+    sensitivity = tp / (tp + fn)
+    specificity = tn / (tn + fp)
+    youden_index = sensitivity + specificity - 1
+    return accuracy, sensitivity, specificity, youden_index
+
+def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal='No'):
     """
     Perform k-fold cross-validation on the GMAC algorithm thresholds.
 
@@ -52,7 +89,7 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal=True):
         y: Numpy array of GT labels
         k: Number of splits in k-fold cross-validation
         random_state: Random seed
-        optimal: Boolean indicating whether to find the optimal thresholds
+        optimal: String indicating whether to find the optimal thresholds
 
     Returns:
         Average optimal evaluation metrics and Tuple of average optimal (count threshold, pitch threshold)
@@ -87,14 +124,13 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal=True):
         X_train, X_eval = X[train_index, :], X[test_index, :]
         y_train, y_eval = y[train_index], y[test_index]
         
-        if optimal:
+        if optimal=='Yes_Subash':
             # Train your model and find the optimal threshold using X_train and y_train
             counts=X_train[:, 0]
             pitch=X_train[:, 1]
 
             # Define the thresholds you want to investigate
-            thres_range = np.arange(0, int(np.max(counts)) + 1)
-            angle_range = np.arange(0, int(np.max(np.abs(pitch))) + 1)
+            thres_range, angle_range = get_threshold_range(counts, pitch)
 
             #vars to store values of each investigated threshold combination
             thres_angle_range = []
@@ -112,11 +148,7 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal=True):
                     y_train_pred = get_prediction_gmac(counts, pitch, count_threshold=thres, functional_space=angle, decision_mode='Subash')
                     y_train_pred = y_train_pred.astype(int)
 
-                    tn, fp, fn, tp = confusion_matrix(y_train, y_train_pred).ravel()
-                    accuracy = (tp + tn) / (tp + tn + fp + fn)
-                    sensitivity = tp / (tp + fn)
-                    specificity = tn / (tn + fp)
-                    youden_index = sensitivity + specificity - 1
+                    accuracy, sensitivity, specificity, youden_index = get_classification_metrics(y_train, y_train_pred)
 
                     results_temp.loc[len(results_temp)] = [accuracy*100, sensitivity*100, specificity*100, youden_index]
                     thres_angle_range.append([thres, angle])
@@ -127,22 +159,59 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal=True):
             optimal_thres = thres_angle_range[max_index][0]
             optimal_angle = thres_angle_range[max_index][1]
             results_train.loc[len(results_train)] = results_temp.iloc[max_index]
+            print('Using optimized Subash GMAC thresholds')
+
+        elif optimal=='Yes_Linus':
+            # Train your model and find the optimal threshold using X_train and y_train
+            counts=X_train[:, 0]
+            pitch=X_train[:, 1]
+
+            # Define the thresholds you want to investigate
+            thres_range, angle_range = get_threshold_range(counts, pitch)
+
+            #vars to store values of each investigated threshold combination
+            thres_angle_range = []
+            results_temp = {
+                'Accuracy': [],
+                'Sensitivity': [],
+                'Specificity': [], 
+                'Youden_index': []
+            }
+            results_temp = pd.DataFrame(results_temp)
+
+            # Loop through all possible threshold combinations
+            for thres in thres_range:
+                for angle in angle_range:
+                    y_train_pred = get_prediction_gmac(counts, pitch, count_threshold=thres, functional_space=angle, decision_mode='Linus')
+                    y_train_pred = y_train_pred.astype(int)
+
+                    accuracy, sensitivity, specificity, youden_index = get_classification_metrics(y_train, y_train_pred)
+
+                    results_temp.loc[len(results_temp)] = [accuracy*100, sensitivity*100, specificity*100, youden_index]
+                    thres_angle_range.append([thres, angle])
+
+            # Find the index of the thresholds that maximizes the Youden Index
+            max_index = np.argmax(results_temp['Youden_index'])
+            # Retrieve the optimal thresholds
+            optimal_thres = thres_angle_range[max_index][0]
+            optimal_angle = thres_angle_range[max_index][1]
+            results_train.loc[len(results_train)] = results_temp.iloc[max_index]
+            print('Using optimized Linus GMAC thresholds')
         
-        else: 
+        elif optimal=='No': 
             optimal_thres = 0
             optimal_angle = 30
-            print('Using conventional threshold')
+            print('Using conventional Subash GMAC thresholds')
+
+        else:
+            raise ValueError("Invalid value for 'optimal'. Please use 'Yes_Subash', 'Yes_Linus' or 'No'.")
 
         # Use the optimal thresholds to get predictions by dichotomizing X_eval 
         y_test_pred = get_prediction_gmac(counts=X_eval[:, 0], pitch=X_eval[:, 1], count_threshold=optimal_thres, functional_space=optimal_angle, decision_mode='Subash')
         y_test_pred = y_test_pred.astype(int)
 
         # Compute evaluation metrics for this iteration comparing the predictions and the y_eval
-        tn, fp, fn, tp = confusion_matrix(y_eval, y_test_pred).ravel()
-        accuracy = (tp + tn) / (tp + tn + fp + fn)
-        sensitivity = tp / (tp + fn)
-        specificity = tn / (tn + fp)
-        youden_index = sensitivity + specificity - 1
+        accuracy, sensitivity, specificity, youden_index = get_classification_metrics(y_eval, y_test_pred)
 
         #store metrics and thresholds of the current iteration
         results_test.loc[len(results_test)] = [accuracy*100, sensitivity*100, specificity*100, youden_index, optimal_thres, optimal_angle]
@@ -150,10 +219,6 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal=True):
         # Print the optimal thresholds
         print(f"Optimal Count Threshold: {optimal_thres:.2f}")
         print(f"Optimal Pitch Threshold: {optimal_angle:.2f}")
-
-        #Investigate the AUC
-        #AUC_analisys(y_train, X_train) #TODO needs investigation
-
 
     # Compute the average evaluation metrics across the splits 
     avg_sensitivity = np.mean(results_test['Sensitivity'])
