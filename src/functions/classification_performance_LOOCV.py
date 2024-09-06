@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from scipy.stats import spearmanr
 
 from utilities import *
@@ -35,16 +36,18 @@ class LOOCV_performance:
         GT_NDH_1Hz = []
         GT_DH_1Hz = []
         task_mask_ndh_1Hz = []
+        task_mask_dh_1Hz = []
         for path in json_files:
-            dict_1Hz = extract_fields_from_json_files([path], ['GT_mask_NDH_1Hz', 'GT_mask_DH_1Hz', 'counts_for_GMAC_ndh_1Hz', 'counts_for_GMAC_dh_1Hz', 'task_mask_for_GMAC_NDH_1Hz', 'pitch_for_GMAC_ndh_1Hz', 'pitch_for_GMAC_dh_1Hz'])
+            dict_1Hz = extract_fields_from_json_files([path], ['GT_mask_NDH_1Hz', 'GT_mask_DH_1Hz', 'counts_for_GMAC_ndh_1Hz', 'counts_for_GMAC_dh_1Hz', 'task_mask_for_GMAC_NDH_1Hz', 'task_mask_for_GMAC_DH_1Hz', 'pitch_for_GMAC_ndh_1Hz', 'pitch_for_GMAC_dh_1Hz'])
             task_mask_ndh_1Hz.append(dict_1Hz['task_mask_for_GMAC_NDH_1Hz'])
+            task_mask_dh_1Hz.append(dict_1Hz['task_mask_for_GMAC_DH_1Hz'])
             GT_NDH_1Hz.append(dict_1Hz['GT_mask_NDH_1Hz'])
             GT_DH_1Hz.append(dict_1Hz['GT_mask_DH_1Hz'])
             counts_NDH_1Hz.append(dict_1Hz['counts_for_GMAC_ndh_1Hz'])
             counts_DH_1Hz.append(dict_1Hz['counts_for_GMAC_dh_1Hz'])
             elevation_NDH_1Hz.append(dict_1Hz['pitch_for_GMAC_ndh_1Hz'])
             elevation_DH_1Hz.append(dict_1Hz['pitch_for_GMAC_dh_1Hz'])
-        task_mask = {'task_mask_ndh_1Hz': task_mask_ndh_1Hz}
+        task_mask = {'task_mask_ndh_1Hz': task_mask_ndh_1Hz, 'task_mask_dh_1Hz': task_mask_dh_1Hz}
         gt_functional = {'GT_mask_NDH_1Hz': GT_NDH_1Hz, 'GT_mask_DH_1Hz': GT_DH_1Hz}
         count_data = {'counts_NDH_1Hz': counts_NDH_1Hz, 'counts_DH_1Hz': counts_DH_1Hz}
         pitch_data = {'elevation_NDH_1Hz': elevation_NDH_1Hz, 'elevation_DH_1Hz': elevation_DH_1Hz}
@@ -88,22 +91,27 @@ class LOOCV_performance:
 
         return count_predict, elevation_predict
     
-    def retreive_mean_thresholds(self, X_train, decision_mode='Subash'):
+    def retreive_mean_thresholds(self, X_train, decision_mode='Subash', side='NDH'):
+        assert decision_mode != 'Linus' or side != 'DH', "Invalid combination of decision mode and side. (Linus, DH) is not yet implemented."
         count_threshold_array = np.array([participant['COUNT_THRESHOLD_NDH'] for participant in X_train])
         elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_NDH'] for participant in X_train])
         if decision_mode=='Linus':
             count_threshold_array = np.array([participant['COUNT_THRESHOLD_NDH_Linus'] for participant in X_train])
             elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_NDH_Linus'] for participant in X_train])
+        if side == 'DH':
+            count_threshold_array = np.array([participant['COUNT_THRESHOLD_DH'] for participant in X_train])
+            elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_DH'] for participant in X_train])
 
         return np.mean(count_threshold_array), np.mean(elevation_threshold_array)
 
-    def calculate_GMAC_classification_performance(self, X_test, y_test, personalized_count_threshold, personalized_elevation_threshold):
+    def calculate_GMAC_classification_performance(self, X_test, y_test, personalized_count_threshold, personalized_elevation_threshold, side='NDH'):
         assert len(X_test) == 1, "X_test should contain only one participant"
         assert len(y_test) == 1, "y_test should contain only one participant"
+        assert side in ['NDH', 'DH'], "Invalid side: {side}"
         test_gt = y_test[0].flatten()
 
-        counts_array = np.array(X_test[0]['counts_NDH_1Hz'])
-        elevation_array = np.array(X_test[0]['elevation_NDH_1Hz'])
+        counts_array = np.array(X_test[0]['counts_NDH_1Hz']) if side == 'NDH' else np.array(X_test[0]['counts_DH_1Hz'])
+        elevation_array = np.array(X_test[0]['elevation_NDH_1Hz']) if side == 'NDH' else np.array(X_test[0]['elevation_DH_1Hz'])
 
         gmac_prediction = get_prediction_gmac(counts_array, elevation_array, count_threshold=personalized_count_threshold, functional_space=personalized_elevation_threshold, decision_mode='Subash')
         gmac_prediction = gmac_prediction.astype(int)
@@ -131,6 +139,31 @@ class LOOCV_performance:
 
         return accuracy_per_task
 
+    def prepare_participant_dicts(self):
+        """
+        Prepare a list of dictionaries, where each dictionary represents a participant and contains their relevant data.
+        """
+        participant_dicts = []
+        for i, participant_id in enumerate(self.PARTICIPANT_ID):
+            participant_dict = {
+                'participant_id': participant_id,
+                'ARAT': self.ARAT[i],
+                'FMA_UE': self.FMA_UE[i],
+                'COUNT_THRESHOLD_NDH': self.COUNT_THRESHOLD_NDH[i],
+                'PITCH_THRESHOLD_NDH': self.PITCH_THRESHOLD_NDH[i],
+                'COUNT_THRESHOLD_NDH_Linus': self.COUNT_THRESHOLD_NDH_Linus[i],
+                'PITCH_THRESHOLD_NDH_Linus': self.PITCH_THRESHOLD_NDH_Linus[i],
+                'COUNT_THRESHOLD_DH': self.COUNT_THRESHOLD_DH[i],
+                'PITCH_THRESHOLD_DH': self.PITCH_THRESHOLD_DH[i],
+                'counts_NDH_1Hz': self.count_data['counts_NDH_1Hz'][i],
+                'elevation_NDH_1Hz': self.pitch_data['elevation_NDH_1Hz'][i],
+                'task_mask_ndh_1Hz': self.task_mask['task_mask_ndh_1Hz'][i],
+                'counts_DH_1Hz': self.count_data['counts_DH_1Hz'][i],
+                'elevation_DH_1Hz': self.pitch_data['elevation_DH_1Hz'][i],
+                'task_mask_dh_1Hz': self.task_mask['task_mask_dh_1Hz'][i],
+            }
+            participant_dicts.append(participant_dict)
+        return participant_dicts
 
     def LOOCV_complete(self, perTask=True):
         """
@@ -141,96 +174,95 @@ class LOOCV_performance:
         Returns:
             None
         """
-        participant_dicts = [] # List with one dictionary per participant containing all the necessary participants data
-        for i, participant_id in enumerate(self.PARTICIPANT_ID):
-            participant_dict = {
-                'participant_id': participant_id,
-                'ARAT': self.ARAT[i],
-                'FMA_UE': self.FMA_UE[i],
-                'COUNT_THRESHOLD_NDH': self.COUNT_THRESHOLD_NDH[i],
-                'PITCH_THRESHOLD_NDH': self.PITCH_THRESHOLD_NDH[i],
-                'COUNT_THRESHOLD_NDH_Linus': self.COUNT_THRESHOLD_NDH_Linus[i],
-                'PITCH_THRESHOLD_NDH_Linus': self.PITCH_THRESHOLD_NDH_Linus[i],
-                'counts_NDH_1Hz': self.count_data['counts_NDH_1Hz'][i],
-                'elevation_NDH_1Hz': self.pitch_data['elevation_NDH_1Hz'][i],
-                'task_mask_ndh_1Hz': self.task_mask['task_mask_ndh_1Hz'][i]
-            }
-            participant_dicts.append(participant_dict)
-
         looCV = LeaveOneGroupOut()
-        X = participant_dicts
-        y = self.gt_functional['GT_mask_NDH_1Hz']
+        X = self.prepare_participant_dicts()
+        y_ndh = self.gt_functional['GT_mask_NDH_1Hz']
+        y_dh = self.gt_functional['GT_mask_DH_1Hz']
         group_IDs = self.PARTICIPANT_ID
 
         self.evaluation_FMA = []
 
         self.optimal_YI_list_ndh = []
-        #self.optimal_YI_LinReg_list = []#TODO compare all accuracies of linear and polynomial regression combination, also no need to declare all this here
         self.conventioanl_YI_list_ndh = []
         self.mean_YI_list_ndh = []
         self.optimal_YI_list_ndh_Linus = []
         self.mean_YI_list_ndh_Linus = []
+        self.conventional_YI_list_dh = []
+        self.mean_YI_list_dh = []
 
         self.optimal_accuracy_list_ndh = []
-        #self.optimal_accuracy_LinReg_list = []
         self.conventioanl_accuracy_list_ndh = []
         self.mean_accuracy_list_ndh = []
         self.optimal_accuracy_list_ndh_Linus = []
         self.mean_accuracy_list_ndh_Linus = []
+        self.conventional_accuracy_list_dh = []
+        self.mean_accuracy_list_dh = []
 
         self.optimal_AUC_list_ndh = []
-        #self.optimal_AUC_LinReg_list = []
         self.conventioanl_AUC_list_ndh = []
         self.mean_AUC_list_ndh = []
         self.optimal_AUC_list_ndh_Linus = []
         self.mean_AUC_list_ndh_Linus = []
+        self.conventional_AUC_list_dh = []
+        self.mean_AUC_list_dh = []
 
-        self.optimal_accuracy_perTask_ndh = {}
-        self.conventional_accuracy_perTask_ndh = {}
+        self.optimal_accuracy_perTask = {}
+        self.conventional_accuracy_perTask = {}
 
-        for train_index, test_index in looCV.split(X, y, groups=group_IDs):
+        for train_index, test_index in looCV.split(X, y_ndh, groups=group_IDs):
             
-            X_train, _ = [X[i] for i in train_index], [y[i] for i in train_index]
-            X_test, y_test = [X[i] for i in test_index], [y[i] for i in test_index]
+            X_train, _ = [X[i] for i in train_index], [y_ndh[i] for i in train_index]
+            X_test, y_test = [X[i] for i in test_index], [y_ndh[i] for i in test_index]
+            y_test_dh = [y_dh[i] for i in test_index]
 
             regression_model_count_ndh, regression_model_elevation_ndh = self.get_threshold_model(X_train)
             regression_model_count_ndh_Linus, regression_model_elevation_ndh_Linus = self.get_threshold_model(X_train, decision_mode='Linus')
-            #TODO same for dh
+            
             personalized_count_threshold_ndh, personalized_elevation_threshold_ndh = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh, regression_model_elevation_ndh)
             personalized_count_threshold_ndh_Linus, personalized_elevation_threshold_ndh_Linus = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh_Linus, regression_model_elevation_ndh_Linus)
-            #TODO same for dh
-            youden_index_optimized_ndh, accuracy_optimized_ndh, auc_optimized_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
-            youden_index_conventional, accuracy_conventional, auc_conventional = self.calculate_GMAC_classification_performance(X_test, y_test, 0, 30)
-            youden_index_optimized_ndh_Linus, accuracy_optimized_ndh_Linus, auc_optimized_ndh_Linus = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh_Linus, personalized_elevation_threshold_ndh_Linus)
-            #TODO same for dh
+
+            youden_index_optimized_ndh, accuracy_optimized_ndh, auc_optimized_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh, side='NDH')
+            youden_index_conventional_ndh, accuracy_conventional_ndh, auc_conventional_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, 0, 30, side='NDH')
+            youden_index_optimized_ndh_Linus, accuracy_optimized_ndh_Linus, auc_optimized_ndh_Linus = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh_Linus, personalized_elevation_threshold_ndh_Linus, side='NDH')
 
             loocv_mean_count_ndh, loocv_mean_elevation_ndh = self.retreive_mean_thresholds(X_train)
-            youden_index_mean_ndh, accuracy_mean_ndh, auc_mean_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh, loocv_mean_elevation_ndh)
+            youden_index_mean_ndh, accuracy_mean_ndh, auc_mean_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh, loocv_mean_elevation_ndh, side='NDH')
             loocv_mean_count_ndh_Linus, loocv_mean_elevation_ndh_Linus = self.retreive_mean_thresholds(X_train, decision_mode='Linus')
-            youden_index_mean_ndh_Linus, accuracy_mean_ndh_Linus, auc_mean_ndh_Linus = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh_Linus, loocv_mean_elevation_ndh_Linus)
+            youden_index_mean_ndh_Linus, accuracy_mean_ndh_Linus, auc_mean_ndh_Linus = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh_Linus, loocv_mean_elevation_ndh_Linus, side='NDH')
+
+            youden_index_conventional_dh, accuracy_conventional_dh, auc_conventional_dh = self.calculate_GMAC_classification_performance(X_test, y_test_dh, 0, 30, side='DH')
+            loocv_mean_count_dh, loocv_mean_elevation_dh = self.retreive_mean_thresholds(X_train, side='DH')
+            youden_index_mean_dh, accuracy_mean_dh, auc_mean_dh = self.calculate_GMAC_classification_performance(X_test, y_test_dh, loocv_mean_count_dh, loocv_mean_elevation_dh, side='DH')
 
             self.evaluation_FMA.append(X_test[0]['FMA_UE'])
 
             self.optimal_YI_list_ndh.append(youden_index_optimized_ndh)
-            self.conventioanl_YI_list_ndh.append(youden_index_conventional)
+            self.conventioanl_YI_list_ndh.append(youden_index_conventional_ndh)
             self.mean_YI_list_ndh.append(youden_index_mean_ndh)
             self.optimal_YI_list_ndh_Linus.append(youden_index_optimized_ndh_Linus)
             self.mean_YI_list_ndh_Linus.append(youden_index_mean_ndh_Linus)
+            self.conventional_YI_list_dh.append(youden_index_conventional_dh)
+            self.mean_YI_list_dh.append(youden_index_mean_dh)
 
             self.optimal_accuracy_list_ndh.append(accuracy_optimized_ndh)
-            self.conventioanl_accuracy_list_ndh.append(accuracy_conventional)
+            self.conventioanl_accuracy_list_ndh.append(accuracy_conventional_ndh)
             self.mean_accuracy_list_ndh.append(accuracy_mean_ndh)
             self.optimal_accuracy_list_ndh_Linus.append(accuracy_optimized_ndh_Linus)
             self.mean_accuracy_list_ndh_Linus.append(accuracy_mean_ndh_Linus)
+            self.conventional_accuracy_list_dh.append(accuracy_conventional_dh)
+            self.mean_accuracy_list_dh.append(accuracy_mean_dh)
 
             self.optimal_AUC_list_ndh.append(auc_optimized_ndh)
-            self.conventioanl_AUC_list_ndh.append(auc_conventional)
+            self.conventioanl_AUC_list_ndh.append(auc_conventional_ndh)
             self.mean_AUC_list_ndh.append(auc_mean_ndh)
             self.optimal_AUC_list_ndh_Linus.append(auc_optimized_ndh_Linus)
             self.mean_AUC_list_ndh_Linus.append(auc_mean_ndh_Linus)
+            self.conventional_AUC_list_dh.append(auc_conventional_dh)
+            self.mean_AUC_list_dh.append(auc_mean_dh)
             #TODO plot predicted and ground truth personalized count threshold and elevation threshold
 
             if perTask:
+                #TODO add dominant hand
                 self.LOOCV_perTask(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
 
     def LOOCV_perTask(self, X_test, y_test, personalized_count_threshold, personalized_elevation_threshold):
@@ -247,15 +279,15 @@ class LOOCV_performance:
         accuracy_per_task_conventional = self.calculate_GMAC_classification_performance_perTask(task_dict, 0, 30)
 
         for task, accuracy in accuracy_per_task_optimized.items():
-            if task in self.optimal_accuracy_perTask_ndh:
-                self.optimal_accuracy_perTask_ndh[task].append(accuracy)
+            if task in self.optimal_accuracy_perTask:
+                self.optimal_accuracy_perTask[task].append(accuracy)
             else:
-                self.optimal_accuracy_perTask_ndh[task] = [accuracy]
+                self.optimal_accuracy_perTask[task] = [accuracy]
         for task, accuracy in accuracy_per_task_conventional.items():
-            if task in self.conventional_accuracy_perTask_ndh:
-                self.conventional_accuracy_perTask_ndh[task].append(accuracy)
+            if task in self.conventional_accuracy_perTask:
+                self.conventional_accuracy_perTask[task].append(accuracy)
             else:
-                self.conventional_accuracy_perTask_ndh[task] = [accuracy]
+                self.conventional_accuracy_perTask[task] = [accuracy]
     
     def check_ANOVA_ttest_Wilcoxon(self, optimal_distribution, conventional_distribution, mean_distribution):
         """
@@ -334,17 +366,12 @@ class LOOCV_performance:
             ax.text((x1 + x2) * .5, y + h if position == "above" else y - 2*h, f"p = {p_val:.4f}", 
                     ha='center', va='bottom', color=col, fontsize=8)
 
-        #TODO combine the following three functions into one
+    #TODO combine the following three functions into one
     def plot_LOOCV_YoudenIndex(self):
         # Get p-values from the test
         ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean = self.check_ANOVA_ttest_Wilcoxon(
             self.optimal_YI_list_ndh, self.conventioanl_YI_list_ndh, self.mean_YI_list_ndh
         )
-
-        # Set colors for the boxplots
-        colors = [thesis_style.get_thesis_colours()['dark_blue'], 
-                thesis_style.get_thesis_colours()['light_blue'], 
-                thesis_style.get_thesis_colours()['turquoise']]
         
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         median_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
@@ -353,30 +380,36 @@ class LOOCV_performance:
 
         # Boxplots
         box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
-        box_optimal = ax.boxplot(self.optimal_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
-        box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
-        box_optimal_Linus = ax.boxplot(self.optimal_YI_list_ndh_Linus, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
-        box_mean_Linus = ax.boxplot(self.mean_YI_list_ndh_Linus, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
+        box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
+        box_optimal = ax.boxplot(self.optimal_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
+        box_conventional_dh = ax.boxplot(self.conventional_YI_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
+        box_mean_dh = ax.boxplot(self.mean_YI_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
 
         # Set box colors
         for box in box_conventional['boxes']:
-            box.set(facecolor=colors[1])
-        for box in box_optimal['boxes']:
-            box.set(facecolor=colors[0])
+            box.set(facecolor=thesis_style.get_thesis_colours()['affected'])
         for box in box_mean['boxes']:
-            box.set(facecolor=colors[2])
-        for box in box_optimal_Linus['boxes']:
-            box.set(facecolor=colors[0])
-        for box in box_mean_Linus['boxes']:
-            box.set(facecolor=colors[2])
+            box.set(facecolor=thesis_style.get_thesis_colours()['affected'])
+        for box in box_optimal['boxes']:
+            box.set(facecolor=thesis_style.get_thesis_colours()['affected'])
+        for box in box_conventional_dh['boxes']:
+            box.set(facecolor=thesis_style.get_thesis_colours()['healthy'])
+        for box in box_mean_dh['boxes']:
+            box.set(facecolor=thesis_style.get_thesis_colours()['healthy'])
 
         # random classifier
         ax.axhline(y=0.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Performance of random classifier')
-        plt.legend(loc='upper right')
+        ax.add_artist(plt.legend(loc='lower right'))
+
+        # Add colors of healthy and affected boxes to legend
+        legend_colors = [thesis_style.get_thesis_colours()['healthy'], thesis_style.get_thesis_colours()['affected']]
+        legend_labels = ['Healthy side', 'Affected side']
+        legend_patches = [mpatches.Patch(color=color, label=label) for color, label in zip(legend_colors, legend_labels)]
+        ax.add_artist(plt.legend(handles=legend_patches, loc='upper right'))
 
         # Set x-ticks and labels
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean personalized', 'Personalized Linus', 'Mean optimal Linus'])
+        ax.set_xticklabels(['Conventional', 'Mean personalized', 'Personalized', 'Conventional', 'Mean personalized'])
         ax.set_ylim(-0.1, 1)
 
         # Set y-label and title
@@ -385,7 +418,7 @@ class LOOCV_performance:
 
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.65, 0.7, 0.75]  # Different heights for the brackets above the boxplot
-        bracket_positions = [(1, 2), (2, 3), (1, 3)]  # (start, end) of the brackets
+        bracket_positions = [(1, 3), (2, 3), (1, 2)]  # (start, end) of the brackets
         p_values = [ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean]
         self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
 
@@ -396,38 +429,43 @@ class LOOCV_performance:
             self.optimal_AUC_list_ndh, self.conventioanl_AUC_list_ndh, self.mean_AUC_list_ndh
             )
 
-        # Set colors for the boxplots
-        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange'], thesis_style.get_thesis_colours()['turquoise']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
         box_conventional = ax.boxplot(self.conventioanl_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_optimal = ax.boxplot(self.optimal_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_optimal_Linus = ax.boxplot(self.optimal_AUC_list_ndh_Linus, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean_Linus = ax.boxplot(self.mean_AUC_list_ndh_Linus, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional_dh = ax.boxplot(self.conventional_AUC_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean_dh = ax.boxplot(self.mean_AUC_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
+        # Set box colors
         for box in box_conventional['boxes']:
-            box.set(facecolor=colors[1])
-        for box in box_optimal['boxes']:
-            box.set(facecolor=colors[0])
+            box.set(facecolor=thesis_style.get_thesis_colours()['affected'])
         for box in box_mean['boxes']:
-            box.set(facecolor=colors[3])
-        for box in box_optimal_Linus['boxes']:
-            box.set(facecolor=colors[0])
-        for box in box_mean_Linus['boxes']:
-            box.set(facecolor=colors[3])
+            box.set(facecolor=thesis_style.get_thesis_colours()['affected'])
+        for box in box_optimal['boxes']:
+            box.set(facecolor=thesis_style.get_thesis_colours()['affected'])
+        for box in box_conventional_dh['boxes']:
+            box.set(facecolor=thesis_style.get_thesis_colours()['healthy'])
+        for box in box_mean_dh['boxes']:
+            box.set(facecolor=thesis_style.get_thesis_colours()['healthy'])
 
         # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
-        ax.axhline(y=0.75, color=colors[2], linestyle='--', label='Clinically required performance')
+        ax.axhline(y=0.75, color=thesis_style.get_thesis_colours()['yellow'], linestyle='--', label='Clinically required performance')
         # random classifier
         ax.axhline(y=0.5, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Performance of random classifier')
-        plt.legend(loc='upper right')
+        ax.add_artist(plt.legend(loc='upper right'))
+
+        # Add colors of healthy and affected boxes to legend
+        legend_colors = [thesis_style.get_thesis_colours()['healthy'], thesis_style.get_thesis_colours()['affected']]
+        legend_labels = ['Healthy side', 'Affected side']
+        legend_patches = [mpatches.Patch(color=color, label=label) for color, label in zip(legend_colors, legend_labels)]
+        ax.add_artist(plt.legend(handles=legend_patches, loc='lower right'))
 
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean personalized', 'Personalized Linus', 'Mean optimal Linus'])
+        ax.set_xticklabels(['Conventional', 'Mean personalized', 'Personalized', 'Conventional', 'Mean personalized'])
         ax.set_ylim(0.45, 1.0)
 
         plt.rcParams.update({'font.size': 12})
@@ -436,7 +474,7 @@ class LOOCV_performance:
 
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.6, 0.57, 0.65]  # Different heights for the brackets above the boxplot
-        bracket_positions = [(1, 2), (2, 3), (1, 3)]  # (start, end) of the brackets
+        bracket_positions = [(1, 3), (2, 3), (1, 2)]  # (start, end) of the brackets
         p_values = [ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean]
         self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="below")
 
@@ -447,38 +485,43 @@ class LOOCV_performance:
             self.optimal_accuracy_list_ndh, self.conventioanl_accuracy_list_ndh, self.mean_accuracy_list_ndh
             )
 
-        # Set colors for the boxplots
-        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange'], thesis_style.get_thesis_colours()['turquoise']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
         box_conventional = ax.boxplot(self.conventioanl_accuracy_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_optimal = ax.boxplot(self.optimal_accuracy_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean = ax.boxplot(self.mean_accuracy_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_optimal_Linus = ax.boxplot(self.optimal_accuracy_list_ndh_Linus, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean_Linus = ax.boxplot(self.mean_accuracy_list_ndh_Linus, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean = ax.boxplot(self.mean_accuracy_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_accuracy_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional_dh = ax.boxplot(self.conventional_accuracy_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean_dh = ax.boxplot(self.mean_accuracy_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
+        # Set box colors
         for box in box_conventional['boxes']:
-            box.set(facecolor=colors[1])
-        for box in box_optimal['boxes']:
-            box.set(facecolor=colors[0])
+            box.set(facecolor=thesis_style.get_thesis_colours()['affected'])
         for box in box_mean['boxes']:
-            box.set(facecolor=colors[3])
-        for box in box_optimal_Linus['boxes']:
-            box.set(facecolor=colors[0])
-        for box in box_mean_Linus['boxes']:
-            box.set(facecolor=colors[3])
+            box.set(facecolor=thesis_style.get_thesis_colours()['affected'])
+        for box in box_optimal['boxes']:
+            box.set(facecolor=thesis_style.get_thesis_colours()['affected'])
+        for box in box_conventional_dh['boxes']:
+            box.set(facecolor=thesis_style.get_thesis_colours()['healthy'])
+        for box in box_mean_dh['boxes']:
+            box.set(facecolor=thesis_style.get_thesis_colours()['healthy'])
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
-        ax.axhline(y=0.9, color=colors[2], linestyle='--', label='Clinically required performance')
+        ax.axhline(y=0.9, color=thesis_style.get_thesis_colours()['yellow'], linestyle='--', label='Clinically required performance')
         # random classifier
         ax.axhline(y=0.5, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Performance of random classifier')
-        plt.legend(loc='upper right')
+        ax.add_artist(plt.legend(loc='upper right'))
+
+        # Add colors of healthy and affected boxes to legend
+        legend_colors = [thesis_style.get_thesis_colours()['healthy'], thesis_style.get_thesis_colours()['affected']]
+        legend_labels = ['Healthy side', 'Affected side']
+        legend_patches = [mpatches.Patch(color=color, label=label) for color, label in zip(legend_colors, legend_labels)]
+        ax.add_artist(plt.legend(handles=legend_patches, loc='lower right'))
         
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean personalized', 'Personalized Linus', 'Mean optimal Linus'])
+        ax.set_xticklabels(['Conventional', 'Mean personalized', 'Personalized', 'Conventional', 'Mean personalized'])
         ax.set_ylim(0.45, 1.0)
         ax.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
         ax.set_yticklabels(['50%', '60%', '70%', '80%', '90%', '100%'])        
@@ -488,7 +531,7 @@ class LOOCV_performance:
 
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.6, 0.68, 0.64]  # Different heights for the brackets above the boxplot
-        bracket_positions = [(1, 2), (2, 3), (1, 3)]  # (start, end) of the brackets
+        bracket_positions = [(1, 3), (2, 3), (1, 2)]  # (start, end) of the brackets
         p_values = [ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean]
         self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="below")
 
@@ -500,7 +543,7 @@ class LOOCV_performance:
         fig, ax = plt.subplots(figsize=(24, 8))
 
         # Number of tasks
-        num_tasks = len(self.optimal_accuracy_perTask_ndh)
+        num_tasks = len(self.optimal_accuracy_perTask)
         
         # Prepare the positions for the boxplots
         positions_optimal = np.arange(1, num_tasks * 2, 2)
@@ -512,8 +555,8 @@ class LOOCV_performance:
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
         
         # Plot the boxplots for optimal and conventional accuracies with patch_artist=True to allow color filling
-        box_optimal = ax.boxplot(self.optimal_accuracy_perTask_ndh.values(), positions=positions_optimal, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional = ax.boxplot(self.conventional_accuracy_perTask_ndh.values(), positions=positions_conventional, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_accuracy_perTask.values(), positions=positions_optimal, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventional_accuracy_perTask.values(), positions=positions_conventional, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         for box in box_optimal['boxes']:
             box.set(facecolor=colors[0])
         for box in box_conventional['boxes']:
@@ -525,7 +568,7 @@ class LOOCV_performance:
         # Adjust x-tick labels to be in between the grouped boxplots
         mid_positions = (positions_optimal + positions_conventional) / 2
         ax.set_xticks(mid_positions)
-        ax.set_xticklabels(self.optimal_accuracy_perTask_ndh.keys())
+        ax.set_xticklabels(self.optimal_accuracy_perTask.keys())
         plt.xticks(rotation=45, ha='right')
         
         plt.ylabel('Accuracy')

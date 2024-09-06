@@ -1201,6 +1201,7 @@ class ThesisStyle:
             'affected': '#F68400',
             'pink': '#F87FB5',
             'turquoise': '#7CB7A4',
+            'light_turquoise': '#9dc9bb',
             'healthy': '#7CB7A4',
             'grey': '#999999',
             'black_grey': '#404040',
