@@ -370,9 +370,14 @@ class LOOCV_performance:
         for box in box_mean_Linus['boxes']:
             box.set(facecolor=colors[2])
 
+        # random classifier
+        ax.axhline(y=0.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Performance of random classifier')
+        plt.legend(loc='upper right')
+
         # Set x-ticks and labels
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean optimal', 'Personalized Linus', 'Mean optimal Linus'])
+        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean personalized', 'Personalized Linus', 'Mean optimal Linus'])
+        ax.set_ylim(-0.1, 1)
 
         # Set y-label and title
         plt.ylabel('Youden Index')
@@ -416,15 +421,14 @@ class LOOCV_performance:
             box.set(facecolor=colors[3])
 
         # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
-        ax.axhline(y=0.75, color=colors[2], linestyle='--')
-
-        # Add a legend manually
-        plt.legend([plt.Line2D([0], [0], color=colors[2], linestyle='--')],
-                ['Clinically required performance'],
-                loc='lower right')
+        ax.axhline(y=0.75, color=colors[2], linestyle='--', label='Clinically required performance')
+        # random classifier
+        ax.axhline(y=0.5, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Performance of random classifier')
+        plt.legend(loc='upper right')
 
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean optimal', 'Personalized Linus', 'Mean optimal Linus'])
+        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean personalized', 'Personalized Linus', 'Mean optimal Linus'])
+        ax.set_ylim(0.45, 1.0)
 
         plt.rcParams.update({'font.size': 12})
         plt.ylabel('Area Under the Receiver Operating Characteristic Curve \n(ROC AUC)')
@@ -468,24 +472,25 @@ class LOOCV_performance:
             box.set(facecolor=colors[3])
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
-        ax.axhline(y=0.9, color=colors[2], linestyle='--')
-
-        # Add a legend manually
-        plt.legend([plt.Line2D([0], [0], color=colors[2], linestyle='--')],
-                   ['Clinically required performance'],
-                   loc='lower right')
+        ax.axhline(y=0.9, color=colors[2], linestyle='--', label='Clinically required performance')
+        # random classifier
+        ax.axhline(y=0.5, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Performance of random classifier')
+        plt.legend(loc='upper right')
         
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean optimal', 'Personalized Linus', 'Mean optimal Linus'])        
+        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean personalized', 'Personalized Linus', 'Mean optimal Linus'])
+        ax.set_ylim(0.45, 1.0)
+        ax.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+        ax.set_yticklabels(['50%', '60%', '70%', '80%', '90%', '100%'])        
         
         plt.ylabel('Accuracy')
         plt.title('Leave one Participant out Cross Validation')
 
         # Define significance bracket positions, p-values, and heights
-        bracket_heights = [0.965, 0.94, 1.0]  # Different heights for the brackets above the boxplot
+        bracket_heights = [0.6, 0.68, 0.64]  # Different heights for the brackets above the boxplot
         bracket_positions = [(1, 2), (2, 3), (1, 3)]  # (start, end) of the brackets
         p_values = [ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean]
-        self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
+        self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="below")
 
         plt.show()
 
