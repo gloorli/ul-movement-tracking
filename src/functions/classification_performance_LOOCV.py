@@ -5,11 +5,10 @@ import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 
 from utilities import *
-from individual_analysis_gmac_function import get_prediction_gmac, AUC_analisys, accuracy_analisys
+from functions.individual_analysis_gmac_function import get_prediction_gmac, AUC_analisys, accuracy_analisys, get_classification_metrics
 from functions.statistics import RegressionModel
+from scipy.stats import shapiro, f_oneway, ttest_rel, wilcoxon
 
-
-#TODO fix naming with correct number of Hz for counts pitch and GT, ...
 class LOOCV_performance:
     def __init__(self, json_files):
 
@@ -51,29 +50,24 @@ class LOOCV_performance:
         self.count_data = count_data
         self.pitch_data = pitch_data
 
+    def fit_desired_model(self, model, model_type: str):
+        if model_type == 'linear':
+            model.fit_linear_regression()
+        elif model_type == 'polynomial':
+            model.fit_polynomial_regression(2)
+        else:
+            raise ValueError(f"Invalid model_type: {model_type}")
+        return model
+
     def get_threshold_model(self, X_train, count_threshold_model='linear', elevation_threshold_model='polynomial'):
         FMA_array = np.array([participant['FMA_UE'] for participant in X_train])
         count_threshold_array = np.array([participant['COUNT_THRESHOLD_NDH'] for participant in X_train])
         elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_NDH'] for participant in X_train])
 
         regression_model_count = RegressionModel(FMA_array, count_threshold_array)
-        if count_threshold_model == 'linear':
-            regression_model_count.fit_linear_regression()
-        elif count_threshold_model == 'polynomial':
-            regression_model_count.fit_polynomial_regression(2)
-        else:
-            raise ValueError(f"Invalid count_threshold_model: {count_threshold_model}")
-
         regression_model_elevation = RegressionModel(FMA_array, elevation_threshold_array)
-        if elevation_threshold_model == 'linear':
-            regression_model_elevation.fit_linear_regression()
-        elif elevation_threshold_model == 'polynomial':
-            regression_model_elevation.fit_polynomial_regression(2)
-        else:
-            raise ValueError(f"Invalid elevation_threshold_model: {elevation_threshold_model}")
 
-        return regression_model_count, regression_model_elevation
-
+        return self.fit_desired_model(regression_model_count, count_threshold_model), self.fit_desired_model(regression_model_elevation, elevation_threshold_model)
 
     def retreive_personalized_thresholds(self, X_test, count_threshold_model, elevation_threshold_model):
         assert len(X_test) == 1, "X_test should contain only one participant"
@@ -104,19 +98,13 @@ class LOOCV_performance:
         gmac_prediction = get_prediction_gmac(counts_array, elevation_array, count_threshold=personalized_count_threshold, functional_space=personalized_elevation_threshold, decision_mode='Subash')
         gmac_prediction = gmac_prediction.astype(int)
 
-        tn, fp, fn, tp = confusion_matrix(test_gt, gmac_prediction.flatten()).ravel()
-        accuracy = (tp + tn) / (tp + tn + fp + fn)
-        sensitivity = tp / (tp + fn)
-        specificity = tn / (tn + fp)
-        youden_index = sensitivity + specificity - 1
-
+        accuracy, _, _, youden_index = get_classification_metrics(test_gt, gmac_prediction.flatten())
         auc = AUC_analisys(test_gt, gmac_prediction.flatten())
         accuracy_analisys(accuracy)
 
         return youden_index, accuracy, auc
     
     def calculate_GMAC_classification_performance_perTask(self, task_dict, personalized_count_threshold, personalized_elevation_threshold):
-        YI_per_task = {} #doesn't make sense if only one label is present the gt (functional)
         accuracy_per_task = {}
         for task_of_interest, task_data in task_dict.items():
             count_for_task = np.array(task_data['count'])
@@ -128,19 +116,22 @@ class LOOCV_performance:
 
             tn, fp, fn, tp = confusion_matrix(gt_for_task, gmac_prediction, labels=[1, 0]).ravel()
             accuracy = (tp + tn) / (tp + tn + fp + fn)
-            #sensitivity = tp / (tp + fn)
-            #specificity = tn / (tn + fp)
-            #youden_index = sensitivity + specificity - 1
 
-            #YI_per_task[task_of_interest] = youden_index
             accuracy_per_task[task_of_interest] = accuracy
 
-        return YI_per_task, accuracy_per_task
+        return accuracy_per_task
 
 
     def LOOCV_complete(self, perTask=True):
+        """
+        Performs Leave-One-Subject-Out Cross Validation (LOOCV) for classification performance evaluation.
+        Args:
+            perTask (bool, optional): Flag indicating whether to calculate performance metrics per task. 
 
-        participant_dicts = []
+        Returns:
+            None
+        """
+        participant_dicts = [] # List with one dictionary per participant containing all the necessary participants data
         for i, participant_id in enumerate(self.PARTICIPANT_ID):
             participant_dict = {
                 'participant_id': participant_id,
@@ -161,21 +152,26 @@ class LOOCV_performance:
 
         self.evaluation_FMA = []
 
-        self.optimal_YI_list = []
-        self.optimal_YI_LinReg_list = []#TODO compare all accuracies of linear and polynomial regression combination
-        self.conventioanl_YI_list = []
-        self.mean_YI_list = []
-        self.optimal_accuracy_list = []
-        self.optimal_accuracy_LinReg_list = []
-        self.conventioanl_accuracy_list = []
-        self.mean_accuracy_list = []
-        self.optimal_AUC_list = []
-        self.optimal_AUC_LinReg_list = []
-        self.conventioanl_AUC_list = []
-        self.mean_AUC_list = []
+        self.optimal_YI_list_ndh = []
+        #self.optimal_YI_LinReg_list = []#TODO compare all accuracies of linear and polynomial regression combination
+        self.conventioanl_YI_list_ndh = []
+        self.mean_YI_list_ndh = []
+        self.optimal_YI_list_Linus = []
 
-        self.optimal_accuracy_perTask = {}
-        self.conventional_accuracy_perTask = {}
+        self.optimal_accuracy_list_ndh = []
+        #self.optimal_accuracy_LinReg_list = []
+        self.conventioanl_accuracy_list_ndh = []
+        self.mean_accuracy_list_ndh = []
+        self.optimal_accuracy_list_Linus = []
+
+        self.optimal_AUC_list_ndh = []
+        #self.optimal_AUC_LinReg_list = []
+        self.conventioanl_AUC_list_ndh = []
+        self.mean_AUC_list_ndh = []
+        self.optimal_AUC_list_Linus = []
+
+        self.optimal_accuracy_perTask_ndh = {}
+        self.conventional_accuracy_perTask_ndh = {}
 
         for train_index, test_index in looCV.split(X, y, groups=group_IDs):
             
@@ -183,57 +179,106 @@ class LOOCV_performance:
             X_test, y_test = [X[i] for i in test_index], [y[i] for i in test_index]
 
             regression_model_count_ndh, regression_model_elevation_ndh = self.get_threshold_model(X_train)
-            #threshold_model_dh = self.get_threshold_model()
+            #TODO same for dh
             personalized_count_threshold_ndh, personalized_elevation_threshold_ndh = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh, regression_model_elevation_ndh)
-            #personalized_thresholds_dh = self.retreive_personalized_thresholds(threshold_model_dh)
-            youden_index_optimized, accuracy_optimized, auc_optimized = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
+            #TODO same for dh
+            youden_index_optimized_ndh, accuracy_optimized_ndh, auc_optimized_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
             youden_index_conventional, accuracy_conventional, auc_conventional = self.calculate_GMAC_classification_performance(X_test, y_test, 0, 30)
-            #dh_performance = self.calculate_GMAC_classification_performance(personalized_thresholds_dh)
+            #TODO same for dh
 
             loocv_mean_count_ndh, loocv_mean_elevation_ndh = self.retreive_mean_thresholds(X_train)
-            youden_index_mean, accuracy_mean, auc_mean = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh, loocv_mean_elevation_ndh)
+            youden_index_mean_ndh, accuracy_mean_ndh, auc_mean_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh, loocv_mean_elevation_ndh)
 
             self.evaluation_FMA.append(X_test[0]['FMA_UE'])
-            self.optimal_YI_list.append(youden_index_optimized)
-            self.conventioanl_YI_list.append(youden_index_conventional)
-            self.mean_YI_list.append(youden_index_mean)
-            self.optimal_accuracy_list.append(accuracy_optimized)
-            self.conventioanl_accuracy_list.append(accuracy_conventional)
-            self.mean_accuracy_list.append(accuracy_mean)
-            self.optimal_AUC_list.append(auc_optimized)
-            self.conventioanl_AUC_list.append(auc_conventional)
-            self.mean_AUC_list.append(auc_mean)
+            self.optimal_YI_list_ndh.append(youden_index_optimized_ndh)
+            self.conventioanl_YI_list_ndh.append(youden_index_conventional)
+            self.mean_YI_list_ndh.append(youden_index_mean_ndh)
+            self.optimal_accuracy_list_ndh.append(accuracy_optimized_ndh)
+            self.conventioanl_accuracy_list_ndh.append(accuracy_conventional)
+            self.mean_accuracy_list_ndh.append(accuracy_mean_ndh)
+            self.optimal_AUC_list_ndh.append(auc_optimized_ndh)
+            self.conventioanl_AUC_list_ndh.append(auc_conventional)
+            self.mean_AUC_list_ndh.append(auc_mean_ndh)
             #TODO plot predicted and ground truth personalized count threshold and elevation threshold
 
             if perTask:
                 self.LOOCV_perTask(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
 
-    def LOOCV_perTask(self, X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh):
+    def LOOCV_perTask(self, X_test, y_test, personalized_count_threshold, personalized_elevation_threshold):
         protocol_tasks = ['open_bottle_and_pour_glass', 'drink', 'fold_rags_towels', 'sort_documents', 'brooming', 'putting_on_and_off_coat', 'keyboard_typing', 'stapling', 'walking', 
                           'open_and_close_door', 'resting', 'other', 'wipe_table','light_switch']
         task_dict = {}
-        for task_of_interest in protocol_tasks:
+        for task_of_interest in protocol_tasks: #attention: hardcoded for ndh
             count_for_task = extract_all_values_with_label(X_test[0]['counts_NDH_1Hz'], X_test[0]['task_mask_ndh_1Hz'], task_of_interest)
             pitch_for_task = extract_all_values_with_label(X_test[0]['elevation_NDH_1Hz'], X_test[0]['task_mask_ndh_1Hz'], task_of_interest)
             gt_for_task = extract_all_values_with_label(y_test[0], X_test[0]['task_mask_ndh_1Hz'], task_of_interest)
             task_dict[task_of_interest] = {'count': count_for_task, 'elevation': pitch_for_task, 'gt': gt_for_task}
 
-        _, accuracy_per_task_optimized = self.calculate_GMAC_classification_performance_perTask(task_dict, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
-        _, accuracy_per_task_conventional = self.calculate_GMAC_classification_performance_perTask(task_dict, 0, 30)
+        accuracy_per_task_optimized = self.calculate_GMAC_classification_performance_perTask(task_dict, personalized_count_threshold, personalized_elevation_threshold)
+        accuracy_per_task_conventional = self.calculate_GMAC_classification_performance_perTask(task_dict, 0, 30)
 
         for task, accuracy in accuracy_per_task_optimized.items():
-            if task in self.optimal_accuracy_perTask:
-                self.optimal_accuracy_perTask[task].append(accuracy)
+            if task in self.optimal_accuracy_perTask_ndh:
+                self.optimal_accuracy_perTask_ndh[task].append(accuracy)
             else:
-                self.optimal_accuracy_perTask[task] = [accuracy]
+                self.optimal_accuracy_perTask_ndh[task] = [accuracy]
         for task, accuracy in accuracy_per_task_conventional.items():
-            if task in self.conventional_accuracy_perTask:
-                self.conventional_accuracy_perTask[task].append(accuracy)
+            if task in self.conventional_accuracy_perTask_ndh:
+                self.conventional_accuracy_perTask_ndh[task].append(accuracy)
             else:
-                self.conventional_accuracy_perTask[task] = [accuracy]
-        
+                self.conventional_accuracy_perTask_ndh[task] = [accuracy]
+    
+    def check_ANOVA_ttest_Wilcoxon(self, optimal_distribution, conventional_distribution, mean_distribution):
+        """
+        Check the statistical significance of the differences between the classification performance of the different GMAC thresholds applied using ANOVA, paired t-test, and Wilcoxon signed-rank test.
+        Parameters:
+        - optimal_distribution (array-like): The distribution of classification performance for the optimal thresholds.
+        - conventional_distribution (array-like): The distribution of classification performance for the conventional thresholds.
+        - mean_distribution (array-like): The distribution of classification performance for the mean count and elevation thresholds.
+        Returns:
+        - None
+        Note:
+        - The null hypothesis for the Shapiro-Wilk test is that the data is normally distributed.
+        - The null hypothesis for the one-way ANOVA is that there is no significant difference between the groups.
+        - The null hypothesis for the paired t-tests is that there is no significant difference between the paired samples.
+        - The null hypothesis for the Wilcoxon signed-rank tests is that there is no significant difference between the paired samples.
+        """
+        # Check for normality using Shapiro-Wilk test
+        _, p_optimal = shapiro(optimal_distribution)
+        _, p_conventional = shapiro(conventional_distribution)
+        _, p_mean = shapiro(mean_distribution)
+        # Perform one-way ANOVA
+        _, p_value = f_oneway(optimal_distribution, conventional_distribution, mean_distribution)
 
+        if p_optimal > 0.05 and p_conventional > 0.05 and p_mean > 0.05:
+            print("The data is normally distributed.")
+        else:
+            print("The data is not normally distributed.")
+        if p_value < 0.05:
+            print("There is a significant ANOVA difference between the groups.")
+        else:
+            print("There is no significant ANOVA difference between the groups.")
+        
+        # Perform paired t-test
+        _, p_value_optimal_conventional = ttest_rel(optimal_distribution, conventional_distribution)
+        _, p_value_optimal_mean = ttest_rel(optimal_distribution, mean_distribution)
+        _, p_value_conventional_mean = ttest_rel(conventional_distribution, mean_distribution)
+        print(f"Paired t-test optimal vs conventional: {p_value_optimal_conventional}")
+        print(f"Paired t-test optimal vs mean: {p_value_optimal_mean}")
+        print(f"Paired t-test conventional vs mean: {p_value_conventional_mean}")
+        
+        # Perform Wilcoxon signed-rank test
+        _, p_value_optimal_conventional_wilcoxon = wilcoxon(optimal_distribution, conventional_distribution)
+        _, p_value_optimal_mean_wilcoxon = wilcoxon(optimal_distribution, mean_distribution)
+        _, p_value_conventional_mean_wilcoxon = wilcoxon(conventional_distribution, mean_distribution)
+        print(f"Wilcoxon signed-rank test optimal vs conventional: {p_value_optimal_conventional_wilcoxon}")
+        print(f"Wilcoxon signed-rank test optimal vs mean: {p_value_optimal_mean_wilcoxon}")
+        print(f"Wilcoxon signed-rank test conventional vs mean: {p_value_conventional_mean_wilcoxon}")
+
+    #TODO combine the following three functions into one
     def plot_LOOCV_YoudenIndex(self):
+        self.check_ANOVA_ttest_Wilcoxon(self.optimal_YI_list_ndh, self.conventioanl_YI_list_ndh, self.mean_YI_list_ndh)
+
         # Set colors for the boxplots
         colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['turquoise']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
@@ -241,9 +286,9 @@ class LOOCV_performance:
 
         fig, ax = plt.subplots()
 
-        box_optimal = ax.boxplot(self.optimal_YI_list, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional = ax.boxplot(self.conventioanl_YI_list, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean = ax.boxplot(self.mean_YI_list, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
         for box in box_optimal['boxes']:
             box.set(facecolor=colors[0])
@@ -260,6 +305,8 @@ class LOOCV_performance:
         plt.show()
 
     def plot_LOOCV_AUC(self):
+        self.check_ANOVA_ttest_Wilcoxon(self.optimal_AUC_list_ndh, self.conventioanl_AUC_list_ndh, self.mean_AUC_list_ndh)
+
         # Set colors for the boxplots
         colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange'], thesis_style.get_thesis_colours()['turquoise']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
@@ -267,9 +314,9 @@ class LOOCV_performance:
 
         fig, ax = plt.subplots()
 
-        box_optimal = ax.boxplot(self.optimal_AUC_list, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional = ax.boxplot(self.conventioanl_AUC_list, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean = ax.boxplot(self.mean_AUC_list, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
         for box in box_optimal['boxes']:
             box.set(facecolor=colors[0])
@@ -295,6 +342,8 @@ class LOOCV_performance:
         plt.show()
 
     def plot_LOOCV_Accuracy(self):
+        self.check_ANOVA_ttest_Wilcoxon(self.optimal_accuracy_list_ndh, self.conventioanl_accuracy_list_ndh, self.mean_accuracy_list_ndh)
+
         # Set colors for the boxplots
         colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange'], thesis_style.get_thesis_colours()['turquoise']]
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
@@ -302,9 +351,9 @@ class LOOCV_performance:
 
         fig, ax = plt.subplots()
 
-        box_optimal = ax.boxplot(self.optimal_accuracy_list, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional = ax.boxplot(self.conventioanl_accuracy_list, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean = ax.boxplot(self.mean_accuracy_list, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_accuracy_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_accuracy_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean = ax.boxplot(self.mean_accuracy_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
         for box in box_optimal['boxes']:
             box.set(facecolor=colors[0])
@@ -328,12 +377,13 @@ class LOOCV_performance:
         plt.title('Leave one Participant out Cross Validation')
         plt.show()
 
+
     def plot_LOOCV_Accuracy_perTask(self):
         plt.rcParams.update({'font.size': 16})
         fig, ax = plt.subplots(figsize=(24, 8))
 
         # Number of tasks
-        num_tasks = len(self.optimal_accuracy_perTask)
+        num_tasks = len(self.optimal_accuracy_perTask_ndh)
         
         # Prepare the positions for the boxplots
         positions_optimal = np.arange(1, num_tasks * 2, 2)
@@ -345,8 +395,8 @@ class LOOCV_performance:
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
         
         # Plot the boxplots for optimal and conventional accuracies with patch_artist=True to allow color filling
-        box_optimal = ax.boxplot(self.optimal_accuracy_perTask.values(), positions=positions_optimal, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional = ax.boxplot(self.conventional_accuracy_perTask.values(), positions=positions_conventional, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_accuracy_perTask_ndh.values(), positions=positions_optimal, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventional_accuracy_perTask_ndh.values(), positions=positions_conventional, widths=0.6, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         for box in box_optimal['boxes']:
             box.set(facecolor=colors[0])
         for box in box_conventional['boxes']:
@@ -358,7 +408,7 @@ class LOOCV_performance:
         # Adjust x-tick labels to be in between the grouped boxplots
         mid_positions = (positions_optimal + positions_conventional) / 2
         ax.set_xticks(mid_positions)
-        ax.set_xticklabels(self.optimal_accuracy_perTask.keys())
+        ax.set_xticklabels(self.optimal_accuracy_perTask_ndh.keys())
         plt.xticks(rotation=45, ha='right')
         
         plt.ylabel('Accuracy')
@@ -372,14 +422,15 @@ class LOOCV_performance:
 
         plt.tight_layout()
         plt.show()
+        
 
     def spearman_correlation_classification_impairment(self):
         # Calculate the Spearman correlation
         spearman_correlation_dict = {
-            'optimal_YI': spearmanr(self.evaluation_FMA, self.optimal_YI_list),
-            'conventional_YI': spearmanr(self.evaluation_FMA, self.conventioanl_YI_list),
-            'optimal_accuracy': spearmanr(self.evaluation_FMA, self.optimal_accuracy_list),
-            'conventional_accuracy': spearmanr(self.evaluation_FMA, self.conventioanl_accuracy_list)
+            'optimal_YI': spearmanr(self.evaluation_FMA, self.optimal_YI_list_ndh),
+            'conventional_YI': spearmanr(self.evaluation_FMA, self.conventioanl_YI_list_ndh),
+            'optimal_accuracy': spearmanr(self.evaluation_FMA, self.optimal_accuracy_list_ndh),
+            'conventional_accuracy': spearmanr(self.evaluation_FMA, self.conventioanl_accuracy_list_ndh)
         }
         print(spearman_correlation_dict)
 
@@ -387,24 +438,24 @@ class LOOCV_performance:
         plt.rcParams.update({'font.size': 16})
         fig, ax = plt.subplots(figsize=(12, 8))
         
-        optimal_YI_std = np.std(self.optimal_YI_list)
-        conv_YI_std = np.std(self.conventioanl_YI_list)
-        mean_YI_std = np.std(self.mean_YI_list)
-        ax.scatter(self.evaluation_FMA, self.optimal_YI_list, label=f'Personalized YI (std: {optimal_YI_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='x')
-        ax.scatter(self.evaluation_FMA, self.conventioanl_YI_list, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
-        ax.scatter(self.evaluation_FMA, self.mean_YI_list, label=f'Mean optimal YI (std: {mean_YI_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='x')
-        optimal_AUC_std = np.std(self.optimal_AUC_list)
-        conv_AUC_std = np.std(self.conventioanl_AUC_list)
-        mean_AUC_std = np.std(self.mean_AUC_list)
-        ax.scatter(self.evaluation_FMA, self.optimal_AUC_list, label=f'Personalized AUV (std: {optimal_AUC_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='o')
-        ax.scatter(self.evaluation_FMA, self.conventioanl_AUC_list, label=f'Conventional AUV (std: {conv_AUC_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='o')
-        ax.scatter(self.evaluation_FMA, self.mean_AUC_list, label=f'Mean optimal AUV (std: {mean_AUC_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='o')
-        optimal_accuracy_std = np.std(self.optimal_accuracy_list)
-        conv_accuracy_std = np.std(self.conventioanl_accuracy_list)
-        mean_accuracy_std = np.std(self.mean_accuracy_list)
-        ax.scatter(self.evaluation_FMA, self.optimal_accuracy_list, label=f'Personalized Accuracy (std: {optimal_accuracy_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='s')
-        ax.scatter(self.evaluation_FMA, self.conventioanl_accuracy_list, label=f'Conventional Accuracy (std: {conv_accuracy_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='s')
-        ax.scatter(self.evaluation_FMA, self.mean_accuracy_list, label=f'Mean optimal Accuracy (std: {mean_accuracy_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='s')
+        optimal_YI_std = np.std(self.optimal_YI_list_ndh)
+        conv_YI_std = np.std(self.conventioanl_YI_list_ndh)
+        mean_YI_std = np.std(self.mean_YI_list_ndh)
+        ax.scatter(self.evaluation_FMA, self.optimal_YI_list_ndh, label=f'Personalized YI (std: {optimal_YI_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='x')
+        ax.scatter(self.evaluation_FMA, self.conventioanl_YI_list_ndh, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
+        ax.scatter(self.evaluation_FMA, self.mean_YI_list_ndh, label=f'Mean optimal YI (std: {mean_YI_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='x')
+        optimal_AUC_std = np.std(self.optimal_AUC_list_ndh)
+        conv_AUC_std = np.std(self.conventioanl_AUC_list_ndh)
+        mean_AUC_std = np.std(self.mean_AUC_list_ndh)
+        ax.scatter(self.evaluation_FMA, self.optimal_AUC_list_ndh, label=f'Personalized AUV (std: {optimal_AUC_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='o')
+        ax.scatter(self.evaluation_FMA, self.conventioanl_AUC_list_ndh, label=f'Conventional AUV (std: {conv_AUC_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='o')
+        ax.scatter(self.evaluation_FMA, self.mean_AUC_list_ndh, label=f'Mean optimal AUV (std: {mean_AUC_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='o')
+        optimal_accuracy_std = np.std(self.optimal_accuracy_list_ndh)
+        conv_accuracy_std = np.std(self.conventioanl_accuracy_list_ndh)
+        mean_accuracy_std = np.std(self.mean_accuracy_list_ndh)
+        ax.scatter(self.evaluation_FMA, self.optimal_accuracy_list_ndh, label=f'Personalized Accuracy (std: {optimal_accuracy_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='s')
+        ax.scatter(self.evaluation_FMA, self.conventioanl_accuracy_list_ndh, label=f'Conventional Accuracy (std: {conv_accuracy_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='s')
+        ax.scatter(self.evaluation_FMA, self.mean_accuracy_list_ndh, label=f'Mean optimal Accuracy (std: {mean_accuracy_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='s')
 
         plt.ylabel('Classification Performance')
         plt.xlabel('Fugl-Meyer Assessment Upper Extremity Score')
