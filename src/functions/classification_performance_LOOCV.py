@@ -12,7 +12,7 @@ from scipy.stats import shapiro, f_oneway, ttest_rel, wilcoxon
 class LOOCV_performance:
     def __init__(self, json_files):
 
-        participant_data = extract_fields_from_json_files(json_files, ['optimal_GMAC_NDH', 'optimal_GMAC_DH', 'ARAT_score', 'FMA-UE_score', 'participant_id'])
+        participant_data = extract_fields_from_json_files(json_files, ['optimal_GMAC_NDH', 'optimal_GMAC_DH', 'ARAT_score', 'FMA-UE_score', 'participant_id', 'optimal_GMAC_NDH_Linus'])
 
         self.PARTICIPANT_ID = participant_data['participant_id']
         self.ARAT = participant_data['ARAT_score']
@@ -24,6 +24,9 @@ class LOOCV_performance:
         optimal_thresholds = participant_data['optimal_GMAC_DH']
         self.COUNT_THRESHOLD_DH = optimal_thresholds[:,0]
         self.PITCH_THRESHOLD_DH = optimal_thresholds[:,1]
+        optimal_thresholds = participant_data['optimal_GMAC_NDH_Linus']
+        self.COUNT_THRESHOLD_NDH_Linus = optimal_thresholds[:,0]
+        self.PITCH_THRESHOLD_NDH_Linus = optimal_thresholds[:,1]
 
         elevation_NDH_1Hz = []
         elevation_DH_1Hz = []
@@ -59,10 +62,14 @@ class LOOCV_performance:
             raise ValueError(f"Invalid model_type: {model_type}")
         return model
 
-    def get_threshold_model(self, X_train, count_threshold_model='linear', elevation_threshold_model='polynomial'):
+    def get_threshold_model(self, X_train, count_threshold_model='linear', elevation_threshold_model='polynomial', decision_mode='Subash'):
         FMA_array = np.array([participant['FMA_UE'] for participant in X_train])
+        
         count_threshold_array = np.array([participant['COUNT_THRESHOLD_NDH'] for participant in X_train])
         elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_NDH'] for participant in X_train])
+        if decision_mode == 'Linus': #get individual optimal thresholds for Linus definition of GM rule
+            count_threshold_array = np.array([participant['COUNT_THRESHOLD_NDH_Linus'] for participant in X_train])
+            elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_NDH_Linus'] for participant in X_train])
 
         regression_model_count = RegressionModel(FMA_array, count_threshold_array)
         regression_model_elevation = RegressionModel(FMA_array, elevation_threshold_array)
@@ -81,9 +88,12 @@ class LOOCV_performance:
 
         return count_predict, elevation_predict
     
-    def retreive_mean_thresholds(self, X_train):
+    def retreive_mean_thresholds(self, X_train, decision_mode='Subash'):
         count_threshold_array = np.array([participant['COUNT_THRESHOLD_NDH'] for participant in X_train])
         elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_NDH'] for participant in X_train])
+        if decision_mode=='Linus':
+            count_threshold_array = np.array([participant['COUNT_THRESHOLD_NDH_Linus'] for participant in X_train])
+            elevation_threshold_array = np.array([participant['PITCH_THRESHOLD_NDH_Linus'] for participant in X_train])
 
         return np.mean(count_threshold_array), np.mean(elevation_threshold_array)
 
@@ -139,6 +149,8 @@ class LOOCV_performance:
                 'FMA_UE': self.FMA_UE[i],
                 'COUNT_THRESHOLD_NDH': self.COUNT_THRESHOLD_NDH[i],
                 'PITCH_THRESHOLD_NDH': self.PITCH_THRESHOLD_NDH[i],
+                'COUNT_THRESHOLD_NDH_Linus': self.COUNT_THRESHOLD_NDH_Linus[i],
+                'PITCH_THRESHOLD_NDH_Linus': self.PITCH_THRESHOLD_NDH_Linus[i],
                 'counts_NDH_1Hz': self.count_data['counts_NDH_1Hz'][i],
                 'elevation_NDH_1Hz': self.pitch_data['elevation_NDH_1Hz'][i],
                 'task_mask_ndh_1Hz': self.task_mask['task_mask_ndh_1Hz'][i]
@@ -153,22 +165,25 @@ class LOOCV_performance:
         self.evaluation_FMA = []
 
         self.optimal_YI_list_ndh = []
-        #self.optimal_YI_LinReg_list = []#TODO compare all accuracies of linear and polynomial regression combination
+        #self.optimal_YI_LinReg_list = []#TODO compare all accuracies of linear and polynomial regression combination, also no need to declare all this here
         self.conventioanl_YI_list_ndh = []
         self.mean_YI_list_ndh = []
-        self.optimal_YI_list_Linus = []
+        self.optimal_YI_list_ndh_Linus = []
+        self.mean_YI_list_ndh_Linus = []
 
         self.optimal_accuracy_list_ndh = []
         #self.optimal_accuracy_LinReg_list = []
         self.conventioanl_accuracy_list_ndh = []
         self.mean_accuracy_list_ndh = []
-        self.optimal_accuracy_list_Linus = []
+        self.optimal_accuracy_list_ndh_Linus = []
+        self.mean_accuracy_list_ndh_Linus = []
 
         self.optimal_AUC_list_ndh = []
         #self.optimal_AUC_LinReg_list = []
         self.conventioanl_AUC_list_ndh = []
         self.mean_AUC_list_ndh = []
-        self.optimal_AUC_list_Linus = []
+        self.optimal_AUC_list_ndh_Linus = []
+        self.mean_AUC_list_ndh_Linus = []
 
         self.optimal_accuracy_perTask_ndh = {}
         self.conventional_accuracy_perTask_ndh = {}
@@ -179,26 +194,40 @@ class LOOCV_performance:
             X_test, y_test = [X[i] for i in test_index], [y[i] for i in test_index]
 
             regression_model_count_ndh, regression_model_elevation_ndh = self.get_threshold_model(X_train)
+            regression_model_count_ndh_Linus, regression_model_elevation_ndh_Linus = self.get_threshold_model(X_train, decision_mode='Linus')
             #TODO same for dh
             personalized_count_threshold_ndh, personalized_elevation_threshold_ndh = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh, regression_model_elevation_ndh)
+            personalized_count_threshold_ndh_Linus, personalized_elevation_threshold_ndh_Linus = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh_Linus, regression_model_elevation_ndh_Linus)
             #TODO same for dh
             youden_index_optimized_ndh, accuracy_optimized_ndh, auc_optimized_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh)
             youden_index_conventional, accuracy_conventional, auc_conventional = self.calculate_GMAC_classification_performance(X_test, y_test, 0, 30)
+            youden_index_optimized_ndh_Linus, accuracy_optimized_ndh_Linus, auc_optimized_ndh_Linus = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh_Linus, personalized_elevation_threshold_ndh_Linus)
             #TODO same for dh
 
             loocv_mean_count_ndh, loocv_mean_elevation_ndh = self.retreive_mean_thresholds(X_train)
             youden_index_mean_ndh, accuracy_mean_ndh, auc_mean_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh, loocv_mean_elevation_ndh)
+            loocv_mean_count_ndh_Linus, loocv_mean_elevation_ndh_Linus = self.retreive_mean_thresholds(X_train, decision_mode='Linus')
+            youden_index_mean_ndh_Linus, accuracy_mean_ndh_Linus, auc_mean_ndh_Linus = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh_Linus, loocv_mean_elevation_ndh_Linus)
 
             self.evaluation_FMA.append(X_test[0]['FMA_UE'])
+
             self.optimal_YI_list_ndh.append(youden_index_optimized_ndh)
             self.conventioanl_YI_list_ndh.append(youden_index_conventional)
             self.mean_YI_list_ndh.append(youden_index_mean_ndh)
+            self.optimal_YI_list_ndh_Linus.append(youden_index_optimized_ndh_Linus)
+            self.mean_YI_list_ndh_Linus.append(youden_index_mean_ndh_Linus)
+
             self.optimal_accuracy_list_ndh.append(accuracy_optimized_ndh)
             self.conventioanl_accuracy_list_ndh.append(accuracy_conventional)
             self.mean_accuracy_list_ndh.append(accuracy_mean_ndh)
+            self.optimal_accuracy_list_ndh_Linus.append(accuracy_optimized_ndh_Linus)
+            self.mean_accuracy_list_ndh_Linus.append(accuracy_mean_ndh_Linus)
+
             self.optimal_AUC_list_ndh.append(auc_optimized_ndh)
             self.conventioanl_AUC_list_ndh.append(auc_conventional)
             self.mean_AUC_list_ndh.append(auc_mean_ndh)
+            self.optimal_AUC_list_ndh_Linus.append(auc_optimized_ndh_Linus)
+            self.mean_AUC_list_ndh_Linus.append(auc_mean_ndh_Linus)
             #TODO plot predicted and ground truth personalized count threshold and elevation threshold
 
             if perTask:
@@ -284,21 +313,27 @@ class LOOCV_performance:
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_optimal = ax.boxplot(self.optimal_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal_Linus = ax.boxplot(self.optimal_YI_list_ndh_Linus, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean_Linus = ax.boxplot(self.mean_YI_list_ndh_Linus, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
-        for box in box_optimal['boxes']:
-            box.set(facecolor=colors[0])
         for box in box_conventional['boxes']:
             box.set(facecolor=colors[1])
+        for box in box_optimal['boxes']:
+            box.set(facecolor=colors[0])
         for box in box_mean['boxes']:
             box.set(facecolor=colors[2])
+        for box in box_optimal_Linus['boxes']:
+            box.set(facecolor=colors[0])
+        for box in box_mean_Linus['boxes']:
+            box.set(facecolor=colors[2])
 
-        ax.set_xticks([1, 2, 3])
-        ax.set_xticklabels(['Personalized', 'Conventional', 'Mean optimal'])
+        ax.set_xticks([1, 2, 3, 4, 5])
+        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean optimal', 'Personalized Linus', 'Mean optimal Linus'])
 
         plt.ylabel('Youden Index')
         plt.title('Leave one Participant out Cross Validation')
@@ -312,17 +347,23 @@ class LOOCV_performance:
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_optimal = ax.boxplot(self.optimal_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional = ax.boxplot(self.conventioanl_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal_Linus = ax.boxplot(self.optimal_AUC_list_ndh_Linus, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean_Linus = ax.boxplot(self.mean_AUC_list_ndh_Linus, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
-        for box in box_optimal['boxes']:
-            box.set(facecolor=colors[0])
         for box in box_conventional['boxes']:
             box.set(facecolor=colors[1])
+        for box in box_optimal['boxes']:
+            box.set(facecolor=colors[0])
         for box in box_mean['boxes']:
+            box.set(facecolor=colors[3])
+        for box in box_optimal_Linus['boxes']:
+            box.set(facecolor=colors[0])
+        for box in box_mean_Linus['boxes']:
             box.set(facecolor=colors[3])
 
         # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
@@ -333,8 +374,8 @@ class LOOCV_performance:
                    ['Clinically required performance'],
                    loc='lower left')
 
-        ax.set_xticks([1, 2, 3])
-        ax.set_xticklabels(['Personalized', 'Conventional', 'Mean optimal'])
+        ax.set_xticks([1, 2, 3, 4, 5])
+        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean optimal', 'Personalized Linus', 'Mean optimal Linus'])
 
         plt.rcParams.update({'font.size': 12})
         plt.ylabel('Area Under the Receiver Operating Characteristic Curve \n(ROC AUC)')
@@ -349,17 +390,23 @@ class LOOCV_performance:
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_optimal = ax.boxplot(self.optimal_accuracy_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional = ax.boxplot(self.conventioanl_accuracy_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_accuracy_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal = ax.boxplot(self.optimal_accuracy_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         box_mean = ax.boxplot(self.mean_accuracy_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_optimal_Linus = ax.boxplot(self.optimal_accuracy_list_ndh_Linus, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_mean_Linus = ax.boxplot(self.mean_accuracy_list_ndh_Linus, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
 
-        for box in box_optimal['boxes']:
-            box.set(facecolor=colors[0])
         for box in box_conventional['boxes']:
             box.set(facecolor=colors[1])
+        for box in box_optimal['boxes']:
+            box.set(facecolor=colors[0])
         for box in box_mean['boxes']:
+            box.set(facecolor=colors[3])
+        for box in box_optimal_Linus['boxes']:
+            box.set(facecolor=colors[0])
+        for box in box_mean_Linus['boxes']:
             box.set(facecolor=colors[3])
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
@@ -370,8 +417,8 @@ class LOOCV_performance:
                    ['Clinically required performance'],
                    loc='lower left')
         
-        ax.set_xticks([1, 2, 3])
-        ax.set_xticklabels(['Personalized', 'Conventional', 'Mean optimal'])        
+        ax.set_xticks([1, 2, 3, 4, 5])
+        ax.set_xticklabels(['Conventional', 'Personalized', 'Mean optimal', 'Personalized Linus', 'Mean optimal Linus'])        
         
         plt.ylabel('Accuracy')
         plt.title('Leave one Participant out Cross Validation')
@@ -422,7 +469,7 @@ class LOOCV_performance:
 
         plt.tight_layout()
         plt.show()
-        
+
 
     def spearman_correlation_classification_impairment(self):
         # Calculate the Spearman correlation
