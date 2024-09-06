@@ -304,23 +304,61 @@ class LOOCV_performance:
         print(f"Wilcoxon signed-rank test optimal vs mean: {p_value_optimal_mean_wilcoxon}")
         print(f"Wilcoxon signed-rank test conventional vs mean: {p_value_conventional_mean_wilcoxon}")
 
-    #TODO combine the following three functions into one
+        return p_value_optimal_conventional, p_value_optimal_mean, p_value_conventional_mean
+
+    def plot_significance_brackets(self, ax, bracket_positions, p_values, bracket_heights, position="above"):
+        """
+        Adds significance brackets with p-values to the plot, either above or below the boxplots.
+        
+        Parameters:
+        - ax: The axis to plot on.
+        - bracket_positions: List of tuples with (start, end) x-axis positions for brackets.
+        - p_values: List of p-values corresponding to each bracket.
+        - bracket_heights: List of heights (y-coordinates) for the brackets.
+        - position: Either 'above' or 'below' to position the brackets accordingly.
+        """
+        for (start, end), p_val, y in zip(bracket_positions, p_values, bracket_heights):
+            x1, x2 = start, end  # x-coordinates of the brackets
+            h, col = 0.02, 'k'  # Adjust height and color of the bracket
+            
+            # Adjust y-coordinates based on position ('above' or 'below')
+            if position == "below":
+                y = y - 0.05  # Shift the bracket lower
+
+            if position == "above":
+                ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], lw=1.0, c=col)
+            elif position == "below":
+                ax.plot([x1, x1, x2, x2], [y, y-h, y-h, y], lw=1.0, c=col)
+            
+            # Format p-value with 3 decimal places and reduce font size
+            ax.text((x1 + x2) * .5, y + h if position == "above" else y - 2*h, f"p = {p_val:.4f}", 
+                    ha='center', va='bottom', color=col, fontsize=8)
+
+        #TODO combine the following three functions into one
     def plot_LOOCV_YoudenIndex(self):
-        self.check_ANOVA_ttest_Wilcoxon(self.optimal_YI_list_ndh, self.conventioanl_YI_list_ndh, self.mean_YI_list_ndh)
+        # Get p-values from the test
+        ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean = self.check_ANOVA_ttest_Wilcoxon(
+            self.optimal_YI_list_ndh, self.conventioanl_YI_list_ndh, self.mean_YI_list_ndh
+        )
 
         # Set colors for the boxplots
-        colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['turquoise']]
+        colors = [thesis_style.get_thesis_colours()['dark_blue'], 
+                thesis_style.get_thesis_colours()['light_blue'], 
+                thesis_style.get_thesis_colours()['turquoise']]
+        
         mean_markers = dict(marker='D', markerfacecolor=thesis_style.get_thesis_colours()['black'], markersize=5, markeredgewidth=0)
-        meadian_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
+        median_markers = dict(color=thesis_style.get_thesis_colours()['black_grey'])
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_optimal = ax.boxplot(self.optimal_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_optimal_Linus = ax.boxplot(self.optimal_YI_list_ndh_Linus, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean_Linus = ax.boxplot(self.mean_YI_list_ndh_Linus, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        # Boxplots
+        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
+        box_optimal = ax.boxplot(self.optimal_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
+        box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
+        box_optimal_Linus = ax.boxplot(self.optimal_YI_list_ndh_Linus, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
+        box_mean_Linus = ax.boxplot(self.mean_YI_list_ndh_Linus, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
 
+        # Set box colors
         for box in box_conventional['boxes']:
             box.set(facecolor=colors[1])
         for box in box_optimal['boxes']:
@@ -332,15 +370,26 @@ class LOOCV_performance:
         for box in box_mean_Linus['boxes']:
             box.set(facecolor=colors[2])
 
+        # Set x-ticks and labels
         ax.set_xticks([1, 2, 3, 4, 5])
         ax.set_xticklabels(['Conventional', 'Personalized', 'Mean optimal', 'Personalized Linus', 'Mean optimal Linus'])
 
+        # Set y-label and title
         plt.ylabel('Youden Index')
         plt.title('Leave one Participant out Cross Validation')
+
+        # Define significance bracket positions, p-values, and heights
+        bracket_heights = [0.65, 0.7, 0.75]  # Different heights for the brackets above the boxplot
+        bracket_positions = [(1, 2), (2, 3), (1, 3)]  # (start, end) of the brackets
+        p_values = [ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean]
+        self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
+
         plt.show()
 
     def plot_LOOCV_AUC(self):
-        self.check_ANOVA_ttest_Wilcoxon(self.optimal_AUC_list_ndh, self.conventioanl_AUC_list_ndh, self.mean_AUC_list_ndh)
+        ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean = self.check_ANOVA_ttest_Wilcoxon(
+            self.optimal_AUC_list_ndh, self.conventioanl_AUC_list_ndh, self.mean_AUC_list_ndh
+            )
 
         # Set colors for the boxplots
         colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange'], thesis_style.get_thesis_colours()['turquoise']]
@@ -371,8 +420,8 @@ class LOOCV_performance:
 
         # Add a legend manually
         plt.legend([plt.Line2D([0], [0], color=colors[2], linestyle='--')],
-                   ['Clinically required performance'],
-                   loc='lower left')
+                ['Clinically required performance'],
+                loc='lower right')
 
         ax.set_xticks([1, 2, 3, 4, 5])
         ax.set_xticklabels(['Conventional', 'Personalized', 'Mean optimal', 'Personalized Linus', 'Mean optimal Linus'])
@@ -380,10 +429,19 @@ class LOOCV_performance:
         plt.rcParams.update({'font.size': 12})
         plt.ylabel('Area Under the Receiver Operating Characteristic Curve \n(ROC AUC)')
         plt.title('Leave one Participant out Cross Validation')
+
+        # Define significance bracket positions, p-values, and heights
+        bracket_heights = [0.6, 0.57, 0.65]  # Different heights for the brackets above the boxplot
+        bracket_positions = [(1, 2), (2, 3), (1, 3)]  # (start, end) of the brackets
+        p_values = [ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean]
+        self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="below")
+
         plt.show()
 
     def plot_LOOCV_Accuracy(self):
-        self.check_ANOVA_ttest_Wilcoxon(self.optimal_accuracy_list_ndh, self.conventioanl_accuracy_list_ndh, self.mean_accuracy_list_ndh)
+        ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean = self.check_ANOVA_ttest_Wilcoxon(
+            self.optimal_accuracy_list_ndh, self.conventioanl_accuracy_list_ndh, self.mean_accuracy_list_ndh
+            )
 
         # Set colors for the boxplots
         colors = [thesis_style.get_thesis_colours()['dark_blue'], thesis_style.get_thesis_colours()['light_blue'], thesis_style.get_thesis_colours()['orange'], thesis_style.get_thesis_colours()['turquoise']]
@@ -415,13 +473,20 @@ class LOOCV_performance:
         # Add a legend manually
         plt.legend([plt.Line2D([0], [0], color=colors[2], linestyle='--')],
                    ['Clinically required performance'],
-                   loc='lower left')
+                   loc='lower right')
         
         ax.set_xticks([1, 2, 3, 4, 5])
         ax.set_xticklabels(['Conventional', 'Personalized', 'Mean optimal', 'Personalized Linus', 'Mean optimal Linus'])        
         
         plt.ylabel('Accuracy')
         plt.title('Leave one Participant out Cross Validation')
+
+        # Define significance bracket positions, p-values, and heights
+        bracket_heights = [0.965, 0.94, 1.0]  # Different heights for the brackets above the boxplot
+        bracket_positions = [(1, 2), (2, 3), (1, 3)]  # (start, end) of the brackets
+        p_values = [ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean]
+        self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
+
         plt.show()
 
 
