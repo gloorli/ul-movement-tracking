@@ -112,7 +112,7 @@ class PrimitiveDistribution:
         plt.ylabel('Percentage of total Protocol Time')
         plt.xlabel('')
         plt.xticks(range(len(self.participantIDs)),
-                [f"{id}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)],
+                [f"{id_conversion.get_thesisID(id)}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)],
                 rotation=0, fontsize=8)
         plt.yticks(range(0, 101, 25), [f"{i}%" for i in range(0, 101, 25)])
         plt.tight_layout(rect=[0, 0, 1.3, 1])

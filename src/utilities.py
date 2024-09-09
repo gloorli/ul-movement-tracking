@@ -1231,4 +1231,23 @@ class ThesisStyle:
         """
         return self.label_colours
     
+class CREATEid_to_thesisID:
+    def __init__(self):
+        self.conversion = {
+            'S001': 'S01',
+            'S008': 'S02',
+            'S009': 'S03',
+            'S012': 'S04',
+            'S014': 'S05',
+            'S015': 'S06',
+            'S016': 'S07',
+            'S018': 'S08',
+            'S019': 'S09',
+            'S020': 'S10',
+            'S017': 'S11' #excluded
+        }
+    def get_thesisID(self, CREATEid):
+        return self.conversion[CREATEid]
+    
 thesis_style = ThesisStyle()
+id_conversion = CREATEid_to_thesisID()
