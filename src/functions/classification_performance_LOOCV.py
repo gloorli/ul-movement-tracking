@@ -637,39 +637,44 @@ class LOOCV_performance:
     def plot_LOOCV_Accuracy_perTask(self):
         colors = thesis_style.get_thesis_colours()
         plt.rcParams.update({'font.size': 16})
-        fig, ax = plt.subplots(figsize=(24, 8))
+        fig, ax = plt.subplots(figsize=(24, 6))
 
-        # Number of tasks
         num_tasks = len(self.optimal_accuracy_perTask)
+        combined_sides = self.combine_ndh_dh()
+        
+        # Sort the tasks based on mean accuracy
+        sorted_tasks = sorted(combined_sides.keys(), key=lambda x: np.mean(combined_sides[x]), reverse=True)
+        labels = ['pour\nglas', 'drink', 'fold\nrags', 'sort\ndocuments', 'brooming', 'coat', 'keyboard\ntyping', 'stapling', 'walking', 
+                          'door', 'resting', 'other', 'wipe\ntable','light\nswitch']
+        sorted_labels = [labels[list(combined_sides.keys()).index(task)] for task in sorted_tasks]
         
         # Prepare the positions for the boxplots
         position = np.arange(1, num_tasks * 2, 2)
 
         # Set colors for the boxplots
-        mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=7, markeredgewidth=0)
-        meadian_markers = dict(color=colors['black_grey'])
-        box_optimal = ax.boxplot(self.combine_ndh_dh().values(), positions=position, widths=0.8, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, showfliers=False)
+        mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=10, markeredgewidth=0, zorder=4)
+        meadian_markers = dict(color=colors['black_grey'], alpha=0.0)
+        box_optimal = ax.boxplot([combined_sides[task] for task in sorted_tasks], positions=position, widths=0.8, showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, showfliers=False)
         for box in box_optimal['boxes']:
             box.set(facecolor=colors['white'], alpha=0.7)
         # Show all data points for each task/box
         label_ploted = False
-        for i, task in enumerate(self.combine_ndh_dh().keys()):
+        for i, task in enumerate(sorted_tasks):
             plt.scatter(np.random.normal(position[i], 0.1, size=len(self.optimal_accuracy_perTask[task])), self.optimal_accuracy_perTask[task], zorder=3.1, color=colors['affected'], label='Affected side' if not label_ploted else None)
             plt.scatter(np.random.normal(position[i], 0.1, size=len(self.mean_accuracy_perTask_dh[task])), self.mean_accuracy_perTask_dh[task], zorder=3.0, color=colors['healthy'], label='Healthy side' if not label_ploted else None)
             label_ploted = True
-        ax.add_artist(plt.legend(loc='lower left'))
+        ax.add_artist(plt.legend(loc='lower right'))
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
-        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', linewidth=3, label='Clinically required performance')
-        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', linewidth=2, label='Performance of random classifier')
-        ax.add_artist(plt.legend(handles=[plt.Line2D([], [], color=colors['pink'], linestyle='--', label='Clinically required performance'),
-                   plt.Line2D([], [], color=colors['black_grey'], linestyle='--', label='Performance of random classifier')], loc='lower center'))
+        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', linewidth=4, label='Clinically required performance')
+        #ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', linewidth=3, label='Performance of random classifier')
+        ax.add_artist(plt.legend(handles=[plt.Line2D([], [], marker='D', markersize=8, color=colors['black'], linestyle='', label='Mean accuracy per task'),
+            plt.Line2D([], [], color=colors['pink'], linestyle='dotted', lw=4, label='Clinically required performance')#, plt.Line2D([], [], color=colors['black_grey'], linestyle='--', lw=3, label='Performance of random classifier')
+                   ], loc='lower left'))
         
         # Adjust x-tick labels to be in between the grouped boxplots
         ax.set_xticks(position)
-        labels = ['pour\nglas', 'drink', 'fold\nrags', 'sort\ndocuments', 'brooming', 'coat', 'keyboard\ntyping', 'stapling', 'walking', 
-                          'door', 'resting', 'other', 'wipe\ntable','light\nswitch']
-        ax.set_xticklabels(labels)
+        ax.set_xticklabels(sorted_labels)
         plt.xticks(rotation=0, ha='center')
         
         plt.ylabel('Accuracy')
