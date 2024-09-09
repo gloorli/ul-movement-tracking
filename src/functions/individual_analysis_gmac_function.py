@@ -71,14 +71,15 @@ def get_classification_metrics(y_true, y_pred):
     - sensitivity (float): Sensitivity (True Positive Rate) of the classification.
     - specificity (float): Specificity (True Negative Rate) of the classification.
     - youden_index (float): Youden's Index of the classification.
-
+    - F_1_score (float): F1 Score of the classification.
     """
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
     accuracy = (tp + tn) / (tp + tn + fp + fn)
     sensitivity = tp / (tp + fn)
     specificity = tn / (tn + fp)
     youden_index = sensitivity + specificity - 1
-    return accuracy, sensitivity, specificity, youden_index
+    F_1_score = 2 * tp / (2 * tp + fp + fn)
+    return accuracy, sensitivity, specificity, youden_index, F_1_score
 
 def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal='No'):
     """
@@ -148,7 +149,7 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal='No'):
                     y_train_pred = get_prediction_gmac(counts, pitch, count_threshold=thres, functional_space=angle, decision_mode='Subash')
                     y_train_pred = y_train_pred.astype(int)
 
-                    accuracy, sensitivity, specificity, youden_index = get_classification_metrics(y_train, y_train_pred)
+                    accuracy, sensitivity, specificity, youden_index, _ = get_classification_metrics(y_train, y_train_pred)
 
                     results_temp.loc[len(results_temp)] = [accuracy*100, sensitivity*100, specificity*100, youden_index]
                     thres_angle_range.append([thres, angle])
@@ -185,7 +186,7 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal='No'):
                     y_train_pred = get_prediction_gmac(counts, pitch, count_threshold=thres, functional_space=angle, decision_mode='Linus')
                     y_train_pred = y_train_pred.astype(int)
 
-                    accuracy, sensitivity, specificity, youden_index = get_classification_metrics(y_train, y_train_pred)
+                    accuracy, sensitivity, specificity, youden_index, _ = get_classification_metrics(y_train, y_train_pred)
 
                     results_temp.loc[len(results_temp)] = [accuracy*100, sensitivity*100, specificity*100, youden_index]
                     thres_angle_range.append([thres, angle])
@@ -211,7 +212,7 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal='No'):
         y_test_pred = y_test_pred.astype(int)
 
         # Compute evaluation metrics for this iteration comparing the predictions and the y_eval
-        accuracy, sensitivity, specificity, youden_index = get_classification_metrics(y_eval, y_test_pred)
+        accuracy, sensitivity, specificity, youden_index, _ = get_classification_metrics(y_eval, y_test_pred)
 
         #store metrics and thresholds of the current iteration
         results_test.loc[len(results_test)] = [accuracy*100, sensitivity*100, specificity*100, youden_index, optimal_thres, optimal_angle]

@@ -1198,6 +1198,7 @@ class ThesisStyle:
             'light_blue': '#9FCDFF',
             'yellow': '#FFCD00',
             'orange': '#F68400',
+            'light_orange': '#ffa844',
             'affected': '#F68400',
             'pink': '#F87FB5',
             'turquoise': '#7CB7A4',
@@ -1205,7 +1206,8 @@ class ThesisStyle:
             'healthy': '#7CB7A4',
             'grey': '#999999',
             'black_grey': '#404040',
-            'black': '#000000'
+            'black': '#000000',
+            'white': '#FFFFFF'
         }
         self.label_colours = {
             'functional_movement': '#77DD77',
