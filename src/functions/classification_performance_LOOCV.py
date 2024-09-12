@@ -199,7 +199,7 @@ class LOOCV_performance:
         self.mean_accuracy_list_dh = []
 
         self.optimal_AUC_list_ndh = []
-        self.conventioanl_AUC_list_ndh = []
+        self.conventional_AUC_list_ndh = []
         self.mean_AUC_list_ndh = []
         self.optimal_AUC_list_ndh_Linus = []
         self.mean_AUC_list_ndh_Linus = []
@@ -262,7 +262,7 @@ class LOOCV_performance:
             self.mean_accuracy_list_dh.append(accuracy_mean_dh)
 
             self.optimal_AUC_list_ndh.append(auc_optimized_ndh)
-            self.conventioanl_AUC_list_ndh.append(auc_conventional_ndh)
+            self.conventional_AUC_list_ndh.append(auc_conventional_ndh)
             self.mean_AUC_list_ndh.append(auc_mean_ndh)
             self.optimal_AUC_list_ndh_Linus.append(auc_optimized_ndh_Linus)
             self.mean_AUC_list_ndh_Linus.append(auc_mean_ndh_Linus)
@@ -439,18 +439,18 @@ class LOOCV_performance:
 
         # Add colors of healthy and affected boxes to legend
         legend_colors = [colors['healthy'], colors['affected']]
-        legend_labels = ['Healthy side', 'Affected side']
+        legend_labels = ['Unaffected side', 'Affected side']
         legend_patches = [mpatches.Patch(color=color, label=label, alpha=0.7) for color, label in zip(legend_colors, legend_labels)]
-        ax.add_artist(plt.legend(handles=legend_patches, loc='upper right'))
+        ax.add_artist(plt.legend(handles=legend_patches, loc='upper right', reverse=True))
 
         # Set x-ticks and labels
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Mean personalized', 'Personalized', 'Conventional', 'Mean personalized'])
+        ax.set_xticklabels(['conventional\nthresholds', 'optimal\nthresholds', 'personalized\nthresholds', 'conventional\nthresholds', 'optimal\nthresholds'], fontsize=10)
         ax.set_ylim(-0.1, 1)
 
         # Set y-label and title
         plt.ylabel('Youden Index')
-        plt.title('Leave one Participant out Cross Validation')
+        plt.title('GMAC leave one subject out cross validation')
 
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.65, 0.7, 0.75, 0.7]  # Different heights for the brackets above the boxplot
@@ -463,7 +463,7 @@ class LOOCV_performance:
     def plot_LOOCV_AUC(self):
         colors = thesis_style.get_thesis_colours()
         ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean, ttest_pvalue_mean_conventional_dh = self.check_ANOVA_ttest_Wilcoxon(
-            self.optimal_AUC_list_ndh, self.conventioanl_AUC_list_ndh, self.mean_AUC_list_ndh, self.mean_AUC_list_dh, self.conventional_AUC_list_dh
+            self.optimal_AUC_list_ndh, self.conventional_AUC_list_ndh, self.mean_AUC_list_ndh, self.mean_AUC_list_dh, self.conventional_AUC_list_dh
             )
 
         mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5, markeredgewidth=0)
@@ -471,7 +471,7 @@ class LOOCV_performance:
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_conventional = ax.boxplot(self.conventioanl_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventional_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         box_optimal = ax.boxplot(self.optimal_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
         box_conventional_dh = ax.boxplot(self.conventional_AUC_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
@@ -497,17 +497,17 @@ class LOOCV_performance:
 
         # Add colors of healthy and affected boxes to legend
         legend_colors = [colors['healthy'], colors['affected']]
-        legend_labels = ['Healthy side', 'Affected side']
+        legend_labels = ['Unaffected side', 'Affected side']
         legend_patches = [mpatches.Patch(color=color, label=label, alpha=0.7) for color, label in zip(legend_colors, legend_labels)]
-        ax.add_artist(plt.legend(handles=legend_patches, loc='lower right'))
+        ax.add_artist(plt.legend(handles=legend_patches, loc='lower right', reverse=True))
 
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Mean personalized', 'Personalized', 'Conventional', 'Mean personalized'])
+        ax.set_xticklabels(['conventional\nthresholds', 'optimal\nthresholds', 'personalized\nthresholds', 'conventional\nthresholds', 'optimal\nthresholds'], fontsize=10)
         ax.set_ylim(0.45, 1.0)
 
         plt.rcParams.update({'font.size': 12})
-        plt.ylabel('Area Under the Receiver Operating Characteristic Curve \n(ROC AUC)')
-        plt.title('Leave one Participant out Cross Validation')
+        plt.ylabel('ROC AUC')
+        plt.title('GMAC leave one subject out cross validation')
 
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.81, 0.9, 0.86, 0.86]  # Different heights for the brackets above the boxplot
@@ -554,18 +554,18 @@ class LOOCV_performance:
 
         # Add colors of healthy and affected boxes to legend
         legend_colors = [colors['healthy'], colors['affected']]
-        legend_labels = ['Healthy side', 'Affected side']
+        legend_labels = ['Unaffected side', 'Affected side']
         legend_patches = [mpatches.Patch(color=color, label=label, alpha=0.7) for color, label in zip(legend_colors, legend_labels)]
-        ax.add_artist(plt.legend(handles=legend_patches, loc='lower right'))
+        ax.add_artist(plt.legend(handles=legend_patches, loc='lower right', reverse=True))
         
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Mean personalized', 'Personalized', 'Conventional', 'Mean personalized'])
+        ax.set_xticklabels(['conventional\nthresholds', 'optimal\nthresholds', 'personalized\nthresholds', 'conventional\nthresholds', 'optimal\nthresholds'], fontsize=10)
         ax.set_ylim(0.45, 1.0)
         ax.set_yticks([0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
         ax.set_yticklabels(['50%', '60%', '70%', '80%', '90%', '100%'])        
         
         plt.ylabel('Accuracy')
-        plt.title('Leave one Participant out Cross Validation')
+        plt.title('GMAC leave one subject out cross validation')
 
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.6, 0.66, 0.63, 0.9]  # Different heights for the brackets above the boxplot
@@ -607,16 +607,16 @@ class LOOCV_performance:
 
         # Add colors of healthy and affected boxes to legend
         legend_colors = [colors['healthy'], colors['affected']]
-        legend_labels = ['Healthy side', 'Affected side']
+        legend_labels = ['Unaffected side', 'Affected side']
         legend_patches = [mpatches.Patch(color=color, label=label, alpha=0.7) for color, label in zip(legend_colors, legend_labels)]
-        ax.add_artist(plt.legend(handles=legend_patches, loc='lower right'))
+        ax.add_artist(plt.legend(handles=legend_patches, loc='lower right', reverse=True))
 
         ax.set_xticks([1, 2, 3, 4, 5])
-        ax.set_xticklabels(['Conventional', 'Mean personalized', 'Personalized', 'Conventional', 'Mean personalized'])
+        ax.set_xticklabels(['conventional\nthresholds', 'optimal\nthresholds', 'personalized\nthresholds', 'conventional\nthresholds', 'optimal\nthresholds'], fontsize=10)
         ax.set_ylim(-0.1, 1.0)
 
         plt.ylabel('F1 score')
-        plt.title('Leave one Participant out Cross Validation')
+        plt.title('GMAC leave one subject out cross validation')
 
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.9, 0.85, 0.8, 0.4]  # Different heights for the brackets above the boxplot
@@ -631,8 +631,44 @@ class LOOCV_performance:
         for key, value in self.optimal_accuracy_perTask.items():
             value_dh = self.mean_accuracy_perTask_dh[key]
             combined_dict[key] = value_dh+value
-        return combined_dict       
+        return combined_dict
 
+    def plot_simplified_accuracy_perTask(self, sorted_tasks, combined_sides, sorted_labels, colors):       
+        '''
+        Plot violin plots showing the the distribution of accuracy per task.
+        '''
+        # Create a figure and axis
+        fig, ax = plt.subplots(figsize=(20, 6))
+
+        # Prepare the positions for the violin plots
+        position = np.arange(0, len(sorted_tasks), 1)
+        # Plot violin plots for each task
+        violin_parts = ax.violinplot([combined_sides[task] for task in sorted_tasks], positions=position, widths=0.8, showmeans=False, showmedians=False, showextrema=False)
+
+        # Customize violin plot appearance
+        for i, pc in enumerate(violin_parts['bodies']):
+            pc.set_facecolor(colors['light_blue'])
+
+        # Plot the means as diamonds on top of the violin plots
+        means = [np.mean(combined_sides[task]) for task in sorted_tasks]
+        ax.plot(position, means, 'D', color=colors['dark_blue'], markersize=12, label='Mean of all subjects')
+
+        # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
+        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', linewidth=4, label=f"Accuracy required for clinical implementation")
+
+        ax.set_xticks(position)
+        ax.set_xticklabels(sorted_labels)
+        ax.set_xlim(-0.5, len(sorted_tasks) - 0.5)
+        ax.set_ylim(0, 1.02)
+        ax.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1])
+        ax.set_yticklabels(['0%', '20%', '40%', '60%', '80%', '100%'])
+        ax.set_ylabel('Accuracy')
+
+        # Set the plot title
+        ax.set_title('GMAC leave one subject out cross validation')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 
     def plot_LOOCV_Accuracy_perTask(self):
         colors = thesis_style.get_thesis_colours()
@@ -661,7 +697,7 @@ class LOOCV_performance:
         label_ploted = False
         for i, task in enumerate(sorted_tasks):
             plt.scatter(np.random.normal(position[i], 0.1, size=len(self.optimal_accuracy_perTask[task])), self.optimal_accuracy_perTask[task], zorder=3.1, color=colors['affected'], label='Affected side' if not label_ploted else None)
-            plt.scatter(np.random.normal(position[i], 0.1, size=len(self.mean_accuracy_perTask_dh[task])), self.mean_accuracy_perTask_dh[task], zorder=3.0, color=colors['healthy'], label='Healthy side' if not label_ploted else None)
+            plt.scatter(np.random.normal(position[i], 0.1, size=len(self.mean_accuracy_perTask_dh[task])), self.mean_accuracy_perTask_dh[task], zorder=3.0, color=colors['healthy'], label='Unaffected side' if not label_ploted else None)
             label_ploted = True
         ax.add_artist(plt.legend(loc='lower right'))
 
@@ -678,14 +714,16 @@ class LOOCV_performance:
         plt.xticks(rotation=0, ha='center')
         
         plt.ylabel('Accuracy')
-        plt.title('Leave one Participant out Cross Validation per Task')
+        plt.title('GMAC leave one subject out cross validation per Task')
         
-        ax.set_ylim(0.0, 1.0)
+        ax.set_ylim(0.0, 1.02)
         ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
         ax.set_yticklabels(['0%', '20%', '40%', '60%', '80%', '100%'])  
 
         plt.tight_layout()
         plt.show()
+
+        self.plot_simplified_accuracy_perTask(sorted_tasks, combined_sides, sorted_labels, colors)
 
 
     def spearman_correlation_classification_impairment(self):
@@ -709,10 +747,10 @@ class LOOCV_performance:
         ax.scatter(self.evaluation_FMA, self.conventioanl_YI_list_ndh, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
         ax.scatter(self.evaluation_FMA, self.mean_YI_list_ndh, label=f'Mean optimal YI (std: {mean_YI_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='x')
         optimal_AUC_std = np.std(self.optimal_AUC_list_ndh)
-        conv_AUC_std = np.std(self.conventioanl_AUC_list_ndh)
+        conv_AUC_std = np.std(self.conventional_AUC_list_ndh)
         mean_AUC_std = np.std(self.mean_AUC_list_ndh)
         ax.scatter(self.evaluation_FMA, self.optimal_AUC_list_ndh, label=f'Personalized AUV (std: {optimal_AUC_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='o')
-        ax.scatter(self.evaluation_FMA, self.conventioanl_AUC_list_ndh, label=f'Conventional AUV (std: {conv_AUC_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='o')
+        ax.scatter(self.evaluation_FMA, self.conventional_AUC_list_ndh, label=f'Conventional AUV (std: {conv_AUC_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='o')
         ax.scatter(self.evaluation_FMA, self.mean_AUC_list_ndh, label=f'Mean optimal AUV (std: {mean_AUC_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='o')
         optimal_accuracy_std = np.std(self.optimal_accuracy_list_ndh)
         conv_accuracy_std = np.std(self.conventioanl_accuracy_list_ndh)
