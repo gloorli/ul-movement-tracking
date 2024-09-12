@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
-from scipy.stats import pearsonr, spearmanr, wilcoxon, ttest_rel
+from scipy.stats import pearsonr, spearmanr, wilcoxon, ttest_rel, probplot
 
 from utilities import thesis_style
 
@@ -45,47 +46,73 @@ class RegressionModel:
     def spearman_correlation(self):
         corr, pvalue = spearmanr(self.x.flatten(), self.y)
         return corr, pvalue
+    
+    def calculate_confidence_interval(self, model, x_range, order_of_model=1): #TODO make sure this is statistically sound
+        # Get predictions
+        y_pred = model.predict(x_range)
+            
+        # Calculate residuals (errors)
+        residuals = self.y - model.predict(self.x)
+        dof = len(self.y) - order_of_model - 1  # degrees of freedom
+            
+        # Calculate the mean squared error
+        mse = np.sum(residuals ** 2) / dof
+            
+        # Calculate the prediction standard error
+        x_mean = np.mean(self.x)
+        se = np.sqrt(mse * (1.0 / len(self.x) + (x_range - x_mean) ** 2 / np.sum((self.x - x_mean) ** 2)))
+            
+        # 95% confidence/prediction interval
+        ci = 1.96 * se
+        return y_pred.flatten(), ci.flatten()
 
     def plot_regressions(self, title='Regression Plots', xlabel='x', ylabel='y'):
         colors = thesis_style.get_thesis_colours()
-
-        fig, ax = plt.subplots(1,1)
+        
+        fig, ax = plt.subplots(figsize=(10, 5))
         
         if self.dominant_impared is not None:
             dominant_legend_plotted = False
             non_dominant_legend_plotted = False
             for i, (x, y, err, is_dom_impaired) in enumerate(zip(self.x, self.y, self.threshold_std, self.dominant_impared)):
                 if is_dom_impaired:
-                    plt.errorbar(x, y, yerr=err, fmt="+", color=colors['dark_blue'], label='Individual optimized thresholds \n(std over k-folds, dominant arm)' if not dominant_legend_plotted else "")
+                    plt.errorbar(x, y, yerr=err, fmt="+", markersize=14, markeredgewidth=3, color=colors['orange'], label='dominant arm affected (std over 5-folds)' if not dominant_legend_plotted else "")
                     dominant_legend_plotted = True
                 else:
-                    plt.errorbar(x, y, yerr=err, fmt="x", color=colors['light_blue'], label='Individual optimized thresholds \n(std over k-folds, non-dominant arm)' if not non_dominant_legend_plotted else "")
+                    plt.errorbar(x, y, yerr=err, fmt="x", markersize=13, markeredgewidth=3, color=colors['light_orange'], label='non-dominant arm affected (std over 5-folds)' if not non_dominant_legend_plotted else "")
                     non_dominant_legend_plotted = True
         else:
             plt.errorbar(self.x, self.y, yerr=self.threshold_std, fmt="x", color=colors['dark_blue'], label='Optimized thresholds (std over k-folds)')
 
-        # Plot linear regression
+        x_range = np.linspace(self.x.min(), self.x.max(), 500).reshape(-1, 1)
+        
+        # Plot linear regression with confidence interval
         if self.linear_model is not None:
-            x_range = np.linspace(self.x.min(), self.x.max(), 500).reshape(-1, 1)
-            y_linear_pred = self.linear_model.predict(x_range)
+            y_linear_pred, ci_linear = self.calculate_confidence_interval(self.linear_model, x_range, order_of_model=1)
             r_squared = self.linear_model.score(self.x, self.y)
-            plt.plot(x_range, y_linear_pred, color='red', label=f'Linear Regression (R-squared: {r_squared:.2f})')
+            plt.plot(x_range, y_linear_pred, label=f'Linear regression (R-squared: {r_squared:.2f})', color=colors['dark_blue'], linewidth=3)
+            plt.fill_between(x_range.flatten(), (y_linear_pred - ci_linear).flatten(), (y_linear_pred + ci_linear).flatten(), color=colors['dark_blue'], alpha=0.2, label='95% CI')
 
-        # Plot polynomial regressions
-        for degree, poly_model in self.poly_models.items():
-            y_poly_pred = poly_model.predict(x_range)
-            r_squared = poly_model.score(self.x, self.y)
-            plt.plot(x_range, y_poly_pred, label=f'Polynomial Regression (degree {degree}) (R-squared: {r_squared:.2f})', color=colors['light_blue'])
-
+        # Plot polynomial regressions with confidence interval
+        if self.poly_models is not None:
+            for degree, poly_model in self.poly_models.items():
+                y_poly_pred, ci_poly = self.calculate_confidence_interval(poly_model, x_range, degree)
+                r_squared = poly_model.score(self.x, self.y)
+                plt.plot(x_range, y_poly_pred, label=f'{degree}nd degree polynomial regression (R-squared: {r_squared:.2f})', color=colors['dark_blue'], linewidth=3)
+                plt.fill_between(x_range.flatten(), (y_poly_pred - ci_poly).flatten(), (y_poly_pred + ci_poly).flatten(), color=colors['dark_blue'], alpha=0.2, label='95% CI')
+        
+        # Plot threshold line if relevant
         if ylabel == 'Count Threshold':
             plt.axhline(y=0.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
+            ax.set_ylim([-0.15, max(self.y) + 1.1*max(self.threshold_std)])
         elif ylabel == 'Pitch Threshold':
             plt.axhline(y=30.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
             ax.set_yticks([30, 35, 40, 45, 50, 55, 60, 65])
             ax.set_yticklabels(['30°', '35°', '40°', '45°', '50°', '55°', '60°', '65°'])
         else:
             raise ValueError(f"Invalid ylabel: {ylabel}")
-
+        plt.axhline(y=np.mean(self.y), color=colors['orange'], linestyle='dotted', label='Mean personalized threshold', linewidth=2)
+        
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(title)
@@ -102,22 +129,24 @@ def extract_std_from_min_max_std(min_max_std):
 
     return count_std, pitch_std
 
-def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Analysis', dominant_impared=None):
+def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Analysis', dominant_impared=None, model_to_fit='linear'):
     # Create a regression model
     model = RegressionModel(x, y, std, dominant_impared)
 
     # Check distribution of the data
     #model.check_distribution()
 
-    # Fit linear regression
-    model.fit_linear_regression()
-    print("Linear model coefficients:", model.linear_model.coef_)
-    print("Linear model intercept:", model.linear_model.intercept_)
+    if model_to_fit == 'linear':
+        # Fit linear regression
+        model.fit_linear_regression()
+        print("Linear model coefficients:", model.linear_model.coef_)
+        print("Linear model intercept:", model.linear_model.intercept_)
 
-    # Fit polynomial regression of degree 2
-    model.fit_polynomial_regression(2)
-    print("Polynomial model coefficients (degree 2):", model.poly_models[2].steps[1][1].coef_)
-    print("Polynomial model intercept (degree 2):", model.poly_models[2].steps[1][1].intercept_)
+    elif model_to_fit == 'polynomial':
+        # Fit polynomial regression of degree 2
+        model.fit_polynomial_regression(2)
+        print("Polynomial model coefficients (degree 2):", model.poly_models[2].steps[1][1].coef_)
+        print("Polynomial model intercept (degree 2):", model.poly_models[2].steps[1][1].intercept_)
         
     # Calculate Pearson correlation
     pearson_corr, pearson_pvalue = model.pearson_correlation()
@@ -129,8 +158,30 @@ def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Anal
 
     # Plot regressions
     model.plot_regressions(xlabel=x_label, ylabel=y_label, title=title)
+
+def QQplot(count_threshols_1, count_threshols_2, eleation_threshols_1, elevation_threshols_2):
+    '''
+    Plot two QQ-plot to check if the difference between the paired samples is normally distributed
+    '''
+    # Create a figure and axis
+    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+    # Create a QQ-plot for count thresholds
+    count_diff = np.array(count_threshols_1) - np.array(count_threshols_2)
+    probplot(count_diff, dist='norm', plot=ax[0])
+    #qqplot(count_threshols_1, count_threshols_2, line='45', ax=ax[0])
+    ax[0].set_title('Q-Q Count Thresholds')
+    # Create a QQ-plot for elevation thresholds
+    elevation_diff = np.array(eleation_threshols_1) - np.array(elevation_threshols_2)
+    probplot(elevation_diff, dist='norm', plot=ax[1])
+    #qqplot(eleation_threshols_1, elevation_threshols_2, line='45', ax=ax[1])
+    ax[1].set_title('Q-Q Elevation Thresholds')
+    plt.tight_layout()
+    plt.show()
+
+def degree_formatter(x, pos):
+    return f'{int(x)}°'
     
-def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_threshold_ndh, elevation_threshold_dh, x_data_label=['Affected side', 'Healthy side']):
+def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_threshold_ndh, elevation_threshold_dh, x_data_label=['Affected side', 'Unaffected side']):
     # calculate mean optimal thresholds
     mean_count_threshold_ndh = np.mean(count_threshold_ndh)
     mean_count_threshold_dh = np.mean(count_threshold_dh)
@@ -155,7 +206,7 @@ def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_thresh
     print("p-value:", ttest_pvalue_elevation)
 
     plt.figure(figsize=(10, 5))
-    plt.suptitle('Optimzed individual thresholds', fontsize=16)
+    #plt.suptitle('Optimzed individual thresholds', fontsize=16)
 
     # Color configuration
     affected_color = thesis_style.get_thesis_colours()['affected']
@@ -184,13 +235,13 @@ def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_thresh
     plt.ylabel('Counts per second')
     plt.xticks([1, 2], x_data_label)
     # Show all data points
-    plt.scatter(np.random.normal(1.0, 0.0125, size=len(count_threshold_ndh)), count_threshold_ndh, color=affected_color)
-    plt.scatter(np.random.normal(2.0, 0.0125, size=len(count_threshold_dh)), count_threshold_dh, color=healthy_color)
+    plt.scatter(np.random.normal(1.0, 0.06, size=len(count_threshold_ndh)), count_threshold_ndh, color=affected_color)
+    plt.scatter(np.random.normal(2.0, 0.06, size=len(count_threshold_dh)), count_threshold_dh, color=healthy_color)
     # Plot horizontal line at conventional threshold
     plt.axhline(y=0.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional GMAC threshold')
     # Add p-values between healthy and affected
-    plt.annotate(f"Significance levels between sides \nWilcoxon p-value: {wilcoxon_pvalue_count:.4f}", xy=(0.5, -0.2), xycoords='axes fraction', ha='center', fontsize=8)
-    plt.annotate(f"T-Test p-value: {ttest_pvalue_count:.4f}", xy=(0.5, -0.25), xycoords='axes fraction', ha='center', fontsize=8)
+    #plt.annotate(f"Significance levels between sides \npaired t-test p-value: {ttest_pvalue_count:.4f}", xy=(0.5, -0.15), xycoords='axes fraction', ha='center', fontsize=9)
+    plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_count:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=8)
 
     plt.legend()
 
@@ -212,16 +263,17 @@ def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_thresh
 
     plt.title('Functional space')
     plt.xlabel('')
-    plt.ylabel('Elevation (degrees)')
+    plt.ylabel('Elevation')
     plt.xticks([1, 2], x_data_label)
+    plt.gca().yaxis.set_major_formatter(FuncFormatter(degree_formatter))
     # Show all data points
     plt.scatter(np.random.normal(1.0, 0.0125, size=len(elevation_threshold_ndh)), elevation_threshold_ndh, color=affected_color)
     plt.scatter(np.random.normal(2.0, 0.0125, size=len(elevation_threshold_dh)), elevation_threshold_dh, color=healthy_color)
     # Plot horizontal line at conventional threshold
     plt.axhline(y=30.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional GMAC threshold')
     # Add p-values between healthy and affected
-    plt.annotate(f"Significance levels between sides \nWilcoxon p-value: {wilcoxon_pvalue_elevation:.4f}", xy=(0.5, -0.2), xycoords='axes fraction', ha='center', fontsize=8)
-    plt.annotate(f"T-Test p-value: {ttest_pvalue_elevation:.4f}", xy=(0.5, -0.25), xycoords='axes fraction', ha='center', fontsize=8)
+    #plt.annotate(f"Significance levels between sides \npaired t-test p-value: {ttest_pvalue_elevation:.4f}", xy=(0.5, -0.15), xycoords='axes fraction', ha='center', fontsize=9)
+    plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_elevation:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=8)
 
     plt.tight_layout()
     plt.show()
