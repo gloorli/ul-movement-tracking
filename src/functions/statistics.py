@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 from matplotlib.ticker import FuncFormatter
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
@@ -46,25 +47,6 @@ class RegressionModel:
     def spearman_correlation(self):
         corr, pvalue = spearmanr(self.x.flatten(), self.y)
         return corr, pvalue
-    
-    def calculate_confidence_interval(self, model, x_range, order_of_model=1): #TODO make sure this is statistically sound
-        # Get predictions
-        y_pred = model.predict(x_range)
-            
-        # Calculate residuals (errors)
-        residuals = self.y - model.predict(self.x)
-        dof = len(self.y) - order_of_model - 1  # degrees of freedom
-            
-        # Calculate the mean squared error
-        mse = np.sum(residuals ** 2) / dof
-            
-        # Calculate the prediction standard error
-        x_mean = np.mean(self.x)
-        se = np.sqrt(mse * (1.0 / len(self.x) + (x_range - x_mean) ** 2 / np.sum((self.x - x_mean) ** 2)))
-            
-        # 95% confidence/prediction interval
-        ci = 1.96 * se
-        return y_pred.flatten(), ci.flatten()
 
     def plot_regressions(self, title='Regression Plots', xlabel='x', ylabel='y'):
         colors = thesis_style.get_thesis_colours()
@@ -83,29 +65,23 @@ class RegressionModel:
                     non_dominant_legend_plotted = True
         else:
             plt.errorbar(self.x, self.y, yerr=self.threshold_std, fmt="x", color=colors['dark_blue'], label='Optimized thresholds ($\sigma$ over k-folds)')
-
-        x_range = np.linspace(self.x.min(), self.x.max(), 500).reshape(-1, 1)
         
         # Plot linear regression with confidence interval
         if self.linear_model is not None:
-            y_linear_pred, ci_linear = self.calculate_confidence_interval(self.linear_model, x_range, order_of_model=1)
             r_squared = self.linear_model.score(self.x, self.y)
-            plt.plot(x_range, y_linear_pred, label=f'Linear regression (R-squared: {r_squared:.2f})', color=colors['dark_blue'], linewidth=3)
-            plt.fill_between(x_range.flatten(), (y_linear_pred - ci_linear).flatten(), (y_linear_pred + ci_linear).flatten(), color=colors['dark_blue'], alpha=0.2, label='95% CI')
+            sns.regplot(x=self.x, y=self.y, label=f'Linear regression with 95% CI\n(R-squared: {r_squared:.2f})', color=colors['dark_blue'], ci=95, scatter=False, line_kws={'linewidth': 3})
 
         # Plot polynomial regressions with confidence interval
         if self.poly_models is not None:
             for degree, poly_model in self.poly_models.items():
-                y_poly_pred, ci_poly = self.calculate_confidence_interval(poly_model, x_range, degree)
                 r_squared = poly_model.score(self.x, self.y)
-                plt.plot(x_range, y_poly_pred, label=f'{degree}nd degree polynomial regression (R-squared: {r_squared:.2f})', color=colors['dark_blue'], linewidth=3)
-                plt.fill_between(x_range.flatten(), (y_poly_pred - ci_poly).flatten(), (y_poly_pred + ci_poly).flatten(), color=colors['dark_blue'], alpha=0.2, label='95% CI')
+                sns.regplot(x=self.x, y=self.y, order=degree, label=f'{degree}nd degree polynomial regression with 95% CI\n(R-squared: {r_squared:.2f})', color=colors['dark_blue'], ci=95, scatter=False, line_kws={'linewidth': 3})
         
         # Plot threshold line if relevant
-        if ylabel == 'Count Threshold':
+        if ylabel == 'Count threshold':
             plt.axhline(y=0.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
             ax.set_ylim([-0.15, max(self.y) + 1.1*max(self.threshold_std)])
-        elif ylabel == 'Elevation Threshold':
+        elif ylabel == 'Elevation threshold':
             plt.axhline(y=30.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
             ax.set_yticks([30, 35, 40, 45, 50, 55, 60, 65])
             ax.set_yticklabels(['30°', '35°', '40°', '45°', '50°', '55°', '60°', '65°'])
@@ -116,7 +92,7 @@ class RegressionModel:
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.title(title)
-        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False)
+        plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False, reverse=True)
         plt.tight_layout()
         plt.show()
 
