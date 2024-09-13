@@ -76,13 +76,13 @@ class RegressionModel:
             non_dominant_legend_plotted = False
             for i, (x, y, err, is_dom_impaired) in enumerate(zip(self.x, self.y, self.threshold_std, self.dominant_impared)):
                 if is_dom_impaired:
-                    plt.errorbar(x, y, yerr=err, fmt="+", markersize=14, markeredgewidth=3, color=colors['orange'], label='dominant arm affected (std over 5-folds)' if not dominant_legend_plotted else "")
+                    plt.errorbar(x, y, yerr=err, fmt="+", markersize=14, markeredgewidth=3, color=colors['orange'], label='dominant arm affected ($\sigma$ over 5-folds)' if not dominant_legend_plotted else "")
                     dominant_legend_plotted = True
                 else:
-                    plt.errorbar(x, y, yerr=err, fmt="x", markersize=13, markeredgewidth=3, color=colors['light_orange'], label='non-dominant arm affected (std over 5-folds)' if not non_dominant_legend_plotted else "")
+                    plt.errorbar(x, y, yerr=err, fmt="x", markersize=13, markeredgewidth=3, color=colors['light_orange'], label='non-dominant arm affected ($\sigma$ over 5-folds)' if not non_dominant_legend_plotted else "")
                     non_dominant_legend_plotted = True
         else:
-            plt.errorbar(self.x, self.y, yerr=self.threshold_std, fmt="x", color=colors['dark_blue'], label='Optimized thresholds (std over k-folds)')
+            plt.errorbar(self.x, self.y, yerr=self.threshold_std, fmt="x", color=colors['dark_blue'], label='Optimized thresholds ($\sigma$ over k-folds)')
 
         x_range = np.linspace(self.x.min(), self.x.max(), 500).reshape(-1, 1)
         
@@ -105,13 +105,13 @@ class RegressionModel:
         if ylabel == 'Count Threshold':
             plt.axhline(y=0.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
             ax.set_ylim([-0.15, max(self.y) + 1.1*max(self.threshold_std)])
-        elif ylabel == 'Pitch Threshold':
+        elif ylabel == 'Elevation Threshold':
             plt.axhline(y=30.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
             ax.set_yticks([30, 35, 40, 45, 50, 55, 60, 65])
             ax.set_yticklabels(['30°', '35°', '40°', '45°', '50°', '55°', '60°', '65°'])
         else:
             raise ValueError(f"Invalid ylabel: {ylabel}")
-        plt.axhline(y=np.mean(self.y), color=colors['orange'], linestyle='dotted', label='Mean personalized threshold', linewidth=2)
+        plt.axhline(y=np.mean(self.y), color=colors['orange'], linestyle='dotted', label='Optimal threshold (mean)', linewidth=2)
         
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
