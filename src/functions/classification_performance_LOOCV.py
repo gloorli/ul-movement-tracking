@@ -3,6 +3,7 @@ from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.ticker as ticker
 from scipy.stats import spearmanr
 
 from utilities import *
@@ -279,7 +280,6 @@ class LOOCV_performance:
             #TODO plot predicted and ground truth personalized count threshold and elevation threshold
 
             if perTask:
-                #TODO add dominant hand
                 self.LOOCV_perTask(X_test, y_test, y_test_dh, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh, loocv_mean_count_dh, loocv_mean_elevation_dh)
 
     def LOOCV_perTask(self, X_test, y_test, y_test_dh, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh, loocv_mean_count_dh, loocv_mean_elevation_dh):
@@ -651,7 +651,7 @@ class LOOCV_performance:
 
         # Plot the means as diamonds on top of the violin plots
         means = [np.mean(combined_sides[task]) for task in sorted_tasks]
-        ax.plot(position, means, 'D', color=colors['dark_blue'], markersize=12, label='Mean of all subjects')
+        ax.plot(position, means, 'D', color=colors['dark_blue'], markersize=12, label=f'Mean over both sides of {int(len(combined_sides[sorted_tasks[0]])/2)} subjects')
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
         ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', linewidth=4, label=f"Accuracy required for clinical implementation")
@@ -680,9 +680,7 @@ class LOOCV_performance:
         
         # Sort the tasks based on mean accuracy
         sorted_tasks = sorted(combined_sides.keys(), key=lambda x: np.mean(combined_sides[x]), reverse=True)
-        labels = ['pour\nglas', 'drink', 'fold\nrags', 'sort\ndocuments', 'brooming', 'coat', 'keyboard\ntyping', 'stapling', 'walking', 
-                          'door', 'resting', 'other', 'wipe\ntable','light\nswitch']
-        sorted_labels = [labels[list(combined_sides.keys()).index(task)] for task in sorted_tasks]
+        sorted_labels = [task_to_formated.get_formated_task_labels()[list(combined_sides.keys()).index(task)] for task in sorted_tasks]
         
         # Prepare the positions for the boxplots
         position = np.arange(1, num_tasks * 2, 2)
@@ -763,4 +761,174 @@ class LOOCV_performance:
         plt.xlabel('Fugl-Meyer Assessment Upper Extremity Score')
         plt.title('Classification Performance accross Fugl-Meyer Upper Extremity Score')
         plt.legend()
+        plt.show()
+
+class LOOCV_DurationOfArmUse(LOOCV_performance):
+    def __init__(self, json_files) -> None:
+        participant_data = extract_fields_from_json_files(json_files, ['optimal_GMAC_NDH', 'optimal_GMAC_DH', 'ARAT_score', 'FMA-UE_score', 'participant_id'])
+
+        self.PARTICIPANT_ID = participant_data['participant_id']
+        self.ARAT = participant_data['ARAT_score']
+        self.FMA_UE = participant_data['FMA-UE_score']
+
+        optimal_thresholds = participant_data['optimal_GMAC_NDH']
+        self.COUNT_THRESHOLD_NDH = optimal_thresholds[:,0]
+        self.PITCH_THRESHOLD_NDH = optimal_thresholds[:,1]
+        optimal_thresholds = participant_data['optimal_GMAC_DH']
+        self.COUNT_THRESHOLD_DH = optimal_thresholds[:,0]
+        self.PITCH_THRESHOLD_DH = optimal_thresholds[:,1]
+
+        elevation_NDH_1Hz = []
+        elevation_DH_1Hz = []
+        counts_NDH_1Hz = []
+        counts_DH_1Hz = []
+        GT_NDH_1Hz = []
+        GT_DH_1Hz = []
+        for path in json_files:
+            dict_1Hz = extract_fields_from_json_files([path], ['GT_mask_NDH_1Hz', 'GT_mask_DH_1Hz', 'counts_for_GMAC_ndh_1Hz', 'counts_for_GMAC_dh_1Hz', 'pitch_for_GMAC_ndh_1Hz', 'pitch_for_GMAC_dh_1Hz'])
+            GT_NDH_1Hz.append(dict_1Hz['GT_mask_NDH_1Hz'])
+            GT_DH_1Hz.append(dict_1Hz['GT_mask_DH_1Hz'])
+            counts_NDH_1Hz.append(dict_1Hz['counts_for_GMAC_ndh_1Hz'])
+            counts_DH_1Hz.append(dict_1Hz['counts_for_GMAC_dh_1Hz'])
+            elevation_NDH_1Hz.append(dict_1Hz['pitch_for_GMAC_ndh_1Hz'])
+            elevation_DH_1Hz.append(dict_1Hz['pitch_for_GMAC_dh_1Hz'])
+        gt_functional = {'GT_mask_NDH_1Hz': GT_NDH_1Hz, 'GT_mask_DH_1Hz': GT_DH_1Hz}
+        count_data = {'counts_NDH_1Hz': counts_NDH_1Hz, 'counts_DH_1Hz': counts_DH_1Hz}
+        pitch_data = {'elevation_NDH_1Hz': elevation_NDH_1Hz, 'elevation_DH_1Hz': elevation_DH_1Hz}
+        self.gt_functional = gt_functional
+        self.count_data = count_data
+        self.pitch_data = pitch_data
+
+    def prepare_participant_dicts(self): #TODO inherit from parent class (create one for all LOOCV analysis)
+        """
+        Prepare a list of dictionaries, where each dictionary represents a participant and contains their relevant data.
+        """
+        participant_dicts = []
+        for i, participant_id in enumerate(self.PARTICIPANT_ID):
+            participant_dict = {
+                'participant_id': participant_id,
+                'ARAT': self.ARAT[i],
+                'FMA_UE': self.FMA_UE[i],
+                'COUNT_THRESHOLD_NDH': self.COUNT_THRESHOLD_NDH[i],
+                'PITCH_THRESHOLD_NDH': self.PITCH_THRESHOLD_NDH[i],
+                'COUNT_THRESHOLD_DH': self.COUNT_THRESHOLD_DH[i],
+                'PITCH_THRESHOLD_DH': self.PITCH_THRESHOLD_DH[i],
+                'counts_NDH_1Hz': self.count_data['counts_NDH_1Hz'][i],
+                'elevation_NDH_1Hz': self.pitch_data['elevation_NDH_1Hz'][i],
+                'counts_DH_1Hz': self.count_data['counts_DH_1Hz'][i],
+                'elevation_DH_1Hz': self.pitch_data['elevation_DH_1Hz'][i],
+            }
+            participant_dicts.append(participant_dict)
+        return participant_dicts
+    
+    def GMAC_arm_use_duration(self, X_test, y_test, personalized_count_threshold, personalized_elevation_threshold, side='NDH'):
+        '''
+        Calculate the predicted and ground truth duration of arm use in seconds.
+        '''
+        assert len(X_test) == 1, "X_test should contain only one participant"
+        assert len(y_test) == 1, "y_test should contain only one participant"
+        assert side in ['NDH', 'DH'], "Invalid side: {side}"
+        test_gt = y_test[0].flatten()
+
+        counts_array = np.array(X_test[0]['counts_NDH_1Hz']) if side == 'NDH' else np.array(X_test[0]['counts_DH_1Hz'])
+        elevation_array = np.array(X_test[0]['elevation_NDH_1Hz']) if side == 'NDH' else np.array(X_test[0]['elevation_DH_1Hz'])
+
+        gmac_prediction = get_prediction_gmac(counts_array, elevation_array, count_threshold=personalized_count_threshold, functional_space=personalized_elevation_threshold, decision_mode='Subash')
+        gmac_prediction = gmac_prediction.astype(int)
+
+        predicted_duration = np.sum(gmac_prediction)
+        gt_duration = np.sum(test_gt)
+
+        return predicted_duration, gt_duration
+
+    def LOOCV_complete(self):
+        """
+        Performs Leave-One-Subject-Out Cross Validation (LOOCV).
+        """
+        looCV = LeaveOneGroupOut()
+        X = self.prepare_participant_dicts()
+        y_ndh = self.gt_functional['GT_mask_NDH_1Hz']
+        y_dh = self.gt_functional['GT_mask_DH_1Hz']
+        group_IDs = self.PARTICIPANT_ID
+
+        self.evaluation_FMA = []
+        self.evaluation_ID = []
+
+        self.gt_duration_list_ndh = []
+        self.gt_duration_list_dh = []
+
+        self.optimal_duration_list_ndh = []
+        self.conventioanl_duration_list_ndh = []
+        self.mean_duration_list_ndh = []
+
+        self.conventional_duration_list_dh = []
+        self.mean_duration_list_dh = []
+
+        for train_index, test_index in looCV.split(X, y_ndh, groups=group_IDs):
+            
+            X_train, _ = [X[i] for i in train_index], [y_ndh[i] for i in train_index]
+            X_test, y_test = [X[i] for i in test_index], [y_ndh[i] for i in test_index]
+            y_test_dh = [y_dh[i] for i in test_index]
+
+            regression_model_count_ndh, regression_model_elevation_ndh = self.get_threshold_model(X_train)
+            personalized_count_threshold_ndh, personalized_elevation_threshold_ndh = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh, regression_model_elevation_ndh)
+
+            loocv_mean_count_ndh, loocv_mean_elevation_ndh = self.retreive_mean_thresholds(X_train)
+
+            gmac_predicted_duration_personalized_ndh, gt_arm_use_duration_ndh = self.GMAC_arm_use_duration(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh, side='NDH')
+            self.optimal_duration_list_ndh.append(gmac_predicted_duration_personalized_ndh)
+
+            gmac_predicted_duration_conventional_ndh, gt_arm_use_duration_ndh = self.GMAC_arm_use_duration(X_test, y_test, 0, 30, side='NDH')
+            self.conventioanl_duration_list_ndh.append(gmac_predicted_duration_conventional_ndh)
+
+            gmac_predicted_duration_mean_ndh, gt_arm_use_duration_ndh = self.GMAC_arm_use_duration(X_test, y_test, loocv_mean_count_ndh, loocv_mean_elevation_ndh, side='NDH')
+            self.mean_duration_list_ndh.append(gmac_predicted_duration_mean_ndh)
+
+            loocv_mean_count_dh, loocv_mean_elevation_dh = self.retreive_mean_thresholds(X_train, side='DH')
+            gmac_predicted_duration_conventional_dh, gt_arm_use_duration_dh = self.GMAC_arm_use_duration(X_test, y_test_dh, 0, 30, side='DH')
+            self.conventional_duration_list_dh.append(gmac_predicted_duration_conventional_dh)
+            gmac_predicted_duration_mean_dh, gt_arm_use_duration_dh = self.GMAC_arm_use_duration(X_test, y_test_dh, loocv_mean_count_dh, loocv_mean_elevation_dh, side='DH')
+            self.mean_duration_list_dh.append(gmac_predicted_duration_mean_dh)
+            
+            self.gt_duration_list_ndh.append(gt_arm_use_duration_ndh)
+            self.gt_duration_list_dh.append(gt_arm_use_duration_dh)
+
+            self.evaluation_FMA.append(X_test[0]['FMA_UE'])
+            self.evaluation_ID.append(X_test[0]['participant_id'])
+
+    def plot_arm_use_durations(self):
+        '''
+        Plot the predicted and ground truth duration of arm use for each subject.
+        '''
+        plt.rcParams.update({'font.size': 12})
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+
+        x = np.arange(len(self.gt_duration_list_ndh))
+        ax1.bar(x-0.4, self.gt_duration_list_ndh, width=0.2, label='Ground truth', color=thesis_style.get_thesis_colours()['dark_blue'])
+        ax1.bar(x-0.2, self.conventioanl_duration_list_ndh, width=0.2, label='Conventional thresholds', color=thesis_style.get_thesis_colours()['orange'])
+        ax1.bar(x, self.mean_duration_list_ndh, width=0.2, label='Optimal thresholds', color=thesis_style.get_thesis_colours()['light_orange'])
+        ax1.bar(x+0.2, self.optimal_duration_list_ndh, width=0.2, label='Personalized thresholds', color=thesis_style.get_thesis_colours()['light_orange'], hatch='//')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels([f"{id_conversion.get_thesisID(id)}" for id in self.evaluation_ID])
+        ax1.yaxis.set_major_locator(ticker.MultipleLocator(5*60))#only show ticks every 5 minutes
+        ax1.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/60)} min'))
+        ax1.tick_params(axis='y', labelsize=10)
+        ax1.set_ylabel('Duration of \nfunctional arm use')
+        ax1.set_title('Affected side', fontsize=16)
+        ax1.legend(fontsize=10)
+
+        x = np.arange(len(self.gt_duration_list_dh))
+        ax2.bar(x-0.2, self.gt_duration_list_dh, width=0.2, label='Ground truth', color=thesis_style.get_thesis_colours()['dark_blue'])
+        ax2.bar(x, self.conventional_duration_list_dh, width=0.2, label='Conventional thresholds', color=thesis_style.get_thesis_colours()['turquoise'])
+        ax2.bar(x+0.2, self.mean_duration_list_dh, width=0.2, label='Optimal thresholds', color=thesis_style.get_thesis_colours()['light_turquoise'])
+        ax2.set_xticks(x)
+        ax2.set_xticklabels([f"{id_conversion.get_thesisID(id)}" for id in self.evaluation_ID])
+        ax2.yaxis.set_major_locator(ticker.MultipleLocator(5*60))#only show ticks every 5 minutes
+        ax2.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/60)} min'))
+        ax2.tick_params(axis='y', labelsize=10)
+        ax2.set_ylabel('Duration of \nfunctional arm use')
+        ax2.set_title('Unaffected side', fontsize=16)
+        ax2.legend(fontsize=10)
+
+        plt.tight_layout()
         plt.show()
