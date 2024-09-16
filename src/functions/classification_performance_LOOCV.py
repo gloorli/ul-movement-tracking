@@ -398,7 +398,7 @@ class LOOCV_performance:
                 ax.plot([x1, x1, x2, x2], [y, y-h, y-h, y], lw=1.0, c=col)
             
             # Format p-value with 3 decimal places and reduce font size
-            ax.text((x1 + x2) * .5, y + h if position == "above" else y - 2*h, f"p = {p_val:.4f}", 
+            ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, f"p = {p_val:.4f}", 
                     ha='center', va='bottom', color=col, fontsize=8)
 
     #TODO combine the following three functions into one
@@ -415,11 +415,11 @@ class LOOCV_performance:
         fig, ax = plt.subplots(figsize=(12, 6))
 
         # Boxplots
-        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
-        box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
-        box_optimal = ax.boxplot(self.optimal_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
-        box_conventional_dh = ax.boxplot(self.conventional_YI_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
-        box_mean_dh = ax.boxplot(self.mean_YI_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers)
+        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
+        box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
+        box_optimal = ax.boxplot(self.optimal_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
+        box_conventional_dh = ax.boxplot(self.conventional_YI_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
+        box_mean_dh = ax.boxplot(self.mean_YI_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
 
         # Set box colors
         for box in box_conventional['boxes']:
@@ -434,7 +434,7 @@ class LOOCV_performance:
             box.set(facecolor=colors['healthy'], alpha=0.7)
 
         # random classifier
-        ax.axhline(y=0.0, color=colors['black_grey'], linestyle='--', label='Performance of random classifier')
+        ax.axhline(y=0.0, color=colors['black_grey'], linestyle='--', label='Performance of random classifier', lw=2.0)
         ax.add_artist(plt.legend(loc='lower right'))
 
         # Add colors of healthy and affected boxes to legend
@@ -471,11 +471,11 @@ class LOOCV_performance:
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_conventional = ax.boxplot(self.conventional_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_optimal = ax.boxplot(self.optimal_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional_dh = ax.boxplot(self.conventional_AUC_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean_dh = ax.boxplot(self.mean_AUC_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventional_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_optimal = ax.boxplot(self.optimal_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_conventional_dh = ax.boxplot(self.conventional_AUC_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_mean_dh = ax.boxplot(self.mean_AUC_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
 
         # Set box colors
         for box in box_conventional['boxes']:
@@ -490,9 +490,9 @@ class LOOCV_performance:
             box.set(facecolor=colors['healthy'], alpha=0.7)
 
         # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
-        ax.axhline(y=0.75, color=colors['pink'], linestyle='dotted', label='Clinically required performance', lw=2.0)
+        ax.axhline(y=0.75, color=colors['pink'], linestyle='dotted', label='Clinically required performance', lw=3.0)
         # random classifier
-        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Performance of random classifier')
+        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Performance of random classifier', lw=2.0)
         ax.add_artist(plt.legend(loc='upper right'))
 
         # Add colors of healthy and affected boxes to legend
@@ -510,7 +510,7 @@ class LOOCV_performance:
         plt.title('GMAC leave one subject out cross validation')
 
         # Define significance bracket positions, p-values, and heights
-        bracket_heights = [0.81, 0.9, 0.86, 0.86]  # Different heights for the brackets above the boxplot
+        bracket_heights = [0.81, 0.9, 0.86, 0.81]  # Different heights for the brackets above the boxplot
         bracket_positions = [(1, 3), (2, 3), (1, 2), (4, 5)]  # (start, end) of the brackets
         p_values = [ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean, ttest_pvalue_mean_conventional_dh]
         self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
@@ -528,11 +528,11 @@ class LOOCV_performance:
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_conventional = ax.boxplot(self.conventioanl_accuracy_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean = ax.boxplot(self.mean_accuracy_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_optimal = ax.boxplot(self.optimal_accuracy_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional_dh = ax.boxplot(self.conventional_accuracy_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean_dh = ax.boxplot(self.mean_accuracy_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_accuracy_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_mean = ax.boxplot(self.mean_accuracy_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_optimal = ax.boxplot(self.optimal_accuracy_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_conventional_dh = ax.boxplot(self.conventional_accuracy_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_mean_dh = ax.boxplot(self.mean_accuracy_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
 
         # Set box colors
         for box in box_conventional['boxes']:
@@ -547,9 +547,9 @@ class LOOCV_performance:
             box.set(facecolor=colors['healthy'], alpha=0.7)
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
-        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', label='Clinically required performance', lw=2.0)
+        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', label='Clinically required performance', lw=3.0)
         # random classifier
-        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Performance of random classifier')
+        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Performance of random classifier', lw=2.0)
         ax.add_artist(plt.legend(loc='upper right'))
 
         # Add colors of healthy and affected boxes to legend
@@ -587,11 +587,11 @@ class LOOCV_performance:
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_conventional = ax.boxplot(self.conventioanl_F1_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean = ax.boxplot(self.mean_F1_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_optimal = ax.boxplot(self.optimal_F1_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_conventional_dh = ax.boxplot(self.conventional_F1_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
-        box_mean_dh = ax.boxplot(self.mean_F1_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers)
+        box_conventional = ax.boxplot(self.conventioanl_F1_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_mean = ax.boxplot(self.mean_F1_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_optimal = ax.boxplot(self.optimal_F1_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_conventional_dh = ax.boxplot(self.conventional_F1_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_mean_dh = ax.boxplot(self.mean_F1_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
 
         # Set box colors
         for box in box_conventional['boxes']:
