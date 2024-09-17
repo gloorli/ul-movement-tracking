@@ -400,6 +400,31 @@ class LOOCV_performance:
             # Format p-value with 3 decimal places and reduce font size
             ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, f"p = {p_val:.4f}", 
                     ha='center', va='bottom', color=col, fontsize=8)
+            
+    def plot_significance_stars(self, ax, bracket_positions, p_values, bracket_heights, position="above"):
+        """
+        Adds significance stars to the plot, either above or below the boxplots.
+        *(p < 0.05), **(p < 0.01), ***(p < 0.001)
+        """
+        for (start, end), p_val, y in zip(bracket_positions, p_values, bracket_heights):
+            x1, x2 = start, end # x-coordinates of the brackets
+            h, col = 0.02, 'k' # Adjust height and color of the bracket
+            if position == "below":
+                y = y - 0.05
+
+            if p_val < 0.001:
+                ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, '***', ha='center', va='bottom', color=col, fontsize=12)
+            elif p_val < 0.01:
+                ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, '**', ha='center', va='bottom', color=col, fontsize=12)
+            elif p_val < 0.05:
+                ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, '*', ha='center', va='bottom', color=col, fontsize=12)
+            else:
+                continue
+
+            if position == "above":
+                ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], lw=1.0, c=col)
+            elif position == "below":
+                ax.plot([x1, x1, x2, x2], [y, y-h, y-h, y], lw=1.0, c=col)
 
     #TODO combine the following three functions into one
     def plot_LOOCV_YoudenIndex(self):
@@ -460,7 +485,7 @@ class LOOCV_performance:
 
         plt.show()
 
-    def plot_LOOCV_AUC(self):
+    def plot_LOOCV_AUC(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
         ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean, ttest_pvalue_mean_conventional_dh = self.check_ANOVA_ttest_Wilcoxon(
             self.optimal_AUC_list_ndh, self.conventional_AUC_list_ndh, self.mean_AUC_list_ndh, self.mean_AUC_list_dh, self.conventional_AUC_list_dh
@@ -490,16 +515,16 @@ class LOOCV_performance:
             box.set(facecolor=colors['healthy'], alpha=0.7)
 
         # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
-        ax.axhline(y=0.75, color=colors['pink'], linestyle='dotted', label='Clinically required performance', lw=3.0)
+        ax.axhline(y=0.75, color=colors['pink'], linestyle='dotted', label='Clinically required performance [Fan et al., 2006]', lw=3.0)
         # random classifier
         ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Performance of random classifier', lw=2.0)
-        ax.add_artist(plt.legend(loc='upper right'))
+        ax.add_artist(plt.legend(loc='upper left'))
 
         # Add colors of healthy and affected boxes to legend
         legend_colors = [colors['healthy'], colors['affected']]
         legend_labels = ['Unaffected side', 'Affected side']
         legend_patches = [mpatches.Patch(color=color, label=label, alpha=0.7) for color, label in zip(legend_colors, legend_labels)]
-        ax.add_artist(plt.legend(handles=legend_patches, loc='lower right', reverse=True))
+        ax.add_artist(plt.legend(handles=legend_patches, loc='upper right', reverse=True))
 
         ax.set_xticks([1, 2, 3, 4, 5])
         ax.set_xticklabels(['conventional\nthresholds', 'optimal\nthresholds', 'personalized\nthresholds', 'conventional\nthresholds', 'optimal\nthresholds'], fontsize=10)
@@ -513,7 +538,12 @@ class LOOCV_performance:
         bracket_heights = [0.81, 0.9, 0.86, 0.81]  # Different heights for the brackets above the boxplot
         bracket_positions = [(1, 3), (2, 3), (1, 2), (4, 5)]  # (start, end) of the brackets
         p_values = [ttest_pvalue_optimal_conventional, ttest_pvalue_optimal_mean, ttest_pvalue_conventional_mean, ttest_pvalue_mean_conventional_dh]
-        self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
+        if significnce_brackets == 'stars':
+            bracket_heights = [0.81, 0.9, 0.83, 0.81]
+            bracket_positions = [(None, None), (None, None), (1, 2), (4, 5)]
+            self.plot_significance_stars(ax, bracket_positions, p_values, bracket_heights, position="above")
+        else:
+            self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
 
         plt.show()
 
@@ -547,7 +577,7 @@ class LOOCV_performance:
             box.set(facecolor=colors['healthy'], alpha=0.7)
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
-        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', label='Clinically required performance', lw=3.0)
+        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', label='Clinically required performance [Lang et al., 2020]', lw=3.0)
         # random classifier
         ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Performance of random classifier', lw=2.0)
         ax.add_artist(plt.legend(loc='upper right'))
@@ -654,7 +684,7 @@ class LOOCV_performance:
         ax.plot(position, means, 'D', color=colors['dark_blue'], markersize=12, label=f'Mean over both sides of {int(len(combined_sides[sorted_tasks[0]])/2)} subjects')
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
-        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', linewidth=4, label=f"Accuracy required for clinical implementation")
+        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', linewidth=4, label=f"Accuracy required for clinical implementation [Lang et al., 2020]")
 
         ax.set_xticks(position)
         ax.set_xticklabels(sorted_labels)
@@ -697,14 +727,14 @@ class LOOCV_performance:
             plt.scatter(np.random.normal(position[i], 0.1, size=len(self.optimal_accuracy_perTask[task])), self.optimal_accuracy_perTask[task], zorder=3.1, color=colors['affected'], label='Affected side' if not label_ploted else None)
             plt.scatter(np.random.normal(position[i], 0.1, size=len(self.mean_accuracy_perTask_dh[task])), self.mean_accuracy_perTask_dh[task], zorder=3.0, color=colors['healthy'], label='Unaffected side' if not label_ploted else None)
             label_ploted = True
-        ax.add_artist(plt.legend(loc='lower right'))
+        ax.add_artist(plt.legend(loc='lower left'))
 
         # Accuracy is clinically useful (≥90%) according to [Lang et al., 2020]
-        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', linewidth=4, label='Clinically required performance')
+        ax.axhline(y=0.9, color=colors['pink'], linestyle='dotted', linewidth=4, label='Clinically required performance [Lang et al., 2020]')
         #ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', linewidth=3, label='Performance of random classifier')
         ax.add_artist(plt.legend(handles=[plt.Line2D([], [], marker='D', markersize=8, color=colors['black'], linestyle='', label='Mean accuracy per task'),
-            plt.Line2D([], [], color=colors['pink'], linestyle='dotted', lw=4, label='Clinically required performance')#, plt.Line2D([], [], color=colors['black_grey'], linestyle='--', lw=3, label='Performance of random classifier')
-                   ], loc='lower left'))
+            plt.Line2D([], [], color=colors['pink'], linestyle='dotted', lw=4, label='Clinically required performance [Lang et al., 2020]')#, plt.Line2D([], [], color=colors['black_grey'], linestyle='--', lw=3, label='Performance of random classifier')
+                   ], loc='lower right'))
         
         # Adjust x-tick labels to be in between the grouped boxplots
         ax.set_xticks(position)
