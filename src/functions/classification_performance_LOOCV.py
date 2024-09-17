@@ -939,7 +939,7 @@ class LOOCV_DurationOfArmUse(LOOCV_performance):
         ax1.bar(x, self.mean_duration_list_ndh, width=0.2, label='Optimal thresholds', color=thesis_style.get_thesis_colours()['light_orange'])
         ax1.bar(x+0.2, self.optimal_duration_list_ndh, width=0.2, label='Personalized thresholds', color=thesis_style.get_thesis_colours()['light_orange'], hatch='//')
         ax1.set_xticks(x)
-        ax1.set_xticklabels([f"{id_conversion.get_thesisID(id)}" for id in self.evaluation_ID])
+        ax1.set_xticklabels([f"{id_conversion.get_thesisID(id)}\nFMA: {FMA_UE}" for id, FMA_UE in zip(self.evaluation_ID, self.evaluation_FMA)], fontsize=10)
         ax1.yaxis.set_major_locator(ticker.MultipleLocator(5*60))#only show ticks every 5 minutes
         ax1.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/60)} min'))
         ax1.tick_params(axis='y', labelsize=10)
