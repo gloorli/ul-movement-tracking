@@ -1,4 +1,4 @@
-#https://github.com/biorehab/upper-limb-use-assessment/tree/main
+#Adapted from https://github.com/biorehab/upper-limb-use-assessment/tree/main
 import pandas as pd
 from ahrs.filters import Madgwick
 from ahrs.common import orientation
@@ -69,9 +69,6 @@ def compute_vector_magnitude(df, gravitation_compensation='Subash'):
     df = resample(df, 50, 30)
     op_df = pd.DataFrame(index=df.index)
 
-    #df_plot = df[['ax', 'ay', 'az']]
-    #df_plot.plot(figsize=(18, 6))
-
     gyr = np.array(df[['gx', 'gy', 'gz']])
     acc = np.array(df[['ax', 'ay', 'az']])
 
@@ -99,8 +96,6 @@ def compute_vector_magnitude(df, gravitation_compensation='Subash'):
     op_df['ay'] = bandpass(np.nan_to_num(ae[:, 1]), fs=30)
     op_df['az'] = bandpass(np.nan_to_num(ae[:, 2]), fs=30)
     op_df = resample(op_df, 30, 10)
-
-    #op_df.plot(figsize=(18, 6), alpha=0.5)
 
     op_df['ax'] = np.where(np.absolute(op_df['ax'].values) < 0.068, 0, op_df['ax'].values) / 0.01664
     op_df['ay'] = np.where(np.absolute(op_df['ay'].values) < 0.068, 0, op_df['ay'].values) / 0.01664

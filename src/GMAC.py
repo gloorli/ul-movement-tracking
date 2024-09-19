@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 import scipy.signal as signal
-from imu_video_synch import get_datetime_timestamp_Axivity, create_timestamps
+from functions.imu_video_synch import get_datetime_timestamp_Axivity, create_timestamps
 from functions.VQFpitch import IMUPitchCalculator, vqf_gravitation_compensation
 
 def get_continuous_segments(df):

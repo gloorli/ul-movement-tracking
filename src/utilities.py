@@ -811,133 +811,6 @@ def find_specific_csv_files(initial_path, csv_file_names, participant_group, tes
     return csv_files_dict
 
 
-
-
-
-def extract_data_screening_participant(csv_file_path):
-    """
-    Extracts and returns participant data from a CSV file, categorized by 'H' (healthy) and 'S' (stroke).
-
-    Args:
-        csv_file_path (str): Path to the CSV file containing participant data.
-
-    Returns:
-        A dictionary with 'H' and 'S' as keys, each containing nested dictionaries with field names as keys
-        and corresponding NumPy arrays of data as values.
-    """
-    fields = ['participant_id', 'age', 'dominant_hand', 'affected_hand', 'ARAT_score']
-    data = {'H': {field: [] for field in fields}, 'S': {field: [] for field in fields}}
-
-    # Load CSV file into a DataFrame
-    df = pd.read_csv(csv_file_path)
-
-    for index, row in df.iterrows():
-        participant_id = row['participant_id']
-        category = participant_id[0]
-        
-        for field in fields:
-            data[category][field].append(row[field])
-
-    # Convert lists to NumPy arrays
-    for category in ['H', 'S']:
-        for field in fields:
-            data[category][field] = np.array(data[category][field])
-
-    return data
-
-
-def run_notebooks_for_group(notebook_paths, screening_results, group):
-    """
-    Runs multiple notebooks for a given participant group.
-
-    :param notebook_paths: List of paths to the notebooks to be run.
-    :param screening_results: Screening data containing participant details.
-    :param group: Group identifier, 'H' or 'S'.
-    """
-    assert group in ['H', 'S'], "Group must be 'H' or 'S'"
-    
-    for notebook_path in notebook_paths:
-        # Make sure the notebook exists before proceeding
-        if not os.path.exists(notebook_path):
-            print(f"Notebook {notebook_path} not found! Skipping...")
-            continue
-
-        # Extract data based on the group
-        group_data = screening_results[group]
-
-        # Extract the participant_ids and hands
-        participant_ids = group_data['participant_id']
-        dominant_hands = group_data['dominant_hand']
-        if group == 'S':
-            affected_hands = group_data['affected_hand']
-        
-        # Create a tqdm progress bar for participants
-        progress_bar = tqdm(zip(participant_ids, dominant_hands, affected_hands if group == 'S' else dominant_hands), 
-                            total=len(participant_ids), 
-                            desc=f'Processing Participants for {notebook_path}', 
-                            leave=True)
-        
-        # Read the initial notebook content into a variable to make a copy, not touching the original notebook file
-        with open(notebook_path, 'r', encoding='utf-8') as f:
-            initial_notebook_content = f.read()
-
-        # Iterate over the participants
-        for participant_id, dominant_hand, hand_to_use in progress_bar:
-            if group == 'S':
-                # For stroke group, set the dominant hand as the non-affected hand
-                dominant_hand = 'right' if hand_to_use == 'left' else 'left'
-            
-            # Replace the participant_id and dominant_hand using regex
-            notebook_content = re.sub(r'participant_id\s*=\s*\'[HS]\d{3}\'', f"participant_id = '{participant_id}'", initial_notebook_content)
-            notebook_content = re.sub(r'dominant_hand\s*=\s*\'\w+\'', f"dominant_hand = '{dominant_hand.capitalize()}'", notebook_content)
-            notebook_content = re.sub(r'participant_group\s*=\s*\'[HS]\'', f"participant_group = '{group}'", notebook_content)
-
-            # Create a temporary copy of the notebook for this participant
-            temp_notebook_path = f'temp_{participant_id}_{os.path.basename(notebook_path)}'
-            with open(temp_notebook_path, 'wt', encoding='utf-8') as f:
-                f.write(notebook_content)
-
-            # Use subprocess to run the notebook
-            subprocess.run(['jupyter', 'nbconvert', '--to', 'notebook', '--execute', '--inplace', temp_notebook_path])
-
-            # Update the progress bar
-            progress_bar.set_postfix({'Participant': participant_id})
-            progress_bar.update(1)  # Move the progress bar one step forward
-
-            # Remove the temporary copy of the notebook after execution
-            os.remove(temp_notebook_path)
-
-        # Close the progress bar
-        progress_bar.close()
-
-
-def resample_angle_data(angle_data, original_frequency, desired_frequency):
-    """
-    Resamples angle data using cubic spline interpolation.
-
-    Args:
-        angle_data (numpy.ndarray): 1D numpy array containing angle values.
-        original_frequency (int): Original frequency of angle data.
-        desired_frequency (int): Desired frequency for resampling.
-
-    Returns:
-        numpy.ndarray: Resampled angle data as a 1D numpy array.
-    """
-    # Calculate the time array for the original data
-    time_original = np.linspace(0, (original_frequency - 1) / original_frequency, original_frequency)
-
-    # Calculate the time array for the desired resampled data
-    time_desired = np.linspace(0, (desired_frequency - 1) / desired_frequency, desired_frequency)
-
-    # Create a cubic spline interpolation function
-    cubic_spline = CubicSpline(time_original, angle_data)
-
-    # Evaluate the cubic spline at the desired time points to get the resampled data
-    resampled_data = cubic_spline(time_desired)
-
-    return resampled_data
-
-
 def plot_bar_chart(conventional_metrics, optimal_metrics, metric, scenario, group, save_filename=None, show_plot=True):
     
     sns.set(style="whitegrid")  # Use seaborn for a more modern look
@@ -1218,7 +1091,21 @@ class ThesisStyle:
             'gesture': '#FFD966',
             'stabilization': '#F6A496',
             'idle': '#C85454',
-            'arm_not_visible': self.colours['black_grey']
+            'arm_not_visible': self.colours['black_grey'],
+            'open_bottle_and_pour_glass': self.colours['turquoise'],
+            'drink': self.colours['turquoise'],
+            'fold_rags_towels': self.colours['turquoise'],
+            'sort_documents': self.colours['turquoise'],
+            'brooming': self.colours['dark_blue'],
+            'putting_on_and_off_coat': self.colours['dark_blue'],
+            'keyboard_typing': self.colours['orange'],
+            'stapling': self.colours['orange'],
+            'walking': self.colours['black'], 
+            'open_and_close_door': self.colours['pink'],
+            'resting': self.colours['grey'],
+            'other': self.colours['black'],
+            'wipe_table': self.colours['turquoise'],
+            'light_switch': self.colours['pink'],
         }
 
     def get_thesis_colours(self):
@@ -1251,5 +1138,31 @@ class CREATEid_to_thesisID:
     def get_thesisID(self, CREATEid):
         return self.conversion[CREATEid]
     
+class task_labels:
+    def __init__(self):
+        self.task_labels = {
+            'open_bottle_and_pour_glass': 'pour\nglas',
+            'drink': 'drink',
+            'fold_rags_towels': 'fold\nrags',
+            'sort_documents': 'sort\ndocuments',
+            'brooming': 'brooming',
+            'putting_on_and_off_coat': 'coat',
+            'keyboard_typing': 'keyboard\ntyping',
+            'stapling': 'stapling',
+            'walking': 'walking',
+            'open_and_close_door': 'door',
+            'resting': 'resting',
+            'other': 'other',
+            'wipe_table': 'wipe\ntable',
+            'light_switch': 'light\nswitch'
+        }
+    def get_task_conversion(self):
+        return self.task_labels
+    def get_labelbos_task_labels(self):
+        return list(self.task_labels.keys())
+    def get_formated_task_labels(self):
+        return list(self.task_labels.values())
+    
 thesis_style = ThesisStyle()
 id_conversion = CREATEid_to_thesisID()
+task_to_formated = task_labels()
