@@ -4,12 +4,11 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.ticker as ticker
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, shapiro, f_oneway, ttest_rel, wilcoxon
 
 from utilities import *
 from functions.individual_analysis_gmac_function import get_prediction_gmac, AUC_analisys, accuracy_analisys, get_classification_metrics
 from functions.statistics import RegressionModel
-from scipy.stats import shapiro, f_oneway, ttest_rel, wilcoxon
 
 class LOOCV_performance:
     def __init__(self, json_files):
@@ -882,6 +881,7 @@ class LOOCV_DurationOfArmUse(LOOCV_performance):
         group_IDs = self.PARTICIPANT_ID
 
         self.evaluation_FMA = []
+        self.evaluation_ARAT = []
         self.evaluation_ID = []
 
         self.gt_duration_list_ndh = []
@@ -924,22 +924,36 @@ class LOOCV_DurationOfArmUse(LOOCV_performance):
             self.gt_duration_list_dh.append(gt_arm_use_duration_dh)
 
             self.evaluation_FMA.append(X_test[0]['FMA_UE'])
+            self.evaluation_ARAT.append(X_test[0]['ARAT'])
             self.evaluation_ID.append(X_test[0]['participant_id'])
 
-    def plot_arm_use_durations(self):
+    def order_by_FMA(self):
+        """
+        Order the participants by their FMA-UE score (if equal by ARAT).
+        """
+        data = {'participantID': self.evaluation_ID, 'FMA_UE': self.evaluation_FMA, 'ARAT': self.evaluation_ARAT, 'GT_duration_NDH': self.gt_duration_list_ndh, 'GT_duration_DH': self.gt_duration_list_dh,
+                 'optimal_duration_NDH': self.optimal_duration_list_ndh, 'conventional_duration_NDH': self.conventioanl_duration_list_ndh, 'mean_duration_NDH': self.mean_duration_list_ndh, 'conventional_duration_DH': self.conventional_duration_list_dh, 'mean_duration_DH': self.mean_duration_list_dh}
+        df = pd.DataFrame(data)
+        df.sort_values(['FMA_UE', 'ARAT'], inplace=True)
+
+        return df
+
+    def plot_arm_use_durations(self, recording_durations):
         '''
         Plot the predicted and ground truth duration of arm use for each subject.
         '''
+        plot_data = self.order_by_FMA()
+
         plt.rcParams.update({'font.size': 12})
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
 
         x = np.arange(len(self.gt_duration_list_ndh))
-        ax1.bar(x-0.4, self.gt_duration_list_ndh, width=0.2, label='Ground truth', color=thesis_style.get_thesis_colours()['dark_blue'])
-        ax1.bar(x-0.2, self.conventioanl_duration_list_ndh, width=0.2, label='Conventional thresholds', color=thesis_style.get_thesis_colours()['orange'])
-        ax1.bar(x, self.mean_duration_list_ndh, width=0.2, label='Optimal thresholds', color=thesis_style.get_thesis_colours()['light_orange'])
-        ax1.bar(x+0.2, self.optimal_duration_list_ndh, width=0.2, label='Personalized thresholds', color=thesis_style.get_thesis_colours()['light_orange'], hatch='//')
+        ax1.bar(x-0.4, plot_data['GT_duration_NDH'], width=0.2, label='Ground truth', color=thesis_style.get_thesis_colours()['dark_blue'])
+        ax1.bar(x-0.2, plot_data['conventional_duration_NDH'], width=0.2, label='Conventional thresholds', color=thesis_style.get_thesis_colours()['orange'])
+        ax1.bar(x, plot_data['mean_duration_NDH'], width=0.2, label='Optimal thresholds', color=thesis_style.get_thesis_colours()['light_orange'])
+        ax1.bar(x+0.2, plot_data['optimal_duration_NDH'], width=0.2, label='Personalized thresholds', color=thesis_style.get_thesis_colours()['light_orange'], hatch='//')
         ax1.set_xticks(x)
-        ax1.set_xticklabels([f"{id_conversion.get_thesisID(id)}\nFMA: {FMA_UE}" for id, FMA_UE in zip(self.evaluation_ID, self.evaluation_FMA)], fontsize=10)
+        ax1.set_xticklabels([f"{id_conversion.get_thesisID(id)}\nFMA-UE: {int(FMA_UE)}\nARAT: {int(ARAT)}" for id, FMA_UE, ARAT in zip(plot_data['participantID'], plot_data['FMA_UE'], plot_data['ARAT'])], fontsize=10)
         ax1.yaxis.set_major_locator(ticker.MultipleLocator(5*60))#only show ticks every 5 minutes
         ax1.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/60)} min'))
         ax1.tick_params(axis='y', labelsize=10)
@@ -948,11 +962,11 @@ class LOOCV_DurationOfArmUse(LOOCV_performance):
         ax1.legend(fontsize=10)
 
         x = np.arange(len(self.gt_duration_list_dh))
-        ax2.bar(x-0.2, self.gt_duration_list_dh, width=0.2, label='Ground truth', color=thesis_style.get_thesis_colours()['dark_blue'])
-        ax2.bar(x, self.conventional_duration_list_dh, width=0.2, label='Conventional thresholds', color=thesis_style.get_thesis_colours()['turquoise'])
-        ax2.bar(x+0.2, self.mean_duration_list_dh, width=0.2, label='Optimal thresholds', color=thesis_style.get_thesis_colours()['light_turquoise'])
+        ax2.bar(x-0.2, plot_data['GT_duration_DH'], width=0.2, label='Ground truth', color=thesis_style.get_thesis_colours()['dark_blue'])
+        ax2.bar(x, plot_data['conventional_duration_DH'], width=0.2, label='Conventional thresholds', color=thesis_style.get_thesis_colours()['turquoise'])
+        ax2.bar(x+0.2, plot_data['mean_duration_DH'], width=0.2, label='Optimal thresholds', color=thesis_style.get_thesis_colours()['light_turquoise'])
         ax2.set_xticks(x)
-        ax2.set_xticklabels([f"{id_conversion.get_thesisID(id)}" for id in self.evaluation_ID])
+        ax2.set_xticklabels([f"{id_conversion.get_thesisID(id)}\n{recording_durations[id]}min" for id in plot_data['participantID']], fontsize=10)
         ax2.yaxis.set_major_locator(ticker.MultipleLocator(5*60))#only show ticks every 5 minutes
         ax2.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f'{int(x/60)} min'))
         ax2.tick_params(axis='y', labelsize=10)
