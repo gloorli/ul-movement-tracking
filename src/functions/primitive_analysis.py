@@ -97,7 +97,7 @@ class PrimitiveDistribution:
             title_side = 'Affected Arm'  # attention: this is only true for stroke subjects
         elif side == 'DH':
             data = self.primitive_amount_DH
-            title_side = 'Healthy Arm'  # attention: this is only true for stroke subjects
+            title_side = 'Unaffected Arm'  # attention: this is only true for stroke subjects
         else:
             raise ValueError('side must be either "NDH", "DH", "LW" or "RW"')
 
@@ -109,13 +109,13 @@ class PrimitiveDistribution:
         ax = df_percentage_ordered.plot(x='participantID', kind='bar', stacked=True, legend=True,
                                         color=[thesis_style.get_label_colours()[key] for key in label_for_colors])
 
-        plt.ylabel('Percentage of total Protocol Time')
+        plt.ylabel('Percentage of total protocol time')
         plt.xlabel('')
         plt.xticks(range(len(self.participantIDs)),
-                [f"{id_conversion.get_thesisID(id)}\nFMA: {fma}\nARAT: {arat}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)],
+                [f"{id_conversion.get_thesisID(id)}\nFMA-UE: {int(fma)}\nARAT: {int(arat)}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)],
                 rotation=0, fontsize=8)
         plt.yticks(range(0, 101, 25), [f"{i}%" for i in range(0, 101, 25)])
-        plt.tight_layout(rect=[0, 0, 1.3, 1])
+        plt.tight_layout(rect=[0, 0, 1.4, 1])
 
         # Adding stars if the dominant hand is affected
         for i, dominant_affected in enumerate(self.dominant_arm_affected):
@@ -137,7 +137,7 @@ class PrimitiveDistribution:
         ax.annotate('mild impairment', xy=(0.75, -0.18), xycoords='axes fraction', ha='center', fontsize=8)
 
         plt.legend(loc='center right', bbox_to_anchor=(1.2, 0.5), reverse=True, frameon=False)
-        plt.title('Primitive Distribution ' + title_side)
+        plt.title('Primitive distribution ' + title_side)
         plt.show()
 
 
@@ -151,3 +151,28 @@ def plot_primitive_mask(primitive_mask, participantID, int_to_label):
     df.plot(x='participantID', kind='bar', stacked=True, title='Primitives', legend=True)
     plt.ylabel('Frames')
     plt.show()
+
+def calculate_percentage_of_functional(initial_path = '../data/CreateStudy'):
+    '''
+    Calculate the percentage of functional values for each participant and side.
+    Parameters:
+    - initial_path (str): The initial path where the JSON files are located. Default is '../data/CreateStudy'.
+    Returns:
+    - functional_percentage_NDH (list): A list of percentages representing the functional share for each participant.
+    - functional_percentage_DH (list): A list of percentages representing the functional share for each participant.
+    '''
+    s_json_files = get_json_paths(initial_path, 'S')
+    primitives_NDH = []
+    primitives_DH = []
+    for path in s_json_files:
+        dict = extract_fields_from_json_files([path], ['GT_mask_NDH_1Hz', 'GT_mask_DH_1Hz'])
+        primitives_NDH.append(dict['GT_mask_NDH_1Hz'])
+        primitives_DH.append(dict['GT_mask_DH_1Hz'])
+    functional_percentage_NDH = []
+    functional_percentage_DH = []
+    for i in range(len(primitives_NDH)):
+        _, amount_NDH = np.unique(primitives_NDH[i], return_counts=True)
+        _, amount_DH = np.unique(primitives_DH[i], return_counts=True)
+        functional_percentage_NDH.append(amount_NDH[1]/sum(amount_NDH)*100)
+        functional_percentage_DH.append(amount_DH[1]/sum(amount_DH)*100)
+    return functional_percentage_NDH, functional_percentage_DH
