@@ -658,6 +658,8 @@ class LOOCV_performance:
     def combine_ndh_dh(self):
         combined_dict = {}
         for key, value in self.optimal_accuracy_perTask.items():
+            print(f"Personalized threshold GMAC accuracy affected {key}: {np.mean(value)*100:.2f}%")
+            print(f"Fixed for all optimal threshold GMAC accuracy unaffected {key}: {np.mean(self.mean_accuracy_perTask_dh[key])*100:.2f}%")
             value_dh = self.mean_accuracy_perTask_dh[key]
             combined_dict[key] = value_dh+value
         return combined_dict
