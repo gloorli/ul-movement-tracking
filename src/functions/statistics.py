@@ -5,7 +5,7 @@ from matplotlib.ticker import FuncFormatter
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
-from scipy.stats import pearsonr, spearmanr, wilcoxon, ttest_rel, probplot
+from scipy.stats import pearsonr, spearmanr, wilcoxon, ttest_rel, probplot, zscore
 
 from utilities import thesis_style
 
@@ -78,10 +78,10 @@ class RegressionModel:
                 sns.regplot(x=self.x, y=self.y, order=degree, label=f'{degree}nd degree polynomial regression with 95% CI\n(R-squared: {r_squared:.2f})', color=colors['dark_blue'], ci=95, scatter=False, line_kws={'linewidth': 3})
         
         # Plot threshold line if relevant
-        if ylabel == 'Count threshold':
+        if ylabel == 'Counts per second':
             plt.axhline(y=0.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
             ax.set_ylim([-0.15, max(self.y) + 1.1*max(self.threshold_std)])
-        elif ylabel == 'Elevation threshold':
+        elif ylabel == 'Elevation':
             plt.axhline(y=30.0, color=colors['black_grey'], linestyle='--', label='Conventional threshold')
             ax.set_yticks([30, 35, 40, 45, 50, 55, 60, 65])
             ax.set_yticklabels(['30°', '35°', '40°', '45°', '50°', '55°', '60°', '65°'])
@@ -105,8 +105,26 @@ def extract_std_from_min_max_std(min_max_std):
 
     return count_std, pitch_std
 
-def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Analysis', dominant_impared=None, model_to_fit='linear'):
-    # Create a regression model
+def check_outliers(data, z_score_threshold=3):
+    Q1 = np.percentile(data, 25)
+    Q3 = np.percentile(data, 75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    IQR_outliers = np.where((data < lower_bound) | (data > upper_bound))
+    z_scores = zscore(data)
+    z_score_outliers = np.where(np.abs(z_scores) > z_score_threshold)
+    return z_score_outliers, IQR_outliers
+
+def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Analysis', dominant_impared=None, model_to_fit='linear', remove_outliers=False):
+    if remove_outliers:
+        z_score_outliers, IQR_outliers = check_outliers(y)
+        x = np.delete(x, IQR_outliers)
+        y = np.delete(y, IQR_outliers)
+        std = np.delete(std, IQR_outliers)
+        if dominant_impared is not None:
+            dominant_impared = np.delete(dominant_impared, IQR_outliers)
+
     model = RegressionModel(x, y, std, dominant_impared)
 
     # Check distribution of the data
