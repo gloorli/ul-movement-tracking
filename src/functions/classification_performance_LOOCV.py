@@ -371,6 +371,17 @@ class LOOCV_performance:
         print(f"Wilcoxon signed-rank test mean vs conventional DH: {p_value_mean_conventional_dh_wilcoxon}")
 
         return p_value_optimal_conventional, p_value_optimal_mean, p_value_conventional_mean, p_value_mean_conventional_dh
+    
+    def print_classification_performance(self, personalized, optimal, conventional, optimal_dh, conventional_dh, metric='ROCAUC'):
+        """
+        Print the classification performance metrics for the different GMAC thresholds.
+        Parameters:
+        """
+        print(f"Personalized GMAC threshold affected {metric}: {np.mean(personalized):.2f}, standard deviation: {np.std(personalized):.2f}")
+        print(f"Fixed for all optimal GMAC threshold affected {metric}: {np.mean(optimal):.2f}, standard deviation: {np.std(optimal):.2f}")
+        print(f"Conventional GMAC threshold affected {metric}: {np.mean(conventional):.2f}, standard deviation: {np.std(conventional):.2f}")
+        print(f"Fixed for all optimal GMAC threshold unaffected {metric}: {np.mean(optimal_dh):.2f}, standard deviation: {np.std(optimal_dh):.2f}")
+        print(f"Conventional GMAC threshold unaffected {metric}: {np.mean(conventional_dh):.2f}, standard deviation: {np.std(conventional_dh):.2f}")
 
     def plot_significance_brackets(self, ax, bracket_positions, p_values, bracket_heights, position="above"):
         """
@@ -492,6 +503,9 @@ class LOOCV_performance:
 
         mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=colors['black_grey'])
+
+        self.print_classification_performance(self.optimal_AUC_list_ndh, self.mean_AUC_list_ndh, self.conventional_AUC_list_ndh, 
+                                              self.mean_AUC_list_dh, self.conventional_AUC_list_dh, metric='ROCAUC')
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
@@ -978,3 +992,21 @@ class LOOCV_DurationOfArmUse(LOOCV_performance):
 
         plt.tight_layout()
         plt.show()
+
+    def arm_use_duration_error(self):
+        """
+        Calculate the absolute error between the predicted and ground truth duration of arm use.
+        """
+        plot_data = self.order_by_FMA()
+        error_personalized_ndh = np.abs(plot_data['optimal_duration_NDH'] - plot_data['GT_duration_NDH'])
+        error_conventional_ndh = np.abs(plot_data['conventional_duration_NDH'] - plot_data['GT_duration_NDH'])
+        error_optimal_ndh = np.abs(plot_data['mean_duration_NDH'] - plot_data['GT_duration_NDH'])
+
+        error_conventional_dh = np.abs(plot_data['conventional_duration_DH'] - plot_data['GT_duration_DH'])
+        error_optimal_dh = np.abs(plot_data['mean_duration_DH'] - plot_data['GT_duration_DH'])
+
+        print(f"Mean absolute error personalized NDH: {np.mean(error_personalized_ndh)/60:.2f} min")
+        print(f"Mean absolute error optimal NDH: {np.mean(error_optimal_ndh)/60:.2f} min")
+        print(f"Mean absolute error conventional NDH: {np.mean(error_conventional_ndh)/60:.2f} min")
+        print(f"Mean absolute error optimal DH: {np.mean(error_optimal_dh)/60:.2f} min")
+        print(f"Mean absolute error conventional DH: {np.mean(error_conventional_dh)/60:.2f} min")
