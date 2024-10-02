@@ -287,7 +287,7 @@ class PitchPerPrimitive:
             # Plot the polar histogram for NDH
             ax = axes[0, i]
             ax.plot(bin_centers_ndh, hist_ndh, color=thesis_style.get_label_colours()[label])
-            ax.set_title(f'{label} (NDH)')
+            ax.set_title(f'{label} NDH')
             ax.set_xticks([-90, -45, 0, 45, 90])
             ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
             ax.set_yticks([])
@@ -296,7 +296,7 @@ class PitchPerPrimitive:
             # Plot the polar histogram for DH
             ax = axes[1, i]
             ax.plot(bin_centers_dh, hist_dh, color=thesis_style.get_label_colours()[label])
-            ax.set_title(f'{label} (DH)')
+            ax.set_title(f'{label} DH')
             ax.set_xticks([-90, -45, 0, 45, 90])
             ax.set_xticklabels(['-90°', '-45°', '0°', '45°', '90°'])
             ax.set_yticks([])
@@ -305,8 +305,7 @@ class PitchPerPrimitive:
         
         # Adjust the spacing between subplots
         fig.tight_layout(pad=3)
-        fig.suptitle('Pitch Histogram per Label', fontsize=24)# Add more space below the title
-        fig.subplots_adjust(top=0.9)
+        fig.suptitle('Elevation Histogram per Label', fontsize=24, y=1.0)
         plt.show()
 
     def plot_count_histograms_per_task(self):
@@ -334,21 +333,19 @@ class PitchPerPrimitive:
             # Plot the count histogram for NDH
             ax = axes[0, i]
             ax.plot(bin_centers_ndh, hist_ndh, color=thesis_style.get_label_colours()[label])
-            ax.set_title(f'{label} (NDH)')
+            ax.set_title(task_to_formated.get_task_conversion()[label] +' NDH')
             ax.set_yticks([])
             ax.set_ylim([0, np.max(hist_ndh) * 1.1])
             # Plot the count histogram for DH
             ax = axes[1, i]
             ax.plot(bin_centers_dh, hist_dh, color=thesis_style.get_label_colours()[label])
-            ax.set_title(f'{label} (DH)')
+            ax.set_title(task_to_formated.get_task_conversion()[label] +' DH')
             ax.set_yticks([])
             ax.set_ylim([0, np.max(hist_dh) * 1.1])
 
         # Adjust the spacing between subplots
         fig.tight_layout(pad=3)
-        fig.suptitle('Count Histogram per Task', fontsize=24)
-        # Add more space below the title
-        fig.subplots_adjust(top=0.9)
+        fig.suptitle('Count Histogram per Task', fontsize=24, y=1.0)
         plt.show()
     
 
