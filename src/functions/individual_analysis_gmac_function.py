@@ -1,9 +1,9 @@
 from utilities import *
 from sklearn.model_selection import KFold
 from sklearn.metrics import confusion_matrix, roc_auc_score
+from tqdm import tqdm
 
 from GMAC import get_prediction_gmac
-
 
 def AUC_analisys(ground_truth, pred):
     # Calculate the AUC (Area Under the ROC Curve)
@@ -244,3 +244,88 @@ def k_fold_cross_validation_gmac(X, y, k=5, random_state=42, optimal='No'):
 
 
     return avg_eval_metrics, avg_optimal_thresholds, (count_min_max_std, pitch_min_max_std)
+
+def individual_GMAC_thresholds(X, y):
+    """
+    Perform nested grid search on the GMAC algorithm thresholds.
+
+    Args:
+        X: 2D-Numpy array of counts and pitch
+        y: Numpy array of GT labels
+
+    Returns:
+        Tuple of individual thresholds (count threshold, pitch threshold)
+    """
+
+    # Ensure datasets have the same size 
+    X, y = remove_extra_elements(X, y)
+
+    # Train your model and find the optimal threshold using X_train and y_train
+    counts=X[:, 0]
+    pitch=X[:, 1]
+
+    # Define the thresholds you want to investigate
+    thres_range, angle_range = get_threshold_range(counts, pitch)
+
+    #vars to store values of each investigated threshold combination
+    thres_angle_range = []
+    results_temp = {
+        'Accuracy': [],
+        'Sensitivity': [],
+        'Specificity': [], 
+        'Youden_index': []
+    }
+    results_temp = pd.DataFrame(results_temp)
+
+    # Loop through all possible threshold combinations
+    for thres in thres_range:
+        for angle in angle_range:
+            y_train_pred = get_prediction_gmac(counts, pitch, count_threshold=thres, functional_space=angle, decision_mode='Subash')
+            y_train_pred = y_train_pred.astype(int)
+
+            accuracy, sensitivity, specificity, youden_index, _ = get_classification_metrics(y, y_train_pred)
+
+            results_temp.loc[len(results_temp)] = [accuracy*100, sensitivity*100, specificity*100, youden_index]
+            thres_angle_range.append([thres, angle])
+
+    # Find the index of the thresholds that maximizes the Youden Index
+    max_index = np.argmax(results_temp['Youden_index'])
+    # Retrieve the optimal thresholds
+    optimal_thres = thres_angle_range[max_index][0]
+    optimal_angle = thres_angle_range[max_index][1]
+
+    # Print the optimal thresholds
+    print(f"Optimal Count Threshold: {optimal_thres:.2f}")
+    print(f"Optimal Pitch Threshold: {optimal_angle:.2f}")
+
+    return [optimal_thres, optimal_angle]
+
+def individual_GMAC_thresholds_for_all_participants(participant_ids):
+    """
+    Perform individual GMAC threshold analysis (nested grid search) for all participants.
+    Args:
+        participant_ids: List of participant IDs
+    Returns:
+        None
+    """
+    initial_path = '../data/CreateStudy'
+
+    for participant_id in tqdm(participant_ids, desc="Processing participants"):
+        participant_path = os.path.join(initial_path, participant_id)
+        # Extract dataset from the participant JSON file 
+        participant_data = load_participant_json(participant_id, initial_path)
+        # For stroke, dominant hand = non affected hand 
+        counts_for_GMAC_ndh = np.array(participant_data['counts_for_GMAC_ndh_1Hz'])
+        mean_elevation_ndh = np.array(participant_data['pitch_for_GMAC_ndh_1Hz'])
+        GT_mask_NDH_1Hz = np.array(participant_data['GT_mask_NDH_1Hz'])
+        individual_thresholds_affected_side = individual_GMAC_thresholds(X=np.stack((counts_for_GMAC_ndh, mean_elevation_ndh), axis=0).T, y=GT_mask_NDH_1Hz)
+        counts_for_GMAC_dh = np.array(participant_data['counts_for_GMAC_dh_1Hz'])
+        mean_elevation_dh = np.array(participant_data['pitch_for_GMAC_dh_1Hz'])
+        GT_mask_DH_1Hz = np.array(participant_data['GT_mask_DH_1Hz'])
+        individual_thresholds_unaffected_side = individual_GMAC_thresholds(X=np.stack((counts_for_GMAC_dh, mean_elevation_dh), axis=0).T, y=GT_mask_DH_1Hz)
+        # Store the individual thresholds for the participant
+        add_attributes_to_participant(participant_data, individual_GMAC_thresholds_affected_side = individual_thresholds_affected_side, individual_GMAC_thresholds_unaffected_side = individual_thresholds_unaffected_side) 
+        # Save the updated participant data
+        save_to_json(participant_data, participant_path)
+
+    print("Individual GMAC threshold analysis completed.")
