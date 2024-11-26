@@ -182,10 +182,15 @@ def degree_formatter(x, pos):
 def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_threshold_ndh, elevation_threshold_dh, x_data_label=['Affected side', 'Unaffected side']):
     # calculate mean optimal thresholds
     mean_count_threshold_ndh = np.mean(count_threshold_ndh)
+    sd_count_threshold_ndh = np.std(count_threshold_ndh)
     mean_count_threshold_dh = np.mean(count_threshold_dh)
+    sd_count_threshold_dh = np.std(count_threshold_dh)
     mean_elevation_threshold_ndh = np.mean(elevation_threshold_ndh)
+    sd_elevation_threshold_ndh = np.std(elevation_threshold_ndh)
     mean_elevation_threshold_dh = np.mean(elevation_threshold_dh)
+    sd_elevation_threshold_dh = np.std(elevation_threshold_dh)
     print(f"Mean count threshold {x_data_label[0]}: {mean_count_threshold_ndh}, Mean count threshold {x_data_label[1]}: {mean_count_threshold_dh}")
+    print(f"Standard deviation count threshold {x_data_label[0]}: {sd_count_threshold_ndh}, Standard deviation count threshold {x_data_label[1]}: {sd_count_threshold_dh}")
     #check count significance of difference between sides
     _, wilcoxon_pvalue_count = wilcoxon(count_threshold_ndh, count_threshold_dh) # Wilcoxon Signed-Rank Test
     print("Wilcoxon Signed-Rank Test Count:")
@@ -195,6 +200,7 @@ def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_thresh
     print("p-value:", ttest_pvalue_count)
 
     print(f"Mean elevation threshold {x_data_label[0]}: {mean_elevation_threshold_ndh}, Mean elevation threshold {x_data_label[1]}: {mean_elevation_threshold_dh}")
+    print(f"Standard deviation elevation threshold {x_data_label[0]}: {sd_elevation_threshold_ndh}, Standard deviation elevation threshold {x_data_label[1]}: {sd_elevation_threshold_dh}")
     #check elevation significance of difference between sides
     _, wilcoxon_pvalue_elevation = wilcoxon(elevation_threshold_ndh, elevation_threshold_dh) # Wilcoxon Signed-Rank Test
     print("Wilcoxon Signed-Rank Test Elevation:")
@@ -228,7 +234,7 @@ def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_thresh
                        flierprops=dict(markerfacecolor=healthy_color, marker='o', markersize=5, linestyle='none', alpha=0.0), # don't show outliers since all data points are already scattered
                        medianprops=dict(color=line_color_healthy))
 
-    plt.title('Count')
+    plt.title('Count thresholds')
     plt.xlabel('')
     plt.ylabel('Counts per second')
     plt.xticks([1, 2], x_data_label)
@@ -236,10 +242,10 @@ def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_thresh
     plt.scatter(np.random.normal(1.0, 0.06, size=len(count_threshold_ndh)), count_threshold_ndh, color=affected_color)
     plt.scatter(np.random.normal(2.0, 0.06, size=len(count_threshold_dh)), count_threshold_dh, color=healthy_color)
     # Plot horizontal line at conventional threshold
-    plt.axhline(y=0.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional GMAC threshold')
+    plt.axhline(y=0.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional count threshold')
     # Add p-values between healthy and affected
     #plt.annotate(f"Significance levels between sides \npaired t-test p-value: {ttest_pvalue_count:.4f}", xy=(0.5, -0.15), xycoords='axes fraction', ha='center', fontsize=9)
-    plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_count:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=8)
+    plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_count:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=10)
 
     plt.legend()
 
@@ -259,19 +265,21 @@ def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_thresh
                        flierprops=dict(markerfacecolor=line_color_healthy, marker='o', markersize=5, linestyle='none', alpha=0.0),
                        medianprops=dict(color=line_color_healthy))
 
-    plt.title('Functional space')
+    plt.title('Elevation thresholds')
     plt.xlabel('')
-    plt.ylabel('Elevation')
+    plt.ylabel('Forearm elevation ±')
     plt.xticks([1, 2], x_data_label)
     plt.gca().yaxis.set_major_formatter(FuncFormatter(degree_formatter))
     # Show all data points
     plt.scatter(np.random.normal(1.0, 0.0125, size=len(elevation_threshold_ndh)), elevation_threshold_ndh, color=affected_color)
     plt.scatter(np.random.normal(2.0, 0.0125, size=len(elevation_threshold_dh)), elevation_threshold_dh, color=healthy_color)
     # Plot horizontal line at conventional threshold
-    plt.axhline(y=30.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional GMAC threshold')
+    plt.axhline(y=30.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional elevation threshold')
     # Add p-values between healthy and affected
     #plt.annotate(f"Significance levels between sides \npaired t-test p-value: {ttest_pvalue_elevation:.4f}", xy=(0.5, -0.15), xycoords='axes fraction', ha='center', fontsize=9)
-    plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_elevation:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=8)
+    plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_elevation:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=10)
+
+    plt.legend()
 
     plt.tight_layout()
     plt.show()
