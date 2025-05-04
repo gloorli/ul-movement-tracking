@@ -525,7 +525,7 @@ class LOOCV_performance:
             box.set(facecolor=colors['healthy'], alpha=0.7)
 
         # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
-        ax.axhline(y=0.75, color=colors['pink'], linestyle='dotted', label='Clinically required performance [Fan et al., 2006]', lw=3.0)
+        ax.axhline(y=0.75, color=colors['grey'], linestyle='dotted', label='Clinically required performance [Fan et al., 2006]', lw=3.0)
         # random classifier
         ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Performance of random classifier', lw=2.0)
         ax.add_artist(plt.legend(loc='upper left'))
@@ -556,6 +556,7 @@ class LOOCV_performance:
         else:
             self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
 
+        plt.savefig(os.path.join(save_path.downloadsPath, 'ROC_AUC.pdf'), bbox_inches='tight')
         plt.show()
 
     def plot_LOOCV_Accuracy(self):
