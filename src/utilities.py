@@ -1163,6 +1163,20 @@ class task_labels:
     def get_formated_task_labels(self):
         return list(self.task_labels.values())
     
+class SavePath:
+    def __init__(self):
+        self.downloadsPath = os.path.join(os.path.expanduser('~'), 'Downloads')
+
+    def get_downloads_path(self):
+        """
+        Returns the path to the user's Downloads folder.
+
+        Returns:
+            str: Path to the Downloads folder.
+        """
+        return self.downloadsPath
+
+save_path = SavePath() 
 thesis_style = ThesisStyle()
 id_conversion = CREATEid_to_thesisID()
 task_to_formated = task_labels()

@@ -138,6 +138,7 @@ class PrimitiveDistribution:
 
         plt.legend(loc='center right', bbox_to_anchor=(1.2, 0.5), reverse=True, frameon=False)
         plt.title('Primitive distribution ' + title_side)
+        plt.savefig(os.path.join(save_path.downloadsPath, f'primitive_distribution_{side}.pdf'), bbox_inches='tight')
         plt.show()
 
 
