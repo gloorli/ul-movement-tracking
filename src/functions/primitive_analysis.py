@@ -94,10 +94,10 @@ class PrimitiveDistribution:
             data = self.primitive_amount_RW
         elif side == 'NDH':
             data = self.primitive_amount_NDH
-            title_side = 'Affected Arm'  # attention: this is only true for stroke subjects
+            title_side = 'affected side'  # attention: this is only true for stroke subjects
         elif side == 'DH':
             data = self.primitive_amount_DH
-            title_side = 'Unaffected Arm'  # attention: this is only true for stroke subjects
+            title_side = 'unaffected side'  # attention: this is only true for stroke subjects
         else:
             raise ValueError('side must be either "NDH", "DH", "LW" or "RW"')
 
