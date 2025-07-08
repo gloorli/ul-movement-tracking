@@ -537,7 +537,7 @@ class LOOCV_performance:
         ax.add_artist(plt.legend(handles=legend_patches, loc='upper right', reverse=True))
 
         ax.set_xticks([1, 2, 3, 4, 5, 6])
-        ax.set_xticklabels(['conventional\nthresholds', 'optimal\nthresholds', 'personalized\nthresholds', 'conventional\nthresholds', 'optimal\nthresholds', 'personalized\nthresholds'], fontsize=10)
+        ax.set_xticklabels(['Conventional\nthresholds', 'Optimized\nthresholds', 'Personalized\nthresholds', 'Conventional\nthresholds', 'Optimized\nthresholds', 'Personalized\nthresholds'], fontsize=10)
         ax.set_ylim(0.45, 1.0)
 
         plt.rcParams.update({'font.size': 12})

@@ -56,7 +56,7 @@ class PlotRegression:
             sns.regplot(x=self.x, y=self.y, order=self.polydegree, label=f'{self.polydegree}nd degree polynomial regression \nwith 95% confidence interval (CI)', color=colors['dark_blue'], ci=95, scatter=False, line_kws={'linewidth': 3})
 
         # Plot mean line    
-        plt.axhline(y=np.mean(self.y), color=colors['dark_blue'], linestyle='dotted', label='Optimal threshold (mean)', linewidth=3)
+        plt.axhline(y=np.mean(self.y), color=colors['dark_blue'], linestyle='dotted', label='Optimized threshold (mean)', linewidth=3)
 
         # Plot threshold line if relevant
         if ylabel == 'Counts per second':
@@ -74,4 +74,5 @@ class PlotRegression:
         plt.title(title)
         plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False, reverse=True)
         plt.tight_layout()
+        plt.savefig(os.path.join(save_path.downloadsPath, 'elevation_threshold_model.pdf'), bbox_inches='tight')
         plt.show()
