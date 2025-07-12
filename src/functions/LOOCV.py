@@ -170,30 +170,38 @@ class LOOCV_performance:
 
         self.evaluation_FMA = []
 
+        self.individual_YI_list_ndh = []
         self.personalized_YI_list_ndh = []
         self.conventioanl_YI_list_ndh = []
         self.mean_YI_list_ndh = []
+        self.individual_YI_list_dh = []
         self.personalized_YI_list_dh = []
         self.conventional_YI_list_dh = []
         self.mean_YI_list_dh = []
 
+        self.individual_accuracy_list_ndh = []
         self.personalized_accuracy_list_ndh = []
         self.conventioanl_accuracy_list_ndh = []
         self.mean_accuracy_list_ndh = []
+        self.individual_accuracy_list_dh = []
         self.personalized_accuracy_list_dh = []
         self.conventional_accuracy_list_dh = []
         self.mean_accuracy_list_dh = []
 
+        self.individual_AUC_list_ndh = []
         self.personalized_AUC_list_ndh = []
         self.conventional_AUC_list_ndh = []
         self.mean_AUC_list_ndh = []
+        self.individual_AUC_list_dh = []
         self.personalized_AUC_list_dh = []
         self.conventional_AUC_list_dh = []
         self.mean_AUC_list_dh = []
 
+        self.individual_F1_list_ndh = []
         self.personalized_F1_list_ndh = []
         self.conventioanl_F1_list_ndh = []
         self.mean_F1_list_ndh = []
+        self.individual_F1_list_dh = []
         self.personalized_F1_list_dh = []
         self.conventional_F1_list_dh = []
         self.mean_F1_list_dh = []
@@ -208,6 +216,8 @@ class LOOCV_performance:
             X_test, y_test = [X[i] for i in test_index], [y_ndh[i] for i in test_index]
             y_test_dh = [y_dh[i] for i in test_index]
 
+            youden_index_individual_ndh, accuracy_individual_ndh, auc_individual_ndh, F1_individual_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, X_test[0]['COUNT_THRESHOLD_NDH'], X_test[0]['PITCH_THRESHOLD_NDH'], side='NDH')
+
             regression_model_count_ndh, regression_model_elevation_ndh = self.get_threshold_model(X_train)
             personalized_count_threshold_ndh, personalized_elevation_threshold_ndh = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh, regression_model_elevation_ndh)
             youden_index_personalized_ndh, accuracy_personalized_ndh, auc_personalized_ndh, F1_personalized_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh, side='NDH')
@@ -216,6 +226,8 @@ class LOOCV_performance:
 
             loocv_mean_count_ndh, loocv_mean_elevation_ndh = self.retreive_mean_thresholds(X_train)
             youden_index_mean_ndh, accuracy_mean_ndh, auc_mean_ndh, F1_mean_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh, loocv_mean_elevation_ndh, side='NDH')
+
+            youden_index_individual_dh, accuracy_individual_dh, auc_individual_dh, F1_individual_dh = self.calculate_GMAC_classification_performance(X_test, y_test_dh, X_test[0]['COUNT_THRESHOLD_DH'], X_test[0]['PITCH_THRESHOLD_DH'], side='DH')
 
             regression_model_count_dh, regression_model_elevation_dh = self.get_threshold_model(X_train, side='DH')
             personalized_count_threshold_dh, personalized_elevation_threshold_dh = self.retreive_personalized_thresholds(X_test, regression_model_count_dh, regression_model_elevation_dh, side='DH')
@@ -228,30 +240,38 @@ class LOOCV_performance:
 
             self.evaluation_FMA.append(X_test[0]['FMA_UE'])
 
+            self.individual_YI_list_ndh.append(youden_index_individual_ndh)
             self.personalized_YI_list_ndh.append(youden_index_personalized_ndh)
             self.conventioanl_YI_list_ndh.append(youden_index_conventional_ndh)
             self.mean_YI_list_ndh.append(youden_index_mean_ndh)
+            self.individual_YI_list_dh.append(youden_index_individual_dh)
             self.personalized_YI_list_dh.append(youden_index_personalized_dh)
             self.conventional_YI_list_dh.append(youden_index_conventional_dh)
             self.mean_YI_list_dh.append(youden_index_mean_dh)
 
+            self.individual_accuracy_list_ndh.append(accuracy_individual_ndh)
             self.personalized_accuracy_list_ndh.append(accuracy_personalized_ndh)
             self.conventioanl_accuracy_list_ndh.append(accuracy_conventional_ndh)
             self.mean_accuracy_list_ndh.append(accuracy_mean_ndh)
+            self.individual_accuracy_list_dh.append(accuracy_individual_dh)
             self.personalized_accuracy_list_dh.append(accuracy_personalized_dh)
             self.conventional_accuracy_list_dh.append(accuracy_conventional_dh)
             self.mean_accuracy_list_dh.append(accuracy_mean_dh)
 
+            self.individual_AUC_list_ndh.append(auc_individual_ndh)
             self.personalized_AUC_list_ndh.append(auc_personalized_ndh)
             self.conventional_AUC_list_ndh.append(auc_conventional_ndh)
             self.mean_AUC_list_ndh.append(auc_mean_ndh)
+            self.individual_AUC_list_dh.append(auc_individual_dh)
             self.personalized_AUC_list_dh.append(auc_personalized_dh)
             self.conventional_AUC_list_dh.append(auc_conventional_dh)
             self.mean_AUC_list_dh.append(auc_mean_dh)
 
+            self.individual_F1_list_ndh.append(F1_individual_ndh)
             self.personalized_F1_list_ndh.append(F1_personalized_ndh)
             self.conventioanl_F1_list_ndh.append(F1_conventional_ndh)
             self.mean_F1_list_ndh.append(F1_mean_ndh)
+            self.individual_F1_list_dh.append(F1_individual_dh)
             self.personalized_F1_list_dh.append(F1_personalized_dh)
             self.conventional_F1_list_dh.append(F1_conventional_dh)
             self.mean_F1_list_dh.append(F1_mean_dh)
