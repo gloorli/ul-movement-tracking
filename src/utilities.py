@@ -1080,7 +1080,9 @@ class ThesisStyle:
             'grey': '#999999',
             'black_grey': '#404040',
             'black': '#000000',
-            'white': '#FFFFFF'
+            'white': '#FFFFFF',
+            'conventional': "#2F4459",
+            'individual': '#7CA5CD',
         }
         self.label_colours = {
             'functional_movement': '#77DD77',

@@ -315,3 +315,82 @@ class PlotEvaluation(LOOCV_performance):
 
         plt.savefig(os.path.join(save_path.downloadsPath, 'Youden_Index.pdf'), bbox_inches='tight')
         plt.show()
+
+    def order_df_by_FMA(self, df): #TODO: coppied from primitive_analysis.py should be moved to utilities.py
+        """
+        Orders the given DataFrame by the 'FMA_UE' column and returns the sorted DataFrame along with the 'participantID',
+        'FMA_UE', and 'ARAT' columns as separate variables. If the 'FMA_UE' column contains the same values for multiple rows, the rows are sorted by the 'ARAT' column.
+        Parameters:
+            df (pandas.DataFrame): The DataFrame to be sorted.
+        Returns:
+            tuple: A tuple containing the sorted DataFrame, 'participantID' labels, 'FMA_UE' labels, and 'ARAT' labels.
+        """
+        df['FMA_UE'] = self.FMA_UE
+        df['ARAT'] = self.ARAT
+        df.sort_values(['FMA_UE', 'ARAT'], inplace=True)
+        ID_labels = df['participantID']
+        FMA_labels = df.pop('FMA_UE')
+        ARAT_labels = df.pop('ARAT')
+        return df, ID_labels, FMA_labels, ARAT_labels
+
+    def AUC_performance_per_subject(self, side='NDH'):
+        colors = thesis_style.get_thesis_colours()
+        if side == 'NDH':
+            data = {
+                'participantID': self.PARTICIPANT_ID,
+                'Conventional thresholds': self.conventional_AUC_list_ndh,
+                'Individual thresholds': self.individual_AUC_list_ndh
+            }
+            df = pd.DataFrame(data)
+            title_side = 'affected side'
+            color = [colors['affected'], colors['light_orange']]
+        elif side == 'DH':
+            data = {
+                'participantID': self.PARTICIPANT_ID,
+                'Conventional thresholds': self.conventional_AUC_list_dh,
+                'Individual thresholds': self.individual_AUC_list_dh
+            }
+            df = pd.DataFrame(data)
+            title_side = 'unaffected side'
+            color = [colors['conventional'], colors['individual']]
+        else:
+            raise ValueError('side must be either "NDH" or "DH"')
+
+        df_ordered, ID_label, FMA_label, ARAT_label = self.order_df_by_FMA(df.copy())
+
+        fig, ax = plt.subplots()
+        # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
+        ax.axhline(y=0.75, color=colors['grey'], linestyle='dotted', label='Clinically required performance [Fan et al., 2006]', lw=2.0)
+        # random classifier
+        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Random classifier', lw=1.3)
+    
+        df_ordered.plot(ax=ax, x='participantID', y='Conventional thresholds', kind='line', legend=True, color=color[0], marker='s', markersize=7, linewidth=1, linestyle='-.')
+        df_ordered.plot(ax=ax, x='participantID', y='Individual thresholds', kind='line', legend=True, color=color[1], marker='o', markersize=8, linewidth=1, linestyle='-.')
+    
+        plt.ylabel('ROC AUC', fontsize=10)
+        plt.yticks(fontsize=10)
+        ax.set_ylim(0.45, 1.0)
+        plt.xlabel('')
+        plt.xticks(range(len(self.PARTICIPANT_ID)),
+                [f"{id_conversion.get_thesisID(id)}\nFMA-UE: {int(fma)}\nARAT: {int(arat)}" for id, fma, arat in zip(ID_label, FMA_label, ARAT_label)],
+                rotation=0, fontsize=8)
+        plt.tight_layout(rect=[0, 0, 1.4, 1])
+
+        # Adding brackets and labels for FMA-UE categories (Woytowicz et al., 2017)
+        # attention: bracket possitions are hardcoded
+        ax.annotate('', xy=(0.299, -0.14), xytext=(0, -0.14), xycoords='axes fraction', textcoords='axes fraction',
+                    arrowprops=dict(arrowstyle='-', lw=1.0, color='black'))
+        ax.annotate('severe impairment', xy=(0.15, -0.18), xycoords='axes fraction', ha='center', fontsize=8)
+
+        ax.annotate('', xy=(0.499, -0.14), xytext=(0.301, -0.14), xycoords='axes fraction', textcoords='axes fraction',
+                    arrowprops=dict(arrowstyle='-', lw=1.0, color='black'))
+        ax.annotate('moderate impairment', xy=(0.4, -0.18), xycoords='axes fraction', ha='center', fontsize=8)
+
+        ax.annotate('', xy=(1.0, -0.14), xytext=(0.501, -0.14), xycoords='axes fraction', textcoords='axes fraction',
+                    arrowprops=dict(arrowstyle='-', lw=1.0, color='black'))
+        ax.annotate('mild impairment', xy=(0.75, -0.18), xycoords='axes fraction', ha='center', fontsize=8)
+
+        plt.legend(loc='upper left', frameon=False, fontsize=10)
+        plt.title('Threshold performance ' + title_side)
+        plt.savefig(os.path.join(save_path.downloadsPath, f'AUC_performance_{side}.pdf'), bbox_inches='tight')
+        plt.show()
