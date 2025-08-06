@@ -28,13 +28,21 @@ class PlotEvaluation(LOOCV_performance):
         print(f"Paired t-test individual vs conventional: {p_value_individual_conventional}")
         print(f"Paired t-test individual vs conventional DH: {p_value_individual_conventional_dh}")
 
+        return p_value_individual_conventional, p_value_individual_conventional_dh
+    
+    def check_wilcoxon(self, individual_distribution, conventional_distribution, conventional_distribution_dh=None, individual_distribution_dh=None):
+        """
+        Check the statistical significance of the differences between the classification performance of the different GMAC thresholds applied using Wilcoxon signed-rank test.
+        Note:
+        - The null hypothesis for the Wilcoxon signed-rank test is that there is no significant difference between the paired samples.
+        """
         # Perform Wilcoxon signed-rank test
-        _, p_value_individual_conventional_wilcoxon = wilcoxon(individual_distribution, conventional_distribution)
-        _, p_value_individual_conventional_dh_wilcoxon = wilcoxon(individual_distribution_dh, conventional_distribution_dh)
-        print(f"Wilcoxon signed-rank test individual vs conventional: {p_value_individual_conventional_wilcoxon}")
-        print(f"Wilcoxon signed-rank test individual vs conventional DH: {p_value_individual_conventional_dh_wilcoxon}")
+        _, p_value_individual_conventional = wilcoxon(individual_distribution, conventional_distribution)
+        _, p_value_individual_conventional_dh = wilcoxon(individual_distribution_dh, conventional_distribution_dh)
+        print(f"Wilcoxon signed-rank test individual vs conventional: {p_value_individual_conventional}")
+        print(f"Wilcoxon signed-rank test individual vs conventional DH: {p_value_individual_conventional_dh}")
 
-        return p_value_individual_conventional, p_value_individual_conventional_dh, p_value_individual_conventional_wilcoxon, p_value_individual_conventional_dh_wilcoxon
+        return p_value_individual_conventional, p_value_individual_conventional_dh
 
     def print_classification_performance(self, individual, conventional, conventional_dh, individual_dh, metric='ROCAUC'):
         """
@@ -86,7 +94,7 @@ class PlotEvaluation(LOOCV_performance):
 
     def plot_AUC(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh, wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_ttest(
+        wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_wilcoxon(
             self.individual_AUC_list_ndh, self.conventional_AUC_list_ndh, self.conventional_AUC_list_dh, self.individual_AUC_list_dh
         )
 
@@ -146,7 +154,7 @@ class PlotEvaluation(LOOCV_performance):
 
     def plot_Accuracy(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh, wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_ttest(
+        wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_wilcoxon(
             self.individual_accuracy_list_ndh, self.conventioanl_accuracy_list_ndh, self.conventional_accuracy_list_dh, self.individual_accuracy_list_dh
         )
 
@@ -208,7 +216,7 @@ class PlotEvaluation(LOOCV_performance):
 
     def plot_F1(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh, wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_ttest(
+        wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_wilcoxon(
             self.individual_F1_list_ndh, self.conventioanl_F1_list_ndh, self.conventional_F1_list_dh, self.individual_F1_list_dh
         )
 
@@ -264,7 +272,7 @@ class PlotEvaluation(LOOCV_performance):
     
     def plot_YI(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh, wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_ttest(
+        wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_wilcoxon(
             self.individual_YI_list_ndh, self.conventioanl_YI_list_ndh, self.conventional_YI_list_dh, self.individual_YI_list_dh
         )
 
