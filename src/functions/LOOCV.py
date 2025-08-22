@@ -632,7 +632,7 @@ class LOOCV_performance:
         else:
             self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
 
-        plt.savefig(os.path.join(save_path.downloadsPath, 'ROC_AUC.pdf'), bbox_inches='tight')
+        plt.savefig(os.path.join(save_path.downloadsPath, 'ROC_AUC_withPopulationOptimized.pdf'), bbox_inches='tight')
         plt.show()
 
     def plot_LOOCV_Accuracy(self):
