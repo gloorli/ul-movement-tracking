@@ -380,7 +380,47 @@ class LOOCV_performance:
         print(f"Wilcoxon signed-rank test personalized vs mean DH: {p_value_personalized_mean_dh_wilcoxon}")
 
         return p_value_personalized_conventional, p_value_personalized_mean, p_value_conventional_mean, p_value_mean_conventional_dh, p_value_personalized_conventional_dh, p_value_personalized_mean_dh
-    
+
+    def check_bonferroni_wilcoxon(self, individual_distribution, conventional_distribution, mean_distribution, mean_distribution_dh=None, conventional_distribution_dh=None, individual_distribution_dh=None):
+        """
+        Check the statistical significance of the differences between the classification performance of the different GMAC thresholds applied using Wilcoxon signed-rank test with Bonferroni correction.
+        Parameters:
+        - individual_distribution (array-like): The distribution of classification performance for the individual-optimized thresholds.
+        - conventional_distribution (array-like): The distribution of classification performance for the conventional thresholds.
+        - mean_distribution (array-like): The distribution of classification performance for the mean count and elevation thresholds.
+        - mean_distribution_dh (array-like, optional): The distribution of classification performance for the mean count and elevation thresholds for the dominant hand. Default is None.
+        - conventional_distribution_dh (array-like, optional): The distribution of classification performance for the conventional thresholds for the dominant hand. Default is None.
+        - individual_distribution_dh (array-like, optional): The distribution of classification performance for the individual-optimized thresholds for the dominant hand. Default is None.
+        Note:
+        - The null hypothesis for the Wilcoxon signed-rank tests is that there is no significant difference between the paired samples.
+        - Bonferroni correction is applied to account for multiple comparisons.
+        """
+        _, p_value_individual_conventional = wilcoxon(individual_distribution, conventional_distribution)
+        _, p_value_individual_mean = wilcoxon(individual_distribution, mean_distribution)
+        _, p_value_conventional_mean = wilcoxon(conventional_distribution, mean_distribution)
+        _, p_value_mean_conventional_dh = wilcoxon(mean_distribution_dh, conventional_distribution_dh)
+        _, p_value_individual_conventional_dh = wilcoxon(individual_distribution_dh, conventional_distribution_dh)
+        _, p_value_individual_mean_dh = wilcoxon(individual_distribution_dh, mean_distribution_dh)
+        print(f"Wilcoxon signed-rank test individual-optimized vs conventional: {p_value_individual_conventional}")
+        print(f"Wilcoxon signed-rank test individual-optimized vs population-optimized: {p_value_individual_mean}")
+        print(f"Wilcoxon signed-rank test conventional vs population-optimized: {p_value_conventional_mean}")
+        print(f"Wilcoxon signed-rank test population-optimized vs conventional DH: {p_value_mean_conventional_dh}")
+        print(f"Wilcoxon signed-rank test individual-optimized vs conventional DH: {p_value_individual_conventional_dh}")
+        print(f"Wilcoxon signed-rank test individual-optimized vs population-optimized DH: {p_value_individual_mean_dh}")
+        p_value_individual_conventional_bonferroni = min(p_value_individual_conventional * 3, 1.0)
+        p_value_individual_mean_bonferroni = min(p_value_individual_mean * 3, 1.0)
+        p_value_conventional_mean_bonferroni = min(p_value_conventional_mean * 3, 1.0)
+        p_value_mean_conventional_dh_bonferroni = min(p_value_mean_conventional_dh * 3, 1.0)
+        p_value_individual_conventional_dh_bonferroni = min(p_value_individual_conventional_dh * 3, 1.0)
+        p_value_individual_mean_dh_bonferroni = min(p_value_individual_mean_dh * 3, 1.0)
+        print(f"Bonferroni corrected p-value individual-optimized vs conventional: {p_value_individual_conventional_bonferroni}")
+        print(f"Bonferroni corrected p-value individual-optimized vs population-optimized: {p_value_individual_mean_bonferroni}")
+        print(f"Bonferroni corrected p-value conventional vs population-optimized: {p_value_conventional_mean_bonferroni}")
+        print(f"Bonferroni corrected p-value population-optimized vs conventional DH: {p_value_mean_conventional_dh_bonferroni}")
+        print(f"Bonferroni corrected p-value individual-optimized vs conventional DH: {p_value_individual_conventional_dh_bonferroni}")
+        print(f"Bonferroni corrected p-value individual-optimized vs population-optimized DH: {p_value_individual_mean_dh_bonferroni}")
+        return p_value_individual_conventional_bonferroni, p_value_individual_mean_bonferroni, p_value_conventional_mean_bonferroni, p_value_mean_conventional_dh_bonferroni, p_value_individual_conventional_dh_bonferroni, p_value_individual_mean_dh_bonferroni
+
     def print_classification_performance(self, personalized, optimal, conventional, optimal_dh, conventional_dh, personalized_dh, metric='ROCAUC'):
         """
         Print the classification performance metrics for the different GMAC thresholds.
@@ -426,25 +466,41 @@ class LOOCV_performance:
         Adds significance stars to the plot, either above or below the boxplots.
         *(p < 0.05), **(p < 0.01), ***(p < 0.001)
         """
-        for (start, end), p_val, y in zip(bracket_positions, p_values, bracket_heights):
-            x1, x2 = start, end # x-coordinates of the brackets
-            h, col = 0.02, 'k' # Adjust height and color of the bracket
-            if position == "below":
-                y = y - 0.05
-
-            if p_val < 0.001:
-                ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, '***', ha='center', va='bottom', color=col, fontsize=12)
-            elif p_val < 0.01:
-                ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, '**', ha='center', va='bottom', color=col, fontsize=12)
-            elif p_val < 0.05:
-                ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, '*', ha='center', va='bottom', color=col, fontsize=12)
-            else:
+        for i, ((start, end), p_val, y) in enumerate(zip(bracket_positions, p_values, bracket_heights)):
+            x1, x2 = start, end  # x-coordinates of the brackets
+            h, col = 0.02, 'k'  # Adjust height and color of the bracket
+            if x1 is None or x2 is None:
                 continue
 
-            if position == "above":
-                ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], lw=1.0, c=col)
-            elif position == "below":
-                ax.plot([x1, x1, x2, x2], [y, y-h, y-h, y], lw=1.0, c=col)
+            # decide whether this bracket's annotation is above or below
+            half = len(bracket_positions) // 2
+            if position == "below":
+                is_above = False
+            elif position == "below_above":
+                # first half below, second half above
+                is_above = (i >= half)
+            else:
+                is_above = True
+
+            y_text = y + 1.0 * h if is_above else y - 1.5 * h
+            va = 'bottom' if is_above else 'top'
+
+            # choose significance stars
+            if p_val < 0.001:
+                stars = '***'
+            elif p_val < 0.01:
+                stars = '**'
+            elif p_val < 0.05:
+                stars = '*'
+            else:
+                continue
+            ax.text((x1 + x2) * .5, y_text, stars, ha='center', va=va, color=col, fontsize=12)
+
+            # Draw brackets
+            if position == "above" or (position == "below_above" and i >= len(bracket_positions) // 2):
+                ax.plot([x1, x1, x2, x2], [y, y + h, y + h, y], lw=1.0, c=col)
+            elif position == "below" or (position == "below_above" and i < len(bracket_positions) // 2):
+                ax.plot([x1, x1, x2, x2], [y, y - h, y - h, y], lw=1.0, c=col)
 
     #TODO combine the following three functions into one
     def plot_LOOCV_YoudenIndex(self):
@@ -509,70 +565,70 @@ class LOOCV_performance:
 
         plt.show()
 
-    def plot_LOOCV_AUC(self, significnce_brackets='pvalues'):
+    def plot_LOOCV_AUC(self, significance_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_personalized_conventional, ttest_pvalue_personalized_mean, ttest_pvalue_conventional_mean, ttest_pvalue_mean_conventional_dh, ttest_pvalue_personalized_conventional_dh, ttest_pvalue_personalized_mean_dh = self.check_ANOVA_ttest_Wilcoxon(
-            self.personalized_AUC_list_ndh, self.conventional_AUC_list_ndh, self.mean_AUC_list_ndh, self.mean_AUC_list_dh, self.conventional_AUC_list_dh, self.personalized_AUC_list_dh
-            )
+        adjwilcoxon_pvalue_individual_conventional, adjwilcoxon_pvalue_individual_mean, adjwilcoxon_pvalue_conventional_mean, adjwilcoxon_pvalue_mean_conventional_dh, adjwilcoxon_pvalue_individual_conventional_dh, adjwilcoxon_pvalue_individual_mean_dh = self.check_bonferroni_wilcoxon(
+            self.individual_AUC_list_ndh, self.conventional_AUC_list_ndh, self.mean_AUC_list_ndh, self.mean_AUC_list_dh, self.conventional_AUC_list_dh, self.individual_AUC_list_dh
+        )
 
-        mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5, markeredgewidth=0)
+        mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5.5, markeredgewidth=0)
         meadian_markers = dict(color=colors['black_grey'])
 
         self.print_classification_performance(self.personalized_AUC_list_ndh, self.mean_AUC_list_ndh, self.conventional_AUC_list_ndh, 
                                               self.mean_AUC_list_dh, self.conventional_AUC_list_dh, self.personalized_AUC_list_dh, metric='ROCAUC')
 
-        fig, ax = plt.subplots(figsize=(12, 6))
+        fig, ax = plt.subplots(figsize=(12, 5))
 
-        box_conventional = ax.boxplot(self.conventional_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_personalized = ax.boxplot(self.personalized_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_conventional_dh = ax.boxplot(self.conventional_AUC_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_mean_dh = ax.boxplot(self.mean_AUC_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_personalized_dh = ax.boxplot(self.personalized_AUC_list_dh, positions=[6], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
+        ax.axhline(y=0.75, color=colors['grey'], linestyle='dotted', label='Clinically required performance [Fan et al., 2006]', lw=2.0)
+        # random classifier
+        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Random classifier', lw=1.3)
+        ax.add_artist(plt.legend(loc='upper left', frameon=False, fontsize=10))
+
+        box_conventional = ax.boxplot(self.conventional_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_individual = ax.boxplot(self.individual_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_conventional_dh = ax.boxplot(self.conventional_AUC_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_mean_dh = ax.boxplot(self.mean_AUC_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_individual_dh = ax.boxplot(self.individual_AUC_list_dh, positions=[6], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
 
         # Set box colors
         for box in box_conventional['boxes']:
-            box.set(facecolor=colors['affected'], alpha=0.7)
+            box.set(facecolor=colors['affected'], alpha=0.6)
         for box in box_mean['boxes']:
-            box.set(facecolor=colors['affected'], alpha=0.7)
-        for box in box_personalized['boxes']:
-            box.set(facecolor=colors['affected'], alpha=0.7)
+            box.set(facecolor=colors['affected'], alpha=0.6)
+        for box in box_individual['boxes']:
+            box.set(facecolor=colors['affected'], alpha=0.6)
         for box in box_conventional_dh['boxes']:
-            box.set(facecolor=colors['healthy'], alpha=0.7)
+            box.set(facecolor=colors['healthy'], alpha=0.6)
         for box in box_mean_dh['boxes']:
-            box.set(facecolor=colors['healthy'], alpha=0.7)
-        for box in box_personalized_dh['boxes']:
-            box.set(facecolor=colors['healthy'], alpha=0.7)
-
-        # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
-        ax.axhline(y=0.75, color=colors['grey'], linestyle='dotted', label='Clinically required performance [Fan et al., 2006]', lw=3.0)
-        # random classifier
-        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Performance of random classifier', lw=2.0)
-        ax.add_artist(plt.legend(loc='upper left'))
+            box.set(facecolor=colors['healthy'], alpha=0.6)
+        for box in box_individual_dh['boxes']:
+            box.set(facecolor=colors['healthy'], alpha=0.6)
 
         # Add colors of healthy and affected boxes to legend
         legend_colors = [colors['healthy'], colors['affected']]
         legend_labels = ['Unaffected side', 'Affected side']
-        legend_patches = [mpatches.Patch(color=color, label=label, alpha=0.7) for color, label in zip(legend_colors, legend_labels)]
-        ax.add_artist(plt.legend(handles=legend_patches, loc='upper right', reverse=True))
+        legend_patches = [mpatches.Patch(color=color, label=label, alpha=0.6) for color, label in zip(legend_colors, legend_labels)]
+        ax.add_artist(plt.legend(handles=legend_patches, frameon=False, loc='upper right', reverse=True))
 
         ax.set_xticks([1, 2, 3, 4, 5, 6])
-        ax.set_xticklabels(['Conventional\nthresholds', 'Optimized\nthresholds', 'Personalized\nthresholds', 'Conventional\nthresholds', 'Optimized\nthresholds', 'Personalized\nthresholds'], fontsize=10)
+        ax.set_xticklabels(['Conventional\nthresholds', 'Population-optimized\nthresholds', 'Individual-optimized\nthresholds', 'Conventional\nthresholds', 'Population-optimized\nthresholds', 'Individual-optimized\nthresholds'], fontsize=10)
         ax.set_ylim(0.45, 1.0)
 
         plt.rcParams.update({'font.size': 12})
-        plt.ylabel('ROC AUC')
-        plt.title('GMAC leave one subject out cross validation')
+        plt.ylabel('ROC AUC', fontsize=11)
+        plt.title('Functional movement detection performance')
 
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.81, 0.9, 0.86, 0.81, 0.9, 0.86]  # Different heights for the brackets above the boxplot
         bracket_positions = [(1, 3), (2, 3), (1, 2), (4, 5), (4, 6), (5, 6)]  # (start, end) of the brackets
-        p_values = [ttest_pvalue_personalized_conventional, ttest_pvalue_personalized_mean, ttest_pvalue_conventional_mean, 
-                    ttest_pvalue_mean_conventional_dh, ttest_pvalue_personalized_conventional_dh, ttest_pvalue_personalized_mean_dh]
-        if significnce_brackets == 'stars':
-            bracket_heights = [0.81, 0.9, 0.83, 0.81, 0.85, 0.9]
-            bracket_positions = [(None, None), (None, None), (1, 2), (4, 5), (4, 6), (None, None)]
-            self.plot_significance_stars(ax, bracket_positions, p_values, bracket_heights, position="above")
+        p_values = [adjwilcoxon_pvalue_individual_conventional, adjwilcoxon_pvalue_individual_mean, adjwilcoxon_pvalue_conventional_mean, 
+                    adjwilcoxon_pvalue_mean_conventional_dh, adjwilcoxon_pvalue_individual_conventional_dh, adjwilcoxon_pvalue_individual_mean_dh]
+        if significance_brackets == 'stars':
+            bracket_heights = [0.57, 0.615, 0.83, 0.81, 0.88, 0.84]
+            bracket_positions = [(1, 3), (2, 3), (None, None), (4, 5), (4, 6), (5, 6)]
+            self.plot_significance_stars(ax, bracket_positions, p_values, bracket_heights, position="below_above")
         else:
             self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
 
