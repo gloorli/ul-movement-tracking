@@ -172,7 +172,7 @@ class LOOCV_performance:
 
         self.individual_YI_list_ndh = []
         self.personalized_YI_list_ndh = []
-        self.conventioanl_YI_list_ndh = []
+        self.conventional_YI_list_ndh = []
         self.mean_YI_list_ndh = []
         self.individual_YI_list_dh = []
         self.personalized_YI_list_dh = []
@@ -242,7 +242,7 @@ class LOOCV_performance:
 
             self.individual_YI_list_ndh.append(youden_index_individual_ndh)
             self.personalized_YI_list_ndh.append(youden_index_personalized_ndh)
-            self.conventioanl_YI_list_ndh.append(youden_index_conventional_ndh)
+            self.conventional_YI_list_ndh.append(youden_index_conventional_ndh)
             self.mean_YI_list_ndh.append(youden_index_mean_ndh)
             self.individual_YI_list_dh.append(youden_index_individual_dh)
             self.personalized_YI_list_dh.append(youden_index_personalized_dh)
@@ -421,17 +421,17 @@ class LOOCV_performance:
         print(f"Bonferroni corrected p-value individual-optimized vs population-optimized DH: {p_value_individual_mean_dh_bonferroni}")
         return p_value_individual_conventional_bonferroni, p_value_individual_mean_bonferroni, p_value_conventional_mean_bonferroni, p_value_mean_conventional_dh_bonferroni, p_value_individual_conventional_dh_bonferroni, p_value_individual_mean_dh_bonferroni
 
-    def print_classification_performance(self, personalized, optimal, conventional, optimal_dh, conventional_dh, personalized_dh, metric='ROCAUC'):
+    def print_classification_performance(self, individual_optimized, population_optimized, conventional, population_optimized_dh, conventional_dh, individual_optimized_dh, metric='ROCAUC'):
         """
         Print the classification performance metrics for the different GMAC thresholds.
         Parameters:
         """
-        print(f"Personalized GMAC threshold affected {metric}: {np.mean(personalized):.2f}, standard deviation: {np.std(personalized):.2f}")
-        print(f"Fixed for all optimal GMAC threshold affected {metric}: {np.mean(optimal):.2f}, standard deviation: {np.std(optimal):.2f}")
-        print(f"Conventional GMAC threshold affected {metric}: {np.mean(conventional):.2f}, standard deviation: {np.std(conventional):.2f}")
-        print(f"Personalized GMAC threshold unaffected {metric}: {np.mean(personalized_dh):.2f}, standard deviation: {np.std(personalized_dh):.2f}")
-        print(f"Fixed for all optimal GMAC threshold unaffected {metric}: {np.mean(optimal_dh):.2f}, standard deviation: {np.std(optimal_dh):.2f}")
-        print(f"Conventional GMAC threshold unaffected {metric}: {np.mean(conventional_dh):.2f}, standard deviation: {np.std(conventional_dh):.2f}")
+        print(f"Individual-optimized GMAC threshold affected {metric} mean: {np.mean(individual_optimized):.2f}, standard deviation: {np.std(individual_optimized):.2f}")
+        print(f"Population-optimized GMAC threshold affected {metric} mean: {np.mean(population_optimized):.2f}, standard deviation: {np.std(population_optimized):.2f}")
+        print(f"Conventional GMAC threshold affected {metric} mean: {np.mean(conventional):.2f}, standard deviation: {np.std(conventional):.2f}")
+        print(f"Individual-optimized GMAC threshold unaffected {metric} mean: {np.mean(individual_optimized_dh):.2f}, standard deviation: {np.std(individual_optimized_dh):.2f}")
+        print(f"Population-optimized GMAC threshold unaffected {metric} mean: {np.mean(population_optimized_dh):.2f}, standard deviation: {np.std(population_optimized_dh):.2f}")
+        print(f"Conventional GMAC threshold unaffected {metric} mean: {np.mean(conventional_dh):.2f}, standard deviation: {np.std(conventional_dh):.2f}")
 
     def plot_significance_brackets(self, ax, bracket_positions, p_values, bracket_heights, position="above"):
         """
@@ -507,16 +507,18 @@ class LOOCV_performance:
         colors = thesis_style.get_thesis_colours()
         # Get p-values from the test
         ttest_pvalue_personalized_conventional, ttest_pvalue_personalized_mean, ttest_pvalue_conventional_mean, ttest_pvalue_mean_conventional_dh, ttest_pvalue_personalized_conventional_dh, ttest_pvalue_personalized_mean_dh = self.check_ANOVA_ttest_Wilcoxon(
-            self.personalized_YI_list_ndh, self.conventioanl_YI_list_ndh, self.mean_YI_list_ndh, self.mean_YI_list_dh, self.conventional_YI_list_dh, self.personalized_YI_list_dh
+            self.personalized_YI_list_ndh, self.conventional_YI_list_ndh, self.mean_YI_list_ndh, self.mean_YI_list_dh, self.conventional_YI_list_dh, self.personalized_YI_list_dh
         )
         
         mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5, markeredgewidth=0)
         median_markers = dict(color=colors['black_grey'])
 
+        self.print_classification_performance(self.individual_YI_list_ndh, self.mean_YI_list_ndh, self.conventional_YI_list_ndh, self.mean_YI_list_dh, self.conventional_YI_list_dh, self.individual_YI_list_dh, metric='Youden Index')
+
         fig, ax = plt.subplots(figsize=(12, 6))
 
         # Boxplots
-        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
+        box_conventional = ax.boxplot(self.conventional_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
         box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
         box_personalized = ax.boxplot(self.personalized_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
         box_conventional_dh = ax.boxplot(self.conventional_YI_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
@@ -574,8 +576,8 @@ class LOOCV_performance:
         mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5.5, markeredgewidth=0)
         meadian_markers = dict(color=colors['black_grey'])
 
-        self.print_classification_performance(self.personalized_AUC_list_ndh, self.mean_AUC_list_ndh, self.conventional_AUC_list_ndh, 
-                                              self.mean_AUC_list_dh, self.conventional_AUC_list_dh, self.personalized_AUC_list_dh, metric='ROCAUC')
+        self.print_classification_performance(self.individual_AUC_list_ndh, self.mean_AUC_list_ndh, self.conventional_AUC_list_ndh,
+                                              self.mean_AUC_list_dh, self.conventional_AUC_list_dh, self.individual_AUC_list_dh, metric='ROCAUC')
 
         fig, ax = plt.subplots(figsize=(12, 5))
 
@@ -855,7 +857,7 @@ class LOOCV_performance:
         # Calculate the Spearman correlation
         spearman_correlation_dict = {
             'personalized_YI': spearmanr(self.evaluation_FMA, self.personalized_YI_list_ndh),
-            'conventional_YI': spearmanr(self.evaluation_FMA, self.conventioanl_YI_list_ndh),
+            'conventional_YI': spearmanr(self.evaluation_FMA, self.conventional_YI_list_ndh),
             'personalized_accuracy': spearmanr(self.evaluation_FMA, self.personalized_accuracy_list_ndh),
             'conventional_accuracy': spearmanr(self.evaluation_FMA, self.conventioanl_accuracy_list_ndh)
         }
@@ -866,10 +868,10 @@ class LOOCV_performance:
         fig, ax = plt.subplots(figsize=(12, 8))
         
         optimal_YI_std = np.std(self.personalized_YI_list_ndh)
-        conv_YI_std = np.std(self.conventioanl_YI_list_ndh)
+        conv_YI_std = np.std(self.conventional_YI_list_ndh)
         mean_YI_std = np.std(self.mean_YI_list_ndh)
         ax.scatter(self.evaluation_FMA, self.personalized_YI_list_ndh, label=f'Personalized YI (std: {optimal_YI_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='x')
-        ax.scatter(self.evaluation_FMA, self.conventioanl_YI_list_ndh, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
+        ax.scatter(self.evaluation_FMA, self.conventional_YI_list_ndh, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
         ax.scatter(self.evaluation_FMA, self.mean_YI_list_ndh, label=f'Mean optimal YI (std: {mean_YI_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='x')
         optimal_AUC_std = np.std(self.personalized_AUC_list_ndh)
         conv_AUC_std = np.std(self.conventional_AUC_list_ndh)

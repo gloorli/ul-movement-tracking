@@ -273,17 +273,17 @@ class PlotEvaluation(LOOCV_performance):
     def plot_YI(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
         wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_wilcoxon(
-            self.individual_YI_list_ndh, self.conventioanl_YI_list_ndh, self.conventional_YI_list_dh, self.individual_YI_list_dh
+            self.individual_YI_list_ndh, self.conventional_YI_list_ndh, self.conventional_YI_list_dh, self.individual_YI_list_dh
         )
 
         mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=colors['black_grey'])
 
-        self.print_classification_performance(self.individual_YI_list_ndh, self.conventioanl_YI_list_ndh, self.conventional_YI_list_dh, self.individual_YI_list_dh, metric='Youden Index')
+        self.print_classification_performance(self.individual_YI_list_ndh, self.conventional_YI_list_ndh, self.conventional_YI_list_dh, self.individual_YI_list_dh, metric='Youden Index')
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_conventional = ax.boxplot(self.conventional_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
         box_individual = ax.boxplot(self.individual_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
         box_conventional_dh = ax.boxplot(self.conventional_YI_list_dh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
         box_individual_dh = ax.boxplot(self.individual_YI_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
