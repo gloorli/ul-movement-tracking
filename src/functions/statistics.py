@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -7,7 +8,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 from scipy.stats import pearsonr, spearmanr, wilcoxon, ttest_rel, probplot, zscore
 
-from utilities import thesis_style
+from utilities import *
 
 class RegressionModel:
     def __init__(self, x, y, std=None, dominant_impared=None):
@@ -234,18 +235,17 @@ def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_thresh
                        flierprops=dict(markerfacecolor=healthy_color, marker='o', markersize=5, linestyle='none', alpha=0.0), # don't show outliers since all data points are already scattered
                        medianprops=dict(color=line_color_healthy))
 
-    plt.title('Count thresholds')
+    plt.title(r'Count thresholds $\alpha_{th,i}$')
     plt.xlabel('')
     plt.ylabel('Counts per second')
     plt.xticks([1, 2], x_data_label)
     # Show all data points
-    plt.scatter(np.random.normal(1.0, 0.06, size=len(count_threshold_ndh)), count_threshold_ndh, color=affected_color)
-    plt.scatter(np.random.normal(2.0, 0.06, size=len(count_threshold_dh)), count_threshold_dh, color=healthy_color)
+    plt.scatter(np.random.normal(1.0, 0.1, size=len(count_threshold_ndh)), count_threshold_ndh, color=affected_color, marker='^', s=50)
+    plt.scatter(np.random.normal(2.0, 0.1, size=len(count_threshold_dh)), count_threshold_dh, color=healthy_color, s=50)
     # Plot horizontal line at conventional threshold
     plt.axhline(y=0.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional count threshold')
     # Add p-values between healthy and affected
-    #plt.annotate(f"Significance levels between sides \npaired t-test p-value: {ttest_pvalue_count:.4f}", xy=(0.5, -0.15), xycoords='axes fraction', ha='center', fontsize=9)
-    plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_count:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=10)
+    #plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_count:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=10)
 
     plt.legend()
 
@@ -265,21 +265,21 @@ def check_distribution(count_threshold_ndh, count_threshold_dh, elevation_thresh
                        flierprops=dict(markerfacecolor=line_color_healthy, marker='o', markersize=5, linestyle='none', alpha=0.0),
                        medianprops=dict(color=line_color_healthy))
 
-    plt.title('Elevation thresholds')
+    plt.title(r'Elevation thresholds $\theta_{th,i}$')
     plt.xlabel('')
     plt.ylabel('Forearm elevation ±')
     plt.xticks([1, 2], x_data_label)
     plt.gca().yaxis.set_major_formatter(FuncFormatter(degree_formatter))
     # Show all data points
-    plt.scatter(np.random.normal(1.0, 0.0125, size=len(elevation_threshold_ndh)), elevation_threshold_ndh, color=affected_color)
-    plt.scatter(np.random.normal(2.0, 0.0125, size=len(elevation_threshold_dh)), elevation_threshold_dh, color=healthy_color)
+    plt.scatter(np.random.normal(1.0, 0.05, size=len(elevation_threshold_ndh)), elevation_threshold_ndh, color=affected_color, marker='^', s=50)
+    plt.scatter(np.random.normal(2.0, 0.05, size=len(elevation_threshold_dh)), elevation_threshold_dh, color=healthy_color, s=50)
     # Plot horizontal line at conventional threshold
     plt.axhline(y=30.0, color=thesis_style.get_thesis_colours()['black_grey'], linestyle='--', label='Conventional elevation threshold')
     # Add p-values between healthy and affected
-    #plt.annotate(f"Significance levels between sides \npaired t-test p-value: {ttest_pvalue_elevation:.4f}", xy=(0.5, -0.15), xycoords='axes fraction', ha='center', fontsize=9)
-    plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_elevation:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=10)
+    #plt.annotate(f"Wilcoxon signed-rank $\mathbf{{p-value: {wilcoxon_pvalue_elevation:.4f}}}$", xy=(0.5, -0.1), xycoords='axes fraction', ha='center', fontsize=10)
 
     plt.legend()
 
     plt.tight_layout()
+    plt.savefig(os.path.join(save_path.downloadsPath, 'threshold_distribution.pdf'), bbox_inches='tight')
     plt.show()
