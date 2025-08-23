@@ -29,6 +29,20 @@ class PlotEvaluation(LOOCV_performance):
         print(f"Paired t-test individual vs conventional DH: {p_value_individual_conventional_dh}")
 
         return p_value_individual_conventional, p_value_individual_conventional_dh
+    
+    def check_wilcoxon(self, individual_distribution, conventional_distribution, conventional_distribution_dh=None, individual_distribution_dh=None):
+        """
+        Check the statistical significance of the differences between the classification performance of the different GMAC thresholds applied using Wilcoxon signed-rank test.
+        Note:
+        - The null hypothesis for the Wilcoxon signed-rank test is that there is no significant difference between the paired samples.
+        """
+        # Perform Wilcoxon signed-rank test
+        _, p_value_individual_conventional = wilcoxon(individual_distribution, conventional_distribution)
+        _, p_value_individual_conventional_dh = wilcoxon(individual_distribution_dh, conventional_distribution_dh)
+        print(f"Wilcoxon signed-rank test individual vs conventional: {p_value_individual_conventional}")
+        print(f"Wilcoxon signed-rank test individual vs conventional DH: {p_value_individual_conventional_dh}")
+
+        return p_value_individual_conventional, p_value_individual_conventional_dh
 
     def print_classification_performance(self, individual, conventional, conventional_dh, individual_dh, metric='ROCAUC'):
         """
@@ -80,7 +94,7 @@ class PlotEvaluation(LOOCV_performance):
 
     def plot_AUC(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh = self.check_ttest(
+        wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_wilcoxon(
             self.individual_AUC_list_ndh, self.conventional_AUC_list_ndh, self.conventional_AUC_list_dh, self.individual_AUC_list_dh
         )
 
@@ -129,7 +143,7 @@ class PlotEvaluation(LOOCV_performance):
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.59, 0.85]  # Different heights for the brackets above the boxplot
         bracket_positions = [(1, 2), (3, 4)]  # (start, end) of the brackets
-        p_values = [ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh]
+        p_values = [wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh]
         if significnce_brackets == 'stars':
             self.plot_significance_stars(ax, bracket_positions, p_values, bracket_heights, position="below_above")
         else:
@@ -140,7 +154,7 @@ class PlotEvaluation(LOOCV_performance):
 
     def plot_Accuracy(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh = self.check_ttest(
+        wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_wilcoxon(
             self.individual_accuracy_list_ndh, self.conventioanl_accuracy_list_ndh, self.conventional_accuracy_list_dh, self.individual_accuracy_list_dh
         )
 
@@ -189,7 +203,7 @@ class PlotEvaluation(LOOCV_performance):
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.85, 0.85]  # Different heights for the brackets above the boxplot
         bracket_positions = [(1, 2), (3, 4)]  # (start, end) of the brackets
-        p_values = [ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh]
+        p_values = [wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh]
         if significnce_brackets == 'stars':
             bracket_heights = [0.85, 0.85]
             bracket_positions = [(1, 2), (3, 4)]
@@ -202,7 +216,7 @@ class PlotEvaluation(LOOCV_performance):
 
     def plot_F1(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh = self.check_ttest(
+        wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_wilcoxon(
             self.individual_F1_list_ndh, self.conventioanl_F1_list_ndh, self.conventional_F1_list_dh, self.individual_F1_list_dh
         )
 
@@ -245,7 +259,7 @@ class PlotEvaluation(LOOCV_performance):
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.85, 0.92]  # Different heights for the brackets above the boxplot
         bracket_positions = [(1, 2), (3, 4)]  # (start, end) of the brackets
-        p_values = [ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh]
+        p_values = [wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh]
         if significnce_brackets == 'stars':
             bracket_heights = [0.85, 0.92]
             bracket_positions = [(1, 2), (3, 4)]
@@ -258,18 +272,18 @@ class PlotEvaluation(LOOCV_performance):
     
     def plot_YI(self, significnce_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh = self.check_ttest(
-            self.individual_YI_list_ndh, self.conventioanl_YI_list_ndh, self.conventional_YI_list_dh, self.individual_YI_list_dh
+        wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh = self.check_wilcoxon(
+            self.individual_YI_list_ndh, self.conventional_YI_list_ndh, self.conventional_YI_list_dh, self.individual_YI_list_dh
         )
 
         mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5, markeredgewidth=0)
         meadian_markers = dict(color=colors['black_grey'])
 
-        self.print_classification_performance(self.individual_YI_list_ndh, self.conventioanl_YI_list_ndh, self.conventional_YI_list_dh, self.individual_YI_list_dh, metric='Youden Index')
+        self.print_classification_performance(self.individual_YI_list_ndh, self.conventional_YI_list_ndh, self.conventional_YI_list_dh, self.individual_YI_list_dh, metric='Youden Index')
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
-        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        box_conventional = ax.boxplot(self.conventional_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
         box_individual = ax.boxplot(self.individual_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
         box_conventional_dh = ax.boxplot(self.conventional_YI_list_dh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
         box_individual_dh = ax.boxplot(self.individual_YI_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
@@ -305,7 +319,7 @@ class PlotEvaluation(LOOCV_performance):
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.92, 0.7]  # Different heights for the brackets above the boxplot
         bracket_positions = [(1, 2), (3, 4)]  # (start, end) of the brackets
-        p_values = [ttest_pvalue_individual_conventional, ttest_pvalue_individual_conventional_dh]
+        p_values = [wilcoxon_pvalue_individual_conventional, wilcoxon_pvalue_individual_conventional_dh]
         if significnce_brackets == 'stars':
             bracket_heights = [0.92, 0.7]
             bracket_positions = [(1, 2), (3, 4)]
