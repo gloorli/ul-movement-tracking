@@ -170,30 +170,38 @@ class LOOCV_performance:
 
         self.evaluation_FMA = []
 
+        self.individual_YI_list_ndh = []
         self.personalized_YI_list_ndh = []
-        self.conventioanl_YI_list_ndh = []
+        self.conventional_YI_list_ndh = []
         self.mean_YI_list_ndh = []
+        self.individual_YI_list_dh = []
         self.personalized_YI_list_dh = []
         self.conventional_YI_list_dh = []
         self.mean_YI_list_dh = []
 
+        self.individual_accuracy_list_ndh = []
         self.personalized_accuracy_list_ndh = []
         self.conventioanl_accuracy_list_ndh = []
         self.mean_accuracy_list_ndh = []
+        self.individual_accuracy_list_dh = []
         self.personalized_accuracy_list_dh = []
         self.conventional_accuracy_list_dh = []
         self.mean_accuracy_list_dh = []
 
+        self.individual_AUC_list_ndh = []
         self.personalized_AUC_list_ndh = []
         self.conventional_AUC_list_ndh = []
         self.mean_AUC_list_ndh = []
+        self.individual_AUC_list_dh = []
         self.personalized_AUC_list_dh = []
         self.conventional_AUC_list_dh = []
         self.mean_AUC_list_dh = []
 
+        self.individual_F1_list_ndh = []
         self.personalized_F1_list_ndh = []
         self.conventioanl_F1_list_ndh = []
         self.mean_F1_list_ndh = []
+        self.individual_F1_list_dh = []
         self.personalized_F1_list_dh = []
         self.conventional_F1_list_dh = []
         self.mean_F1_list_dh = []
@@ -208,6 +216,8 @@ class LOOCV_performance:
             X_test, y_test = [X[i] for i in test_index], [y_ndh[i] for i in test_index]
             y_test_dh = [y_dh[i] for i in test_index]
 
+            youden_index_individual_ndh, accuracy_individual_ndh, auc_individual_ndh, F1_individual_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, X_test[0]['COUNT_THRESHOLD_NDH'], X_test[0]['PITCH_THRESHOLD_NDH'], side='NDH')
+
             regression_model_count_ndh, regression_model_elevation_ndh = self.get_threshold_model(X_train)
             personalized_count_threshold_ndh, personalized_elevation_threshold_ndh = self.retreive_personalized_thresholds(X_test, regression_model_count_ndh, regression_model_elevation_ndh)
             youden_index_personalized_ndh, accuracy_personalized_ndh, auc_personalized_ndh, F1_personalized_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, personalized_count_threshold_ndh, personalized_elevation_threshold_ndh, side='NDH')
@@ -216,6 +226,8 @@ class LOOCV_performance:
 
             loocv_mean_count_ndh, loocv_mean_elevation_ndh = self.retreive_mean_thresholds(X_train)
             youden_index_mean_ndh, accuracy_mean_ndh, auc_mean_ndh, F1_mean_ndh = self.calculate_GMAC_classification_performance(X_test, y_test, loocv_mean_count_ndh, loocv_mean_elevation_ndh, side='NDH')
+
+            youden_index_individual_dh, accuracy_individual_dh, auc_individual_dh, F1_individual_dh = self.calculate_GMAC_classification_performance(X_test, y_test_dh, X_test[0]['COUNT_THRESHOLD_DH'], X_test[0]['PITCH_THRESHOLD_DH'], side='DH')
 
             regression_model_count_dh, regression_model_elevation_dh = self.get_threshold_model(X_train, side='DH')
             personalized_count_threshold_dh, personalized_elevation_threshold_dh = self.retreive_personalized_thresholds(X_test, regression_model_count_dh, regression_model_elevation_dh, side='DH')
@@ -228,30 +240,38 @@ class LOOCV_performance:
 
             self.evaluation_FMA.append(X_test[0]['FMA_UE'])
 
+            self.individual_YI_list_ndh.append(youden_index_individual_ndh)
             self.personalized_YI_list_ndh.append(youden_index_personalized_ndh)
-            self.conventioanl_YI_list_ndh.append(youden_index_conventional_ndh)
+            self.conventional_YI_list_ndh.append(youden_index_conventional_ndh)
             self.mean_YI_list_ndh.append(youden_index_mean_ndh)
+            self.individual_YI_list_dh.append(youden_index_individual_dh)
             self.personalized_YI_list_dh.append(youden_index_personalized_dh)
             self.conventional_YI_list_dh.append(youden_index_conventional_dh)
             self.mean_YI_list_dh.append(youden_index_mean_dh)
 
+            self.individual_accuracy_list_ndh.append(accuracy_individual_ndh)
             self.personalized_accuracy_list_ndh.append(accuracy_personalized_ndh)
             self.conventioanl_accuracy_list_ndh.append(accuracy_conventional_ndh)
             self.mean_accuracy_list_ndh.append(accuracy_mean_ndh)
+            self.individual_accuracy_list_dh.append(accuracy_individual_dh)
             self.personalized_accuracy_list_dh.append(accuracy_personalized_dh)
             self.conventional_accuracy_list_dh.append(accuracy_conventional_dh)
             self.mean_accuracy_list_dh.append(accuracy_mean_dh)
 
+            self.individual_AUC_list_ndh.append(auc_individual_ndh)
             self.personalized_AUC_list_ndh.append(auc_personalized_ndh)
             self.conventional_AUC_list_ndh.append(auc_conventional_ndh)
             self.mean_AUC_list_ndh.append(auc_mean_ndh)
+            self.individual_AUC_list_dh.append(auc_individual_dh)
             self.personalized_AUC_list_dh.append(auc_personalized_dh)
             self.conventional_AUC_list_dh.append(auc_conventional_dh)
             self.mean_AUC_list_dh.append(auc_mean_dh)
 
+            self.individual_F1_list_ndh.append(F1_individual_ndh)
             self.personalized_F1_list_ndh.append(F1_personalized_ndh)
             self.conventioanl_F1_list_ndh.append(F1_conventional_ndh)
             self.mean_F1_list_ndh.append(F1_mean_ndh)
+            self.individual_F1_list_dh.append(F1_individual_dh)
             self.personalized_F1_list_dh.append(F1_personalized_dh)
             self.conventional_F1_list_dh.append(F1_conventional_dh)
             self.mean_F1_list_dh.append(F1_mean_dh)
@@ -360,18 +380,58 @@ class LOOCV_performance:
         print(f"Wilcoxon signed-rank test personalized vs mean DH: {p_value_personalized_mean_dh_wilcoxon}")
 
         return p_value_personalized_conventional, p_value_personalized_mean, p_value_conventional_mean, p_value_mean_conventional_dh, p_value_personalized_conventional_dh, p_value_personalized_mean_dh
-    
-    def print_classification_performance(self, personalized, optimal, conventional, optimal_dh, conventional_dh, personalized_dh, metric='ROCAUC'):
+
+    def check_bonferroni_wilcoxon(self, individual_distribution, conventional_distribution, mean_distribution, mean_distribution_dh=None, conventional_distribution_dh=None, individual_distribution_dh=None):
+        """
+        Check the statistical significance of the differences between the classification performance of the different GMAC thresholds applied using Wilcoxon signed-rank test with Bonferroni correction.
+        Parameters:
+        - individual_distribution (array-like): The distribution of classification performance for the individual-optimized thresholds.
+        - conventional_distribution (array-like): The distribution of classification performance for the conventional thresholds.
+        - mean_distribution (array-like): The distribution of classification performance for the mean count and elevation thresholds.
+        - mean_distribution_dh (array-like, optional): The distribution of classification performance for the mean count and elevation thresholds for the dominant hand. Default is None.
+        - conventional_distribution_dh (array-like, optional): The distribution of classification performance for the conventional thresholds for the dominant hand. Default is None.
+        - individual_distribution_dh (array-like, optional): The distribution of classification performance for the individual-optimized thresholds for the dominant hand. Default is None.
+        Note:
+        - The null hypothesis for the Wilcoxon signed-rank tests is that there is no significant difference between the paired samples.
+        - Bonferroni correction is applied to account for multiple comparisons.
+        """
+        _, p_value_individual_conventional = wilcoxon(individual_distribution, conventional_distribution)
+        _, p_value_individual_mean = wilcoxon(individual_distribution, mean_distribution)
+        _, p_value_conventional_mean = wilcoxon(conventional_distribution, mean_distribution)
+        _, p_value_mean_conventional_dh = wilcoxon(mean_distribution_dh, conventional_distribution_dh)
+        _, p_value_individual_conventional_dh = wilcoxon(individual_distribution_dh, conventional_distribution_dh)
+        _, p_value_individual_mean_dh = wilcoxon(individual_distribution_dh, mean_distribution_dh)
+        print(f"Wilcoxon signed-rank test individual-optimized vs conventional: {p_value_individual_conventional}")
+        print(f"Wilcoxon signed-rank test individual-optimized vs population-optimized: {p_value_individual_mean}")
+        print(f"Wilcoxon signed-rank test conventional vs population-optimized: {p_value_conventional_mean}")
+        print(f"Wilcoxon signed-rank test population-optimized vs conventional DH: {p_value_mean_conventional_dh}")
+        print(f"Wilcoxon signed-rank test individual-optimized vs conventional DH: {p_value_individual_conventional_dh}")
+        print(f"Wilcoxon signed-rank test individual-optimized vs population-optimized DH: {p_value_individual_mean_dh}")
+        p_value_individual_conventional_bonferroni = min(p_value_individual_conventional * 3, 1.0)
+        p_value_individual_mean_bonferroni = min(p_value_individual_mean * 3, 1.0)
+        p_value_conventional_mean_bonferroni = min(p_value_conventional_mean * 3, 1.0)
+        p_value_mean_conventional_dh_bonferroni = min(p_value_mean_conventional_dh * 3, 1.0)
+        p_value_individual_conventional_dh_bonferroni = min(p_value_individual_conventional_dh * 3, 1.0)
+        p_value_individual_mean_dh_bonferroni = min(p_value_individual_mean_dh * 3, 1.0)
+        print(f"Bonferroni corrected p-value individual-optimized vs conventional: {p_value_individual_conventional_bonferroni}")
+        print(f"Bonferroni corrected p-value individual-optimized vs population-optimized: {p_value_individual_mean_bonferroni}")
+        print(f"Bonferroni corrected p-value conventional vs population-optimized: {p_value_conventional_mean_bonferroni}")
+        print(f"Bonferroni corrected p-value population-optimized vs conventional DH: {p_value_mean_conventional_dh_bonferroni}")
+        print(f"Bonferroni corrected p-value individual-optimized vs conventional DH: {p_value_individual_conventional_dh_bonferroni}")
+        print(f"Bonferroni corrected p-value individual-optimized vs population-optimized DH: {p_value_individual_mean_dh_bonferroni}")
+        return p_value_individual_conventional_bonferroni, p_value_individual_mean_bonferroni, p_value_conventional_mean_bonferroni, p_value_mean_conventional_dh_bonferroni, p_value_individual_conventional_dh_bonferroni, p_value_individual_mean_dh_bonferroni
+
+    def print_classification_performance(self, individual_optimized, population_optimized, conventional, population_optimized_dh, conventional_dh, individual_optimized_dh, metric='ROCAUC'):
         """
         Print the classification performance metrics for the different GMAC thresholds.
         Parameters:
         """
-        print(f"Personalized GMAC threshold affected {metric}: {np.mean(personalized):.2f}, standard deviation: {np.std(personalized):.2f}")
-        print(f"Fixed for all optimal GMAC threshold affected {metric}: {np.mean(optimal):.2f}, standard deviation: {np.std(optimal):.2f}")
-        print(f"Conventional GMAC threshold affected {metric}: {np.mean(conventional):.2f}, standard deviation: {np.std(conventional):.2f}")
-        print(f"Personalized GMAC threshold unaffected {metric}: {np.mean(personalized_dh):.2f}, standard deviation: {np.std(personalized_dh):.2f}")
-        print(f"Fixed for all optimal GMAC threshold unaffected {metric}: {np.mean(optimal_dh):.2f}, standard deviation: {np.std(optimal_dh):.2f}")
-        print(f"Conventional GMAC threshold unaffected {metric}: {np.mean(conventional_dh):.2f}, standard deviation: {np.std(conventional_dh):.2f}")
+        print(f"Individual-optimized GMAC threshold affected {metric} mean: {np.mean(individual_optimized):.2f}, standard deviation: {np.std(individual_optimized):.2f}")
+        print(f"Population-optimized GMAC threshold affected {metric} mean: {np.mean(population_optimized):.2f}, standard deviation: {np.std(population_optimized):.2f}")
+        print(f"Conventional GMAC threshold affected {metric} mean: {np.mean(conventional):.2f}, standard deviation: {np.std(conventional):.2f}")
+        print(f"Individual-optimized GMAC threshold unaffected {metric} mean: {np.mean(individual_optimized_dh):.2f}, standard deviation: {np.std(individual_optimized_dh):.2f}")
+        print(f"Population-optimized GMAC threshold unaffected {metric} mean: {np.mean(population_optimized_dh):.2f}, standard deviation: {np.std(population_optimized_dh):.2f}")
+        print(f"Conventional GMAC threshold unaffected {metric} mean: {np.mean(conventional_dh):.2f}, standard deviation: {np.std(conventional_dh):.2f}")
 
     def plot_significance_brackets(self, ax, bracket_positions, p_values, bracket_heights, position="above"):
         """
@@ -406,41 +466,59 @@ class LOOCV_performance:
         Adds significance stars to the plot, either above or below the boxplots.
         *(p < 0.05), **(p < 0.01), ***(p < 0.001)
         """
-        for (start, end), p_val, y in zip(bracket_positions, p_values, bracket_heights):
-            x1, x2 = start, end # x-coordinates of the brackets
-            h, col = 0.02, 'k' # Adjust height and color of the bracket
-            if position == "below":
-                y = y - 0.05
-
-            if p_val < 0.001:
-                ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, '***', ha='center', va='bottom', color=col, fontsize=12)
-            elif p_val < 0.01:
-                ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, '**', ha='center', va='bottom', color=col, fontsize=12)
-            elif p_val < 0.05:
-                ax.text((x1 + x2) * .5, y + 1.2*h if position == "above" else y - 2*h, '*', ha='center', va='bottom', color=col, fontsize=12)
-            else:
+        for i, ((start, end), p_val, y) in enumerate(zip(bracket_positions, p_values, bracket_heights)):
+            x1, x2 = start, end  # x-coordinates of the brackets
+            h, col = 0.02, 'k'  # Adjust height and color of the bracket
+            if x1 is None or x2 is None:
                 continue
 
-            if position == "above":
-                ax.plot([x1, x1, x2, x2], [y, y+h, y+h, y], lw=1.0, c=col)
-            elif position == "below":
-                ax.plot([x1, x1, x2, x2], [y, y-h, y-h, y], lw=1.0, c=col)
+            # decide whether this bracket's annotation is above or below
+            half = len(bracket_positions) // 2
+            if position == "below":
+                is_above = False
+            elif position == "below_above":
+                # first half below, second half above
+                is_above = (i >= half)
+            else:
+                is_above = True
+
+            y_text = y + 1.0 * h if is_above else y - 1.5 * h
+            va = 'bottom' if is_above else 'top'
+
+            # choose significance stars
+            if p_val < 0.001:
+                stars = '***'
+            elif p_val < 0.01:
+                stars = '**'
+            elif p_val < 0.05:
+                stars = '*'
+            else:
+                continue
+            ax.text((x1 + x2) * .5, y_text, stars, ha='center', va=va, color=col, fontsize=12)
+
+            # Draw brackets
+            if position == "above" or (position == "below_above" and i >= len(bracket_positions) // 2):
+                ax.plot([x1, x1, x2, x2], [y, y + h, y + h, y], lw=1.0, c=col)
+            elif position == "below" or (position == "below_above" and i < len(bracket_positions) // 2):
+                ax.plot([x1, x1, x2, x2], [y, y - h, y - h, y], lw=1.0, c=col)
 
     #TODO combine the following three functions into one
     def plot_LOOCV_YoudenIndex(self):
         colors = thesis_style.get_thesis_colours()
         # Get p-values from the test
         ttest_pvalue_personalized_conventional, ttest_pvalue_personalized_mean, ttest_pvalue_conventional_mean, ttest_pvalue_mean_conventional_dh, ttest_pvalue_personalized_conventional_dh, ttest_pvalue_personalized_mean_dh = self.check_ANOVA_ttest_Wilcoxon(
-            self.personalized_YI_list_ndh, self.conventioanl_YI_list_ndh, self.mean_YI_list_ndh, self.mean_YI_list_dh, self.conventional_YI_list_dh, self.personalized_YI_list_dh
+            self.personalized_YI_list_ndh, self.conventional_YI_list_ndh, self.mean_YI_list_ndh, self.mean_YI_list_dh, self.conventional_YI_list_dh, self.personalized_YI_list_dh
         )
         
         mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5, markeredgewidth=0)
         median_markers = dict(color=colors['black_grey'])
 
+        self.print_classification_performance(self.individual_YI_list_ndh, self.mean_YI_list_ndh, self.conventional_YI_list_ndh, self.mean_YI_list_dh, self.conventional_YI_list_dh, self.individual_YI_list_dh, metric='Youden Index')
+
         fig, ax = plt.subplots(figsize=(12, 6))
 
         # Boxplots
-        box_conventional = ax.boxplot(self.conventioanl_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
+        box_conventional = ax.boxplot(self.conventional_YI_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
         box_mean = ax.boxplot(self.mean_YI_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
         box_personalized = ax.boxplot(self.personalized_YI_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
         box_conventional_dh = ax.boxplot(self.conventional_YI_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=median_markers, widths=0.3)
@@ -489,74 +567,74 @@ class LOOCV_performance:
 
         plt.show()
 
-    def plot_LOOCV_AUC(self, significnce_brackets='pvalues'):
+    def plot_LOOCV_AUC(self, significance_brackets='pvalues'):
         colors = thesis_style.get_thesis_colours()
-        ttest_pvalue_personalized_conventional, ttest_pvalue_personalized_mean, ttest_pvalue_conventional_mean, ttest_pvalue_mean_conventional_dh, ttest_pvalue_personalized_conventional_dh, ttest_pvalue_personalized_mean_dh = self.check_ANOVA_ttest_Wilcoxon(
-            self.personalized_AUC_list_ndh, self.conventional_AUC_list_ndh, self.mean_AUC_list_ndh, self.mean_AUC_list_dh, self.conventional_AUC_list_dh, self.personalized_AUC_list_dh
-            )
+        adjwilcoxon_pvalue_individual_conventional, adjwilcoxon_pvalue_individual_mean, adjwilcoxon_pvalue_conventional_mean, adjwilcoxon_pvalue_mean_conventional_dh, adjwilcoxon_pvalue_individual_conventional_dh, adjwilcoxon_pvalue_individual_mean_dh = self.check_bonferroni_wilcoxon(
+            self.individual_AUC_list_ndh, self.conventional_AUC_list_ndh, self.mean_AUC_list_ndh, self.mean_AUC_list_dh, self.conventional_AUC_list_dh, self.individual_AUC_list_dh
+        )
 
-        mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5, markeredgewidth=0)
+        mean_markers = dict(marker='D', markerfacecolor=colors['black'], markersize=5.5, markeredgewidth=0)
         meadian_markers = dict(color=colors['black_grey'])
 
-        self.print_classification_performance(self.personalized_AUC_list_ndh, self.mean_AUC_list_ndh, self.conventional_AUC_list_ndh, 
-                                              self.mean_AUC_list_dh, self.conventional_AUC_list_dh, self.personalized_AUC_list_dh, metric='ROCAUC')
+        self.print_classification_performance(self.individual_AUC_list_ndh, self.mean_AUC_list_ndh, self.conventional_AUC_list_ndh,
+                                              self.mean_AUC_list_dh, self.conventional_AUC_list_dh, self.individual_AUC_list_dh, metric='ROCAUC')
 
-        fig, ax = plt.subplots(figsize=(12, 6))
+        fig, ax = plt.subplots(figsize=(12, 5))
 
-        box_conventional = ax.boxplot(self.conventional_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_personalized = ax.boxplot(self.personalized_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_conventional_dh = ax.boxplot(self.conventional_AUC_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_mean_dh = ax.boxplot(self.mean_AUC_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
-        box_personalized_dh = ax.boxplot(self.personalized_AUC_list_dh, positions=[6], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.3)
+        # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
+        ax.axhline(y=0.75, color=colors['grey'], linestyle='dotted', label='Clinically required performance [Fan et al., 2006]', lw=2.0)
+        # random classifier
+        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Random classifier', lw=1.3)
+        ax.add_artist(plt.legend(loc='upper left', frameon=False, fontsize=10))
+
+        box_conventional = ax.boxplot(self.conventional_AUC_list_ndh, positions=[1], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_mean = ax.boxplot(self.mean_AUC_list_ndh, positions=[2], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_individual = ax.boxplot(self.individual_AUC_list_ndh, positions=[3], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_conventional_dh = ax.boxplot(self.conventional_AUC_list_dh, positions=[4], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_mean_dh = ax.boxplot(self.mean_AUC_list_dh, positions=[5], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
+        box_individual_dh = ax.boxplot(self.individual_AUC_list_dh, positions=[6], showmeans=True, patch_artist=True, meanprops=mean_markers, medianprops=meadian_markers, widths=0.4)
 
         # Set box colors
         for box in box_conventional['boxes']:
-            box.set(facecolor=colors['affected'], alpha=0.7)
+            box.set(facecolor=colors['affected'], alpha=0.6)
         for box in box_mean['boxes']:
-            box.set(facecolor=colors['affected'], alpha=0.7)
-        for box in box_personalized['boxes']:
-            box.set(facecolor=colors['affected'], alpha=0.7)
+            box.set(facecolor=colors['affected'], alpha=0.6)
+        for box in box_individual['boxes']:
+            box.set(facecolor=colors['affected'], alpha=0.6)
         for box in box_conventional_dh['boxes']:
-            box.set(facecolor=colors['healthy'], alpha=0.7)
+            box.set(facecolor=colors['healthy'], alpha=0.6)
         for box in box_mean_dh['boxes']:
-            box.set(facecolor=colors['healthy'], alpha=0.7)
-        for box in box_personalized_dh['boxes']:
-            box.set(facecolor=colors['healthy'], alpha=0.7)
-
-        # AUC is clinically useful (≥0.75) according to [Fan et al., 2006]
-        ax.axhline(y=0.75, color=colors['grey'], linestyle='dotted', label='Clinically required performance [Fan et al., 2006]', lw=3.0)
-        # random classifier
-        ax.axhline(y=0.5, color=colors['black_grey'], linestyle='--', label='Performance of random classifier', lw=2.0)
-        ax.add_artist(plt.legend(loc='upper left'))
+            box.set(facecolor=colors['healthy'], alpha=0.6)
+        for box in box_individual_dh['boxes']:
+            box.set(facecolor=colors['healthy'], alpha=0.6)
 
         # Add colors of healthy and affected boxes to legend
         legend_colors = [colors['healthy'], colors['affected']]
         legend_labels = ['Unaffected side', 'Affected side']
-        legend_patches = [mpatches.Patch(color=color, label=label, alpha=0.7) for color, label in zip(legend_colors, legend_labels)]
-        ax.add_artist(plt.legend(handles=legend_patches, loc='upper right', reverse=True))
+        legend_patches = [mpatches.Patch(color=color, label=label, alpha=0.6) for color, label in zip(legend_colors, legend_labels)]
+        ax.add_artist(plt.legend(handles=legend_patches, frameon=False, loc='upper right', reverse=True))
 
         ax.set_xticks([1, 2, 3, 4, 5, 6])
-        ax.set_xticklabels(['Conventional\nthresholds', 'Optimized\nthresholds', 'Personalized\nthresholds', 'Conventional\nthresholds', 'Optimized\nthresholds', 'Personalized\nthresholds'], fontsize=10)
+        ax.set_xticklabels(['Conventional\nthresholds', 'Population-optimized\nthresholds', 'Individual-optimized\nthresholds', 'Conventional\nthresholds', 'Population-optimized\nthresholds', 'Individual-optimized\nthresholds'], fontsize=10)
         ax.set_ylim(0.45, 1.0)
 
         plt.rcParams.update({'font.size': 12})
-        plt.ylabel('ROC AUC')
-        plt.title('GMAC leave one subject out cross validation')
+        plt.ylabel('ROC AUC', fontsize=11)
+        plt.title('Functional movement detection performance')
 
         # Define significance bracket positions, p-values, and heights
         bracket_heights = [0.81, 0.9, 0.86, 0.81, 0.9, 0.86]  # Different heights for the brackets above the boxplot
         bracket_positions = [(1, 3), (2, 3), (1, 2), (4, 5), (4, 6), (5, 6)]  # (start, end) of the brackets
-        p_values = [ttest_pvalue_personalized_conventional, ttest_pvalue_personalized_mean, ttest_pvalue_conventional_mean, 
-                    ttest_pvalue_mean_conventional_dh, ttest_pvalue_personalized_conventional_dh, ttest_pvalue_personalized_mean_dh]
-        if significnce_brackets == 'stars':
-            bracket_heights = [0.81, 0.9, 0.83, 0.81, 0.85, 0.9]
-            bracket_positions = [(None, None), (None, None), (1, 2), (4, 5), (4, 6), (None, None)]
-            self.plot_significance_stars(ax, bracket_positions, p_values, bracket_heights, position="above")
+        p_values = [adjwilcoxon_pvalue_individual_conventional, adjwilcoxon_pvalue_individual_mean, adjwilcoxon_pvalue_conventional_mean, 
+                    adjwilcoxon_pvalue_mean_conventional_dh, adjwilcoxon_pvalue_individual_conventional_dh, adjwilcoxon_pvalue_individual_mean_dh]
+        if significance_brackets == 'stars':
+            bracket_heights = [0.57, 0.615, 0.83, 0.81, 0.88, 0.84]
+            bracket_positions = [(1, 3), (2, 3), (None, None), (4, 5), (4, 6), (5, 6)]
+            self.plot_significance_stars(ax, bracket_positions, p_values, bracket_heights, position="below_above")
         else:
             self.plot_significance_brackets(ax, bracket_positions, p_values, bracket_heights, position="above")
 
-        plt.savefig(os.path.join(save_path.downloadsPath, 'ROC_AUC.pdf'), bbox_inches='tight')
+        plt.savefig(os.path.join(save_path.downloadsPath, 'ROC_AUC_withPopulationOptimized.pdf'), bbox_inches='tight')
         plt.show()
 
     def plot_LOOCV_Accuracy(self):
@@ -779,7 +857,7 @@ class LOOCV_performance:
         # Calculate the Spearman correlation
         spearman_correlation_dict = {
             'personalized_YI': spearmanr(self.evaluation_FMA, self.personalized_YI_list_ndh),
-            'conventional_YI': spearmanr(self.evaluation_FMA, self.conventioanl_YI_list_ndh),
+            'conventional_YI': spearmanr(self.evaluation_FMA, self.conventional_YI_list_ndh),
             'personalized_accuracy': spearmanr(self.evaluation_FMA, self.personalized_accuracy_list_ndh),
             'conventional_accuracy': spearmanr(self.evaluation_FMA, self.conventioanl_accuracy_list_ndh)
         }
@@ -790,10 +868,10 @@ class LOOCV_performance:
         fig, ax = plt.subplots(figsize=(12, 8))
         
         optimal_YI_std = np.std(self.personalized_YI_list_ndh)
-        conv_YI_std = np.std(self.conventioanl_YI_list_ndh)
+        conv_YI_std = np.std(self.conventional_YI_list_ndh)
         mean_YI_std = np.std(self.mean_YI_list_ndh)
         ax.scatter(self.evaluation_FMA, self.personalized_YI_list_ndh, label=f'Personalized YI (std: {optimal_YI_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='x')
-        ax.scatter(self.evaluation_FMA, self.conventioanl_YI_list_ndh, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
+        ax.scatter(self.evaluation_FMA, self.conventional_YI_list_ndh, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
         ax.scatter(self.evaluation_FMA, self.mean_YI_list_ndh, label=f'Mean optimal YI (std: {mean_YI_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='x')
         optimal_AUC_std = np.std(self.personalized_AUC_list_ndh)
         conv_AUC_std = np.std(self.conventional_AUC_list_ndh)
