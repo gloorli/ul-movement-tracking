@@ -177,3 +177,34 @@ def calculate_percentage_of_functional(initial_path = '../data/CreateStudy'):
         functional_percentage_NDH.append(amount_NDH[1]/sum(amount_NDH)*100)
         functional_percentage_DH.append(amount_DH[1]/sum(amount_DH)*100)
     return functional_percentage_NDH, functional_percentage_DH
+
+def calculate_impairmentgrouped_percentage_of_functional(initial_path = '../data/CreateStudy'):
+    '''
+    Calculate the percentage of functional values of the affected side per impairment group.
+    severe (0–28), moderate (29–42), and mild (43–66) FMA-UE scores (Woytowicz et al., 2017).
+    '''
+    s_json_files = get_json_paths(initial_path, 'S')
+    primitives_NDH_severe = []
+    primitives_NDH_moderate = []
+    primitives_NDH_mild = []
+    for path in s_json_files:
+        dict = extract_fields_from_json_files([path], ['GT_mask_NDH_1Hz', 'FMA-UE_score'])
+        if dict['FMA-UE_score'] <= 28:
+            primitives_NDH_severe.append(dict['GT_mask_NDH_1Hz'])
+        elif 28 < dict['FMA-UE_score'] <= 42:
+            primitives_NDH_moderate.append(dict['GT_mask_NDH_1Hz'])
+        elif 42 < dict['FMA-UE_score'] <= 66:
+            primitives_NDH_mild.append(dict['GT_mask_NDH_1Hz'])
+    functional_percentage_NDH_severe = []
+    functional_percentage_NDH_moderate = []
+    functional_percentage_NDH_mild = []
+    for i in range(len(primitives_NDH_severe)):
+        _, amount_NDH = np.unique(primitives_NDH_severe[i], return_counts=True)
+        functional_percentage_NDH_severe.append(amount_NDH[1]/sum(amount_NDH)*100)
+    for i in range(len(primitives_NDH_moderate)):
+        debug, amount_NDH = np.unique(primitives_NDH_moderate[i], return_counts=True)
+        functional_percentage_NDH_moderate.append(amount_NDH[1]/sum(amount_NDH)*100)
+    for i in range(len(primitives_NDH_mild)):
+        _, amount_NDH = np.unique(primitives_NDH_mild[i], return_counts=True)
+        functional_percentage_NDH_mild.append(amount_NDH[1]/sum(amount_NDH)*100)
+    return functional_percentage_NDH_severe, functional_percentage_NDH_moderate, functional_percentage_NDH_mild
