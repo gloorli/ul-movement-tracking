@@ -4,32 +4,6 @@ class PlotEvaluation(LOOCV_performance):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def check_ttest(self, individual_distribution, conventional_distribution, conventional_distribution_dh=None, individual_distribution_dh=None):
-        """
-        Check the statistical significance of the differences between the classification performance of the different GMAC thresholds applied using paired t-test.
-        Note:
-        - The null hypothesis for the Shapiro-Wilk test is that the data is normally distributed.
-        - The null hypothesis for the paired t-tests is that there is no significant difference between the paired samples.
-        """
-        # Check for normality using Shapiro-Wilk test
-        _, p_conventional = shapiro(conventional_distribution)
-        _, p_conventional_dh = shapiro(conventional_distribution_dh)
-        _, p_individual = shapiro(individual_distribution)
-        _, p_individual_dh = shapiro(individual_distribution_dh)
-        
-        if p_individual > 0.05 and p_conventional > 0.05 and p_conventional_dh > 0.05 and p_individual_dh > 0.05:
-            print("The data is normally distributed.")
-        else:
-            print("The data is not normally distributed.")
-        
-        # Perform paired t-test
-        _, p_value_individual_conventional = ttest_rel(individual_distribution, conventional_distribution)
-        _, p_value_individual_conventional_dh = ttest_rel(individual_distribution_dh, conventional_distribution_dh)
-        print(f"Paired t-test individual vs conventional: {p_value_individual_conventional}")
-        print(f"Paired t-test individual vs conventional DH: {p_value_individual_conventional_dh}")
-
-        return p_value_individual_conventional, p_value_individual_conventional_dh
-    
     def check_wilcoxon(self, individual_distribution, conventional_distribution, conventional_distribution_dh=None, individual_distribution_dh=None):
         """
         Check the statistical significance of the differences between the classification performance of the different GMAC thresholds applied using Wilcoxon signed-rank test.

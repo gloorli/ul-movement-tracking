@@ -862,32 +862,3 @@ class LOOCV_performance:
             'conventional_accuracy': spearmanr(self.evaluation_FMA, self.conventioanl_accuracy_list_ndh)
         }
         print(spearman_correlation_dict)
-
-    def plot_FMA_scatter(self):
-        plt.rcParams.update({'font.size': 16})
-        fig, ax = plt.subplots(figsize=(12, 8))
-        
-        optimal_YI_std = np.std(self.personalized_YI_list_ndh)
-        conv_YI_std = np.std(self.conventional_YI_list_ndh)
-        mean_YI_std = np.std(self.mean_YI_list_ndh)
-        ax.scatter(self.evaluation_FMA, self.personalized_YI_list_ndh, label=f'Personalized YI (std: {optimal_YI_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='x')
-        ax.scatter(self.evaluation_FMA, self.conventional_YI_list_ndh, label=f'Conventional YI (std: {conv_YI_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='x')
-        ax.scatter(self.evaluation_FMA, self.mean_YI_list_ndh, label=f'Mean optimal YI (std: {mean_YI_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='x')
-        optimal_AUC_std = np.std(self.personalized_AUC_list_ndh)
-        conv_AUC_std = np.std(self.conventional_AUC_list_ndh)
-        mean_AUC_std = np.std(self.mean_AUC_list_ndh)
-        ax.scatter(self.evaluation_FMA, self.personalized_AUC_list_ndh, label=f'Personalized AUV (std: {optimal_AUC_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='o')
-        ax.scatter(self.evaluation_FMA, self.conventional_AUC_list_ndh, label=f'Conventional AUV (std: {conv_AUC_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='o')
-        ax.scatter(self.evaluation_FMA, self.mean_AUC_list_ndh, label=f'Mean optimal AUV (std: {mean_AUC_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='o')
-        optimal_accuracy_std = np.std(self.personalized_accuracy_list_ndh)
-        conv_accuracy_std = np.std(self.conventioanl_accuracy_list_ndh)
-        mean_accuracy_std = np.std(self.mean_accuracy_list_ndh)
-        ax.scatter(self.evaluation_FMA, self.personalized_accuracy_list_ndh, label=f'Personalized Accuracy (std: {optimal_accuracy_std})', color=thesis_style.get_thesis_colours()['dark_blue'], marker='s')
-        ax.scatter(self.evaluation_FMA, self.conventioanl_accuracy_list_ndh, label=f'Conventional Accuracy (std: {conv_accuracy_std})', color=thesis_style.get_thesis_colours()['light_blue'], marker='s')
-        ax.scatter(self.evaluation_FMA, self.mean_accuracy_list_ndh, label=f'Mean optimal Accuracy (std: {mean_accuracy_std})', color=thesis_style.get_thesis_colours()['turquoise'], marker='s')
-
-        plt.ylabel('Classification Performance')
-        plt.xlabel('Fugl-Meyer Assessment Upper Extremity Score')
-        plt.title('Classification Performance accross Fugl-Meyer Upper Extremity Score')
-        plt.legend()
-        plt.show()

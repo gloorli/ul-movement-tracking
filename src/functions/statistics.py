@@ -6,7 +6,7 @@ from matplotlib.ticker import FuncFormatter
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
-from scipy.stats import pearsonr, spearmanr, wilcoxon, ttest_rel, probplot, zscore
+from scipy.stats import pearsonr, spearmanr, wilcoxon, ttest_rel, zscore
 
 from utilities import *
 
@@ -102,14 +102,6 @@ class RegressionModel:
         plt.show()
 
 
-def extract_std_from_min_max_std(min_max_std):
-    COUNT_min_max_std = min_max_std[:,0]
-    count_std = [item['std'] for item in COUNT_min_max_std]
-    PITCH_min_max_std = min_max_std[:,1]
-    pitch_std = [item['std'] for item in PITCH_min_max_std]
-
-    return count_std, pitch_std
-
 def check_outliers(data, z_score_threshold=3):
     Q1 = np.percentile(data, 25)
     Q3 = np.percentile(data, 75)
@@ -157,25 +149,6 @@ def check_regression(x, y, std, x_label='x', y_label='y', title='Regression Anal
 
     # Plot regressions
     model.plot_regressions(xlabel=x_label, ylabel=y_label, title=title)
-
-def QQplot(count_threshols_1, count_threshols_2, eleation_threshols_1, elevation_threshols_2):
-    '''
-    Plot two QQ-plot to check if the difference between the paired samples is normally distributed
-    '''
-    # Create a figure and axis
-    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-    # Create a QQ-plot for count thresholds
-    count_diff = np.array(count_threshols_1) - np.array(count_threshols_2)
-    probplot(count_diff, dist='norm', plot=ax[0])
-    #qqplot(count_threshols_1, count_threshols_2, line='45', ax=ax[0])
-    ax[0].set_title('Q-Q Count Thresholds')
-    # Create a QQ-plot for elevation thresholds
-    elevation_diff = np.array(eleation_threshols_1) - np.array(elevation_threshols_2)
-    probplot(elevation_diff, dist='norm', plot=ax[1])
-    #qqplot(eleation_threshols_1, elevation_threshols_2, line='45', ax=ax[1])
-    ax[1].set_title('Q-Q Elevation Thresholds')
-    plt.tight_layout()
-    plt.show()
 
 def degree_formatter(x, pos):
     return f'{int(x)}°'

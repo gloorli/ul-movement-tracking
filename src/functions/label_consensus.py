@@ -68,10 +68,6 @@ def parse_json():
 
     return labels_per_datarow
 
-def calculate_cohens_k(label_zero, label_one, labels):
-    #TODO something is wrong here
-    return cohen_kappa_score(label_zero, label_one, labels=labels)
-
 def calculate_labelbox_consensus(label_zero, label_one, labels):
     # Count elements that are equal at the same position
     count = sum(1 for a, b in zip(label_zero, label_one) if a == b)
